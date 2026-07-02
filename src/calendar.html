@@ -88,6 +88,13 @@
   .task-block .tb-name { font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
   .task-block .tb-time { opacity:.85;font-size:9.5px; }
   .task-block.ghost { opacity:.55;background:var(--accent2)!important;pointer-events:none; }
+  .drag-time-label {
+    position:absolute;left:50%;top:-26px;transform:translateX(-50%);
+    background:rgba(20,20,32,.95);border:1px solid var(--accent);color:#fff;
+    font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
+    padding:3px 9px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:20;
+    box-shadow:0 4px 12px rgba(0,0,0,.4);
+  }
 
   .now-line { position:absolute;left:0;right:0;height:0;border-top:2px solid var(--danger);z-index:5;pointer-events:none; }
   .now-line::before { content:'';position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--danger); }
@@ -124,7 +131,7 @@
   </div>
 
   <div class="sidebar">
-    <div class="sidebar-title">Historial · imputa<span class="brand-dot">.</span>me</div>
+    <div class="sidebar-title">Calendario · imputa<span class="brand-dot">.</span>me</div>
 
     <div class="mini-cal">
       <div class="mini-cal-nav">
@@ -175,7 +182,9 @@
 
     <div id="popupNewTaskFields" style="display:none;flex-direction:column;gap:8px">
       <input type="text" id="popupNewTaskName" placeholder="Nombre de la tarea..." maxlength="40">
-      <div class="color-row" id="popupColorPicker"></div>
+      <div id="popupColorSection">
+        <div class="color-row" id="popupColorPicker"></div>
+      </div>
     </div>
 
     <div class="popup-time-row">
@@ -332,6 +341,7 @@ function renderLegend() {
 
 // ---------- Week grid ----------
 function renderWeek() {
+  if (dragState) return; // no reconstruir la rejilla mientras se está arrastrando (destruiría el elemento en uso)
   const weekEndDay = addDays(viewWeekStart, 6);
   const sameMonth = viewWeekStart.getMonth() === weekEndDay.getMonth();
   const label = sameMonth
@@ -428,7 +438,12 @@ function attachDragHandlers(col) {
     ghost.style.top = (startHour*ROW_H)+'px';
     ghost.style.height = '4px';
     col.appendChild(ghost);
-    dragState = { col, date: col._date, startHour, curHour: startHour, ghost };
+    const label = document.createElement('div');
+    label.className = 'drag-time-label';
+    label.style.top = (startHour*ROW_H - 26)+'px';
+    label.textContent = `${hourToHHMM(startHour)} – ${hourToHHMM(startHour)}`;
+    col.appendChild(label);
+    dragState = { col, date: col._date, startHour, curHour: startHour, ghost, label };
     document.addEventListener('mousemove', onDragMove);
     document.addEventListener('mouseup', onDragEnd);
   });
@@ -442,6 +457,8 @@ function onDragMove(e) {
   const hi = Math.max(dragState.startHour, dragState.curHour);
   dragState.ghost.style.top = (lo*ROW_H)+'px';
   dragState.ghost.style.height = Math.max(4,(hi-lo)*ROW_H)+'px';
+  dragState.label.style.top = (lo*ROW_H - 26)+'px';
+  dragState.label.textContent = `${hourToHHMM(lo)} – ${hourToHHMM(hi)}`;
 }
 
 function onDragEnd() {
@@ -452,6 +469,7 @@ function onDragEnd() {
   let hi = Math.max(dragState.startHour, dragState.curHour);
   if (hi - lo < 0.25) { hi = Math.min(24, lo + 0.5); lo = Math.max(0, hi - 0.5); }
   dragState.ghost.remove();
+  dragState.label.remove();
   openCreatePopup(dragState.date, lo, hi);
   dragState = null;
 }
@@ -505,6 +523,8 @@ function openEditPopup(task, entryIndex, entry) {
 function onPopupTaskChange() {
   const isNew = document.getElementById('popupTaskSelect').value === '__new__';
   document.getElementById('popupNewTaskFields').style.display = isNew ? 'flex' : 'none';
+  const manualColors = currentState.settings && currentState.settings.colorMode === 'manual';
+  document.getElementById('popupColorSection').style.display = manualColors ? '' : 'none';
 }
 
 function buildPopupColorPicker() {

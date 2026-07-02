@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="shared.css">
 <style>
-  body { width:380px;height:300px;border-radius:var(--radius);overflow:hidden; }
-  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:18px;position:relative; }
+  body { width:380px;height:380px;border-radius:var(--radius);overflow:hidden; }
+  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:16px;position:relative; }
   .app-title { font-size:16px;font-weight:700; }
   .field { display:flex;flex-direction:column;gap:6px; }
   .field label { font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
@@ -18,6 +18,11 @@
   .field input[type=number]:focus { border-color:var(--accent); }
   .field-unit { font-size:13px;color:var(--text2); }
   .hint { font-size:11px;color:var(--text2); }
+  .check-row {
+    display:flex;align-items:center;gap:9px;cursor:pointer;-webkit-app-region:no-drag;
+    font-size:13px;color:var(--text);text-transform:none;letter-spacing:normal;
+  }
+  .check-row input[type=checkbox] { width:16px;height:16px;accent-color:var(--accent2);cursor:pointer; }
   .footer { display:flex;gap:8px;justify-content:flex-end;-webkit-app-region:no-drag;margin-top:auto; }
 </style>
 </head>
@@ -35,10 +40,20 @@
   <div class="field">
     <label>Frecuencia del aviso</label>
     <div class="field-row">
-      <input type="number" id="reminderMinutes" value="15" min="1" max="120">
+      <input type="number" id="reminderMinutes" value="10" min="1" max="120">
       <span class="field-unit">minutos</span>
     </div>
     <span class="hint">Cada cuántos minutos sale el widget recordatorio mientras hay una tarea activa.</span>
+  </div>
+
+  <div class="field">
+    <label class="check-row"><input type="checkbox" id="widgetAutoHide"><span>Ocultar el aviso automáticamente a los 10s</span></label>
+    <span class="hint">Si lo desactivas, el aviso se queda en pantalla hasta que lo cierres, pauses o cambies de tarea.</span>
+  </div>
+
+  <div class="field">
+    <label class="check-row"><input type="checkbox" id="manualColors"><span>Elegir colores de las tareas manualmente</span></label>
+    <span class="hint">Si lo desactivas, cada tarea nueva recibe automáticamente el siguiente color de la paleta.</span>
   </div>
 
   <div class="footer">
@@ -50,11 +65,17 @@
 <script>
 const { ipcRenderer } = require('electron');
 ipcRenderer.on('settings', (_, s) => {
-  document.getElementById('reminderMinutes').value = s.reminderMinutes || 15;
+  document.getElementById('reminderMinutes').value = s.reminderMinutes || 10;
+  document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
+  document.getElementById('manualColors').checked = s.colorMode === 'manual';
 });
 function save() {
-  const mins = parseInt(document.getElementById('reminderMinutes').value) || 15;
-  ipcRenderer.send('action', { type:'save-settings', payload:{ reminderMinutes: Math.max(1, Math.min(120, mins)) } });
+  const mins = parseInt(document.getElementById('reminderMinutes').value) || 10;
+  ipcRenderer.send('action', { type:'save-settings', payload:{
+    reminderMinutes: Math.max(1, Math.min(120, mins)),
+    widgetAutoHide: document.getElementById('widgetAutoHide').checked,
+    colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',
+  } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
 </script>

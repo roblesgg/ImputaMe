@@ -76,7 +76,7 @@
       <div class="app-title">imputa<span class="brand-dot">.</span>me</div>
       <div class="app-subtitle" id="subtitle">Cargando...</div>
     </div>
-    <div id="activeBadge" style="display:none" class="playing-badge">
+    <div id="activeBadge" style="display:none;margin-top:16px" class="playing-badge">
       <div class="dot"></div>
       <span id="activeName">—</span>
     </div>
@@ -88,7 +88,7 @@
       <div class="total-time" id="totalTime">0m 00s</div>
     </div>
     <div style="display:flex;gap:8px;-webkit-app-region:no-drag">
-      <button class="btn-ghost" onclick="openCalendar()" style="font-size:12px">📅 Historial</button>
+      <button class="btn-ghost" onclick="openCalendar()" style="font-size:12px">📅 Calendario</button>
       <button class="btn-ghost" onclick="openSettings()" style="font-size:12px;padding:8px 10px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
@@ -129,7 +129,7 @@
       <input type="time" id="backTime"
         style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:13px;padding:6px 8px;outline:none;-webkit-app-region:no-drag;color-scheme:dark">
     </div>
-    <div>
+    <div id="colorSection">
       <div class="colors-label">Color</div>
       <div class="color-row" id="colorPicker"></div>
     </div>
@@ -167,6 +167,7 @@ ipcRenderer.send('action', { type: 'get-state' });
 
 function render(state) {
   const active = state.tasks.find(t => t.id === state.activeTaskId);
+  document.getElementById('colorSection').style.display = (state.settings && state.settings.colorMode === 'manual') ? '' : 'none';
   document.getElementById('totalTime').textContent = fmt(state.todayTotal);
   document.getElementById('subtitle').textContent = active ? `▶ ${active.name}` : `${state.tasks.length} tarea(s)`;
   const badge = document.getElementById('activeBadge');
