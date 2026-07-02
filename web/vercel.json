@@ -1,0 +1,21 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/descargar.html" },
+    { "source": "/descargar", "destination": "/descargar.html" }
+  ],
+  "redirects": [
+    {
+      "source": "/imputame-latest.exe",
+      "destination": "https://github.com/roblesgg/imputame/releases/latest/download/imputame-setup.exe",
+      "permanent": false
+    },
+    {
+      "source": "/imputame-portable.exe",
+      "destination": "https://github.com/roblesgg/imputame/releases/latest/download/imputame-portable.exe",
+      "permanent": false
+    },
+    { "source": "/apk", "destination": "/imputame-latest.exe", "permanent": false },
+    { "source": "/exe", "destination": "/imputame-latest.exe", "permanent": false }
+  ]
+}

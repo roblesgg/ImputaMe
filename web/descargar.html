@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>imputa.me | Registra y consulta tus horas por tarea</title>
+    <link rel="icon" type="image/png" href="/imputame-icon.png" />
+    <link rel="apple-touch-icon" href="/imputame-icon.png" />
+    <meta
+      name="description"
+      content="App de escritorio para Windows que registra tus horas por tarea, te avisa con un widget y las organiza en un calendario semanal. Descárgala gratis."
+    />
+    <meta property="og:title" content="imputa.me — registra tus horas por tarea" />
+    <meta property="og:description" content="App de escritorio para Windows. Cronómetro por tarea, widget recordatorio, calendario semanal y export a CSV." />
+    <meta property="og:image" content="/imputame-icon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --indigo: #6366f1;
+        --indigo-2: #818cf8;
+        --bg: #0b0b12;
+        --panel: rgba(22, 22, 34, 0.55);
+        --panel-2: rgba(30, 30, 46, 0.6);
+        --borde: rgba(255, 255, 255, 0.09);
+        --borde-2: rgba(255, 255, 255, 0.14);
+        --texto: #eceef5;
+        --suave: #a1a5b7;
+        --tenue: #6b7080;
+        --radio: 16px;
+        --radio-lg: 22px;
+        --c1: #6366f1; --c2: #f472b6; --c3: #34d399; --c4: #fbbf24;
+        --c5: #60a5fa; --c6: #f87171; --c7: #a78bfa; --c8: #2dd4bf;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      a { text-decoration: none; color: inherit; }
+      html { scroll-behavior: smooth; }
+
+      body {
+        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        color: var(--texto);
+        background: var(--bg);
+        line-height: 1.6;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Fondo: halos índigo + rejilla sutil (guiño al blur acrílico de la app) */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background:
+          radial-gradient(55% 45% at 78% -5%, rgba(99, 102, 241, 0.22), transparent 70%),
+          radial-gradient(50% 40% at 5% 8%, rgba(129, 140, 248, 0.12), transparent 70%),
+          radial-gradient(60% 50% at 50% 110%, rgba(45, 212, 191, 0.08), transparent 70%);
+      }
+      body::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background-image:
+          linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+        background-size: 46px 46px;
+        mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 78%);
+      }
+
+      .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+      .accent { color: var(--indigo-2); }
+
+      /* ===== Navbar ===== */
+      header {
+        position: sticky; top: 0; z-index: 100;
+        backdrop-filter: blur(16px);
+        background: rgba(11, 11, 18, 0.6);
+        border-bottom: 1px solid transparent;
+        transition: border-color .3s, box-shadow .3s;
+      }
+      header.scrolled { border-color: var(--borde); box-shadow: 0 8px 30px -18px rgba(0,0,0,0.7); }
+      nav { display: flex; align-items: center; justify-content: space-between; height: 66px; }
+      .marca { display: flex; align-items: center; gap: 11px; font-weight: 800; letter-spacing: -0.3px; }
+      .marca img { width: 30px; height: 30px; border-radius: 8px; }
+      .nav-cta { display: flex; align-items: center; gap: 18px; }
+      .nav-link { color: var(--suave); font-weight: 500; font-size: 14px; transition: color .2s; }
+      .nav-link:hover { color: var(--texto); }
+
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+        font-weight: 600; font-size: 15px; border-radius: 12px; cursor: pointer;
+        border: 1px solid transparent; transition: transform .15s, box-shadow .3s, background .2s;
+      }
+      .btn:active { transform: translateY(1px) scale(0.99); }
+      .btn-primario {
+        padding: 13px 22px; color: #fff;
+        background: linear-gradient(135deg, var(--indigo), var(--indigo-2));
+        box-shadow: 0 12px 30px -10px rgba(99, 102, 241, 0.6);
+      }
+      .btn-primario:hover { box-shadow: 0 18px 40px -10px rgba(99, 102, 241, 0.75); }
+      .btn-sm { padding: 9px 16px; font-size: 14px; }
+      .btn-ghost {
+        padding: 13px 20px; color: var(--texto);
+        background: var(--panel); border: 1px solid var(--borde-2);
+      }
+      .btn-ghost:hover { background: var(--panel-2); }
+
+      /* ===== Hero ===== */
+      .hero { padding: 74px 0 40px; text-align: center; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+        color: var(--indigo-2); background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.28); margin-bottom: 26px;
+      }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c3); box-shadow: 0 0 10px var(--c3); }
+      .hero h1 {
+        font-size: clamp(38px, 7vw, 68px); font-weight: 900; letter-spacing: -1.6px;
+        line-height: 1.03; margin-bottom: 20px;
+      }
+      .hero h1 .grad {
+        background: linear-gradient(120deg, var(--indigo-2), #c7b7ff 55%, var(--c8));
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      }
+      .hero p.sub { font-size: clamp(16px, 2.4vw, 20px); color: var(--suave); max-width: 620px; margin: 0 auto 34px; }
+      .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+      .meta { margin-top: 18px; color: var(--tenue); font-size: 13.5px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+      .meta b { color: var(--suave); font-weight: 600; }
+
+      /* ===== Showcase de mockups ===== */
+      .showcase { position: relative; margin: 30px auto 0; max-width: 980px; padding: 0 24px; }
+      .stage {
+        position: relative; display: flex; align-items: flex-end; justify-content: center;
+        gap: 26px; flex-wrap: wrap; padding: 24px 0 10px;
+      }
+
+      /* Ventana genérica estilo app: acrílico oscuro, sin marco, esquinas redondas */
+      .win {
+        position: relative; border-radius: var(--radio);
+        background: var(--panel); backdrop-filter: blur(24px) saturate(140%);
+        border: 1px solid var(--borde-2);
+        box-shadow: 0 40px 80px -30px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.05);
+        color: var(--texto); overflow: hidden;
+      }
+      .win-bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 4px; }
+      .win-title { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--suave); }
+      .win-title img { width: 16px; height: 16px; border-radius: 4px; }
+      .win-btns { display: flex; gap: 6px; }
+      .wb { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.06); display: grid; place-items: center; color: var(--suave); font-size: 12px; }
+
+      /* Panel principal (480x660 -> escalado) */
+      .win-main { width: 320px; }
+      .badge-activa {
+        position: absolute; top: 40px; right: 12px; font-size: 10.5px; font-weight: 700;
+        color: #062; background: rgba(52, 211, 153, 0.16); border: 1px solid rgba(52,211,153,0.4);
+        color: var(--c3); padding: 3px 9px; border-radius: 999px;
+      }
+      .m-body { padding: 6px 14px 16px; }
+      .m-total { font-size: 12px; color: var(--tenue); margin: 2px 0 12px; }
+      .m-total b { color: var(--texto); font-size: 15px; font-weight: 800; }
+      .task {
+        display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 12px;
+        background: rgba(255,255,255,0.035); border: 1px solid var(--borde); margin-bottom: 9px;
+      }
+      .task.on { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.1); }
+      .task .swatch { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+      .task .info { flex: 1; min-width: 0; }
+      .task .name { font-size: 13.5px; font-weight: 600; }
+      .task .time { font-size: 11.5px; color: var(--tenue); }
+      .task .time b { color: var(--suave); font-weight: 700; }
+      .task .play { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none;
+        background: rgba(255,255,255,0.06); color: var(--texto); }
+      .task.on .play { background: linear-gradient(135deg, var(--indigo), var(--indigo-2)); color: #fff; }
+      .m-foot { display: flex; gap: 8px; margin-top: 4px; }
+      .m-foot .chip { flex: 1; text-align: center; font-size: 12px; font-weight: 600; color: var(--suave);
+        padding: 9px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--borde); }
+
+      /* Widget (320x172) */
+      .win-widget { width: 268px; align-self: center; }
+      .w-body { padding: 4px 15px 15px; }
+      .w-name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; margin-bottom: 4px; }
+      .w-name .swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--c2); }
+      .w-time { font-size: 26px; font-weight: 900; letter-spacing: -1px; }
+      .w-sub { font-size: 11.5px; color: var(--tenue); margin-bottom: 12px; }
+      .w-actions { display: flex; gap: 8px; }
+      .w-actions .wbtn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+        font-size: 12.5px; font-weight: 600; padding: 8px; border-radius: 10px; }
+      .w-actions .wbtn.pri { background: linear-gradient(135deg, var(--indigo), var(--indigo-2)); color: #fff; }
+      .w-actions .wbtn.sec { background: rgba(255,255,255,0.06); color: var(--suave); border: 1px solid var(--borde); }
+
+      /* Calendario mini */
+      .win-cal { width: 300px; }
+      .cal-body { padding: 4px 12px 14px; }
+      .cal-head { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 6px; }
+      .cal-head span { font-size: 10px; color: var(--tenue); text-align: center; font-weight: 700; }
+      .cal-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; height: 150px; position: relative; }
+      .cal-col { background: rgba(255,255,255,0.025); border-radius: 7px; position: relative; border: 1px solid var(--borde); }
+      .ev { position: absolute; left: 3px; right: 3px; border-radius: 5px; font-size: 8px; font-weight: 700;
+        color: #08111f; padding: 3px 4px; overflow: hidden; }
+      .now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--c6); z-index: 3; }
+      .now-line::before { content: ''; position: absolute; left: -3px; top: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--c6); }
+
+      /* ===== Secciones ===== */
+      section.block { padding: 64px 0; }
+      .eyebrow { text-align: center; color: var(--indigo-2); font-weight: 700; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px; }
+      .h2 { text-align: center; font-size: clamp(28px, 4.4vw, 40px); font-weight: 900; letter-spacing: -1px; margin-bottom: 12px; }
+      .lead { text-align: center; color: var(--suave); max-width: 600px; margin: 0 auto 48px; font-size: 16.5px; }
+
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+      .card {
+        background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio-lg);
+        padding: 26px 24px; transition: transform .2s, border-color .2s, box-shadow .3s;
+        backdrop-filter: blur(12px);
+      }
+      .card:hover { transform: translateY(-4px); border-color: var(--borde-2); box-shadow: 0 24px 50px -30px rgba(99,102,241,0.5); }
+      .ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; margin-bottom: 16px;
+        background: rgba(99,102,241,0.14); border: 1px solid rgba(99,102,241,0.28); }
+      .card h3 { font-size: 17.5px; font-weight: 700; margin-bottom: 7px; letter-spacing: -0.3px; }
+      .card p { color: var(--suave); font-size: 14.5px; }
+
+      /* Callout auto-update */
+      .callout {
+        display: flex; align-items: center; gap: 26px; flex-wrap: wrap; justify-content: center;
+        background: linear-gradient(135deg, rgba(99,102,241,0.14), rgba(45,212,191,0.08));
+        border: 1px solid rgba(99,102,241,0.3); border-radius: var(--radio-lg);
+        padding: 34px 36px; text-align: left;
+      }
+      .callout .ci { font-size: 40px; }
+      .callout .ctxt { flex: 1; min-width: 260px; }
+      .callout h3 { font-size: 22px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
+      .callout p { color: var(--suave); font-size: 15px; }
+
+      /* Download final */
+      .dl-final { text-align: center; }
+      .dl-final .win-main { margin: 0 auto 34px; }
+      .os { color: var(--tenue); font-size: 13px; margin-top: 14px; }
+      .os a { color: var(--indigo-2); }
+
+      /* Footer */
+      footer.pie { border-top: 1px solid var(--borde); padding: 40px 0 26px; text-align: center; color: var(--tenue); font-size: 13.5px; }
+      footer.pie .marca { justify-content: center; margin-bottom: 12px; color: var(--suave); }
+      .drip {
+        display: inline-block; margin-top: 14px; font-weight: 700; letter-spacing: 0.4px;
+        color: var(--suave); font-size: 13px;
+      }
+      .drip:hover { color: var(--indigo-2); }
+
+      .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s, transform .7s; }
+      .reveal.on { opacity: 1; transform: none; }
+
+      @media (max-width: 720px) {
+        .grid { grid-template-columns: 1fr; }
+        .nav-link.hide-m { display: none; }
+        .stage { gap: 18px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header id="top">
+      <div class="container">
+        <nav>
+          <a class="marca" href="/">
+            <img src="/imputame-icon.png" alt="imputa.me" />
+            <span>imputa<span class="accent">.me</span></span>
+          </a>
+          <div class="nav-cta">
+            <a class="nav-link hide-m" href="#funciones">Funciones</a>
+            <a class="nav-link hide-m" href="https://dripdev.dev" target="_blank" rel="noopener">DripDev</a>
+            <a class="btn btn-primario btn-sm" href="/imputame-latest.exe" download>Descargar</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <!-- ===== HERO ===== -->
+    <section class="hero">
+      <div class="container">
+        <span class="pill"><span class="dot"></span> App de escritorio · Windows</span>
+        <h1>Tus horas por tarea,<br /><span class="grad">sin perder el hilo</span></h1>
+        <p class="sub">
+          imputa.me vive en la bandeja del sistema, cronometra cada tarea, te recuerda con un
+          widget discreto y lo organiza todo en un calendario semanal. Listo para imputar.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primario" href="/imputame-latest.exe" download>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Descargar para Windows
+          </a>
+          <a class="btn btn-ghost" href="/imputame-portable.exe" download>Versión portable</a>
+        </div>
+        <div class="meta">
+          <span><b>Gratis</b></span> ·
+          <span>Windows 10/11 · 64-bit</span> ·
+          <span>v<b id="ver">1.0.0</b></span> ·
+          <span>Se actualiza sola</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== MOCKUPS ===== -->
+    <div class="showcase reveal">
+      <div class="stage">
+        <!-- Widget -->
+        <div class="win win-widget">
+          <div class="win-bar">
+            <div class="win-title"><img src="/imputame-icon.png" alt="" /> Recordatorio</div>
+            <div class="win-btns"><span class="wb">×</span></div>
+          </div>
+          <div class="w-body">
+            <div class="w-name"><span class="swatch"></span> Reunión cliente</div>
+            <div class="w-time">1h 24m 07s</div>
+            <div class="w-sub">Hoy en total · 5h 12m</div>
+            <div class="w-actions">
+              <span class="wbtn pri">⏸ Pausar</span>
+              <span class="wbtn sec">↔ Cambiar</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel principal -->
+        <div class="win win-main">
+          <div class="win-bar">
+            <div class="win-title"><img src="/imputame-icon.png" alt="" /> imputa.me</div>
+            <div class="win-btns"><span class="wb">—</span><span class="wb">×</span></div>
+          </div>
+          <span class="badge-activa">● Activa</span>
+          <div class="m-body">
+            <div class="m-total">Hoy · <b>5h 12m 44s</b></div>
+            <div class="task on">
+              <span class="swatch" style="background: var(--c1)"></span>
+              <div class="info"><div class="name">Reunión cliente</div><div class="time">Hoy · <b>1h 24m</b></div></div>
+              <span class="play">⏸</span>
+            </div>
+            <div class="task">
+              <span class="swatch" style="background: var(--c2)"></span>
+              <div class="info"><div class="name">Desarrollo web</div><div class="time">Hoy · <b>2h 48m</b></div></div>
+              <span class="play">▶</span>
+            </div>
+            <div class="task">
+              <span class="swatch" style="background: var(--c3)"></span>
+              <div class="info"><div class="name">Documentación</div><div class="time">Hoy · <b>1h 00m</b></div></div>
+              <span class="play">▶</span>
+            </div>
+            <div class="m-foot">
+              <span class="chip">📅 Calendario</span>
+              <span class="chip">⚙️ Ajustes</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calendario -->
+        <div class="win win-cal">
+          <div class="win-bar">
+            <div class="win-title"><img src="/imputame-icon.png" alt="" /> Calendario</div>
+            <div class="win-btns"><span class="wb">—</span><span class="wb">×</span></div>
+          </div>
+          <div class="cal-body">
+            <div class="cal-head"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span></div>
+            <div class="cal-grid">
+              <div class="cal-col"><span class="ev" style="top:8%;height:24%;background:var(--c1)">Reunión</span><span class="ev" style="top:60%;height:18%;background:var(--c3)">Docs</span></div>
+              <div class="cal-col"><span class="ev" style="top:20%;height:40%;background:var(--c2)">Dev web</span></div>
+              <div class="cal-col"><span class="ev" style="top:10%;height:22%;background:var(--c4)">Soporte</span><span class="ev" style="top:50%;height:30%;background:var(--c1)">Reunión</span></div>
+              <div class="cal-col"><span class="ev" style="top:30%;height:34%;background:var(--c5)">Diseño</span><div class="now-line" style="top:64%"></div></div>
+              <div class="cal-col"><span class="ev" style="top:12%;height:20%;background:var(--c7)">Planif.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== FUNCIONES ===== -->
+    <section class="block" id="funciones">
+      <div class="container">
+        <p class="eyebrow">Lo que hace</p>
+        <h2 class="h2">Pensada para no olvidarte de fichar</h2>
+        <p class="lead">Corre en segundo plano y te lo pone fácil: empiezas, ella cuenta, y al final tienes las horas listas para imputar.</p>
+        <div class="grid">
+          <div class="card reveal"><div class="ic">⏱️</div><h3>Cronómetro por tarea</h3><p>Una tarea con un clic. Play/pausa, colores por proyecto y el contador de hoy corriendo al segundo.</p></div>
+          <div class="card reveal"><div class="ic">🔔</div><h3>Widget recordatorio</h3><p>Cada X minutos aparece un widget acrílico en la esquina con la tarea activa. Se oculta solo a los 10s.</p></div>
+          <div class="card reveal"><div class="ic">📅</div><h3>Calendario semanal</h3><p>Vista estilo Teams/Outlook. Arrastra para crear una entrada, edita bloques y navega por semanas.</p></div>
+          <div class="card reveal"><div class="ic">📤</div><h3>Exportar a CSV</h3><p>Un botón y tienes el CSV en el Escritorio: fecha, tarea, segundos y horas decimales, agregado por día.</p></div>
+          <div class="card reveal"><div class="ic">🎨</div><h3>Colores y bandeja</h3><p>8 colores automáticos o manuales. Vive en el tray con el total del día siempre a la vista.</p></div>
+          <div class="card reveal"><div class="ic">🔄</div><h3>Se actualiza sola</h3><p>Cuando publico una versión nueva, la app te avisa y la instala con un botón. Sin descargar nada a mano.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== AUTO-UPDATE CALLOUT ===== -->
+    <section class="block" style="padding-top: 8px;">
+      <div class="container">
+        <div class="callout reveal">
+          <div class="ci">🔄</div>
+          <div class="ctxt">
+            <h3>Siempre en la última versión</h3>
+            <p>imputa.me comprueba si hay actualizaciones al arrancar. Si publico una nueva, verás un aviso con un botón <b>“Actualizar”</b> que la descarga e instala por ti. Nada de volver a esta página a bajar el instalador.</p>
+          </div>
+          <a class="btn btn-primario" href="/imputame-latest.exe" download>Empezar</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== DESCARGA FINAL ===== -->
+    <section class="block dl-final">
+      <div class="container">
+        <p class="eyebrow">Descarga</p>
+        <h2 class="h2">Instálala en 30 segundos</h2>
+        <p class="lead">Instalador asistido para Windows 10 y 11. También hay versión portable si prefieres no instalar.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primario" href="/imputame-latest.exe" download>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Descargar instalador
+          </a>
+          <a class="btn btn-ghost" href="/imputame-portable.exe" download>Versión portable</a>
+        </div>
+        <p class="os">Windows 10/11 · 64-bit · v<span id="ver2">1.0.0</span> — ¿problemas? <a href="mailto:hola@dripdev.dev">hola@dripdev.dev</a></p>
+      </div>
+    </section>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="pie">
+      <div class="container">
+        <a class="marca" href="/"><img src="/imputame-icon.png" alt="" style="width:24px;height:24px;border-radius:6px" /> imputa<span class="accent">.me</span></a>
+        <div>© <span id="year"></span> imputa.me — registra y consulta tus horas por tarea</div>
+        <a class="drip" href="https://dripdev.dev" target="_blank" rel="noopener noreferrer">DripDev →</a>
+      </div>
+    </footer>
+
+    <script>
+      // Navbar sombra al hacer scroll
+      const head = document.getElementById('top');
+      addEventListener('scroll', () => head.classList.toggle('scrolled', scrollY > 8));
+
+      // Año
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      // Versión desde version.json (si existe)
+      fetch('/version.json').then((r) => (r.ok ? r.json() : null)).then((d) => {
+        if (d && d.version) {
+          document.getElementById('ver').textContent = d.version;
+          document.getElementById('ver2').textContent = d.version;
+        }
+      }).catch(() => {});
+
+      // Reveal on scroll
+      const io = new IntersectionObserver((es) => {
+        es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); } });
+      }, { threshold: 0.12 });
+      document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+    </script>
+  </body>
+</html>

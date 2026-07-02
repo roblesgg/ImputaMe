@@ -1,0 +1,19 @@
+# Dependencias
+node_modules/
+
+# Salidas de build de electron-builder (se generan con npm run dist/release)
+release/
+release_*/
+dist/
+
+# app.asar bloqueados sueltos (ver CONTEXTO.md)
+*.asar
+
+# Logs y temporales
+*.log
+npm-debug.log*
+Thumbs.db
+.DS_Store
+
+# Config local del editor / Claude
+.claude/settings.local.json
