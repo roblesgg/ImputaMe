@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { width:320px;height:172px;border-radius:var(--radius);overflow:hidden; }
+
+  .card { width:100%;height:100%;padding:16px 20px;display:flex;flex-direction:column;gap:10px;position:relative; }
+
+  .header { display:flex;align-items:center;justify-content:space-between; }
+  .label { font-size:10px;color:var(--text2);letter-spacing:.07em;text-transform:uppercase; }
+
+  .task-row { display:flex;align-items:center;gap:10px; }
+  .pulse-dot { width:9px;height:9px;border-radius:50%;background:var(--success);box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:pulse 1.6s ease-in-out infinite;flex-shrink:0; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+  .task-label { font-size:15px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+
+  .time-row { display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;row-gap:2px; }
+  .time-big { font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em; }
+  .time-total { font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums; }
+
+  .actions { display:flex;gap:8px;-webkit-app-region:no-drag; }
+
+  .btn-w {
+    display:flex;align-items:center;gap:6px;
+    border-radius:9px;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;transition:all .15s;border:1px solid;
+  }
+  .btn-pause-w { background:rgba(248,113,113,.18);color:var(--danger);border-color:rgba(248,113,113,.3); }
+  .btn-pause-w:hover { background:rgba(248,113,113,.35); }
+  .btn-switch-w { background:rgba(129,140,248,.18);color:var(--accent);border-color:rgba(129,140,248,.3);flex:1; }
+  .btn-switch-w:hover { background:rgba(129,140,248,.32); }
+</style>
+</head>
+<body>
+<div class="card animate-in">
+
+  <div class="win-controls">
+    <button class="win-btn close" onclick="dismiss()" title="Cerrar">
+      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="header">
+    <span class="label">imputa.me · recordatorio</span>
+  </div>
+
+  <div class="task-row">
+    <div class="pulse-dot" id="dot"></div>
+    <span class="task-label" id="taskName">—</span>
+  </div>
+
+  <div class="time-row">
+    <span class="time-big" id="taskTime">0m 00s</span>
+    <span class="time-total" id="totalTime">Hoy: 0m</span>
+  </div>
+
+  <div class="actions">
+    <button class="btn-w btn-pause-w" onclick="pause()">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect x="1.5" y="1" width="3" height="9" rx="1"/><rect x="6.5" y="1" width="3" height="9" rx="1"/></svg>
+      Pausar
+    </button>
+    <button class="btn-w btn-switch-w" onclick="openMain()">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5.5h7M6.5 3l2.5 2.5L6.5 8"/><path d="M4.5 3L2 5.5 4.5 8"/></svg>
+      Cambiar
+    </button>
+  </div>
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+let currentState = null;
+let ticker = null;
+
+function fmt(secs) {
+  const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;
+  if(h>0) return `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+  return `${m}m ${String(s).padStart(2,'0')}s`;
+}
+
+ipcRenderer.on('state', (_, state) => { currentState = state; render(state); });
+ipcRenderer.send('action', { type: 'get-state' });
+
+function render(state) {
+  const active = state.tasks.find(t => t.id === state.activeTaskId);
+  if (active) {
+    document.getElementById('dot').style.background = active.color || '#34d399';
+    document.getElementById('taskName').textContent = active.name;
+    document.getElementById('taskTime').textContent = fmt(active.todaySecs);
+  }
+  document.getElementById('totalTime').textContent = `Hoy: ${fmt(state.todayTotal)}`;
+}
+
+if (ticker) clearInterval(ticker);
+ticker = setInterval(() => {
+  if (!currentState || !currentState.activeTaskId) return;
+  const t = currentState.tasks.find(t => t.id === currentState.activeTaskId);
+  if (t) { t.todaySecs++; currentState.todayTotal++; render(currentState); }
+}, 1000);
+
+function pause() { ipcRenderer.send('action', { type:'pause' }); dismiss(); }
+function openMain() { ipcRenderer.send('action', { type:'open-main' }); dismiss(); }
+function dismiss() { ipcRenderer.send('action', { type:'close-widget' }); }
+</script>
+</body>
+</html>
