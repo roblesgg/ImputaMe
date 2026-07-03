@@ -1,4 +1,4 @@
 {
-  "version": "1.0.0",
-  "notes": "Primera versión pública de imputa.me."
+  "version": "1.1.0",
+  "notes": "Ventanas redimensionables, calendario mejorado (duración por entrada, resumen del día, arrastrar para ajustar horas) y grupos guardados para archivar y recuperar tareas."
 }

@@ -205,8 +205,7 @@
       .cal-col { background: rgba(255,255,255,0.025); border-radius: 7px; position: relative; border: 1px solid var(--borde); }
       .ev { position: absolute; left: 3px; right: 3px; border-radius: 5px; font-size: 8px; font-weight: 700;
         color: #08111f; padding: 3px 4px; overflow: hidden; }
-      .now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--c6); z-index: 3; }
-      .now-line::before { content: ''; position: absolute; left: -3px; top: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--c6); }
+      .cal-col.today { background: rgba(99, 102, 241, 0.08); }
 
       /* ===== Secciones ===== */
       section.block { padding: 64px 0; }
@@ -351,6 +350,7 @@
             </div>
             <div class="m-foot">
               <span class="chip">📅 Calendario</span>
+              <span class="chip">🗂️ Guardadas</span>
               <span class="chip">⚙️ Ajustes</span>
             </div>
           </div>
@@ -368,7 +368,7 @@
               <div class="cal-col"><span class="ev" style="top:8%;height:24%;background:var(--c1)">Reunión</span><span class="ev" style="top:60%;height:18%;background:var(--c3)">Docs</span></div>
               <div class="cal-col"><span class="ev" style="top:20%;height:40%;background:var(--c2)">Dev web</span></div>
               <div class="cal-col"><span class="ev" style="top:10%;height:22%;background:var(--c4)">Soporte</span><span class="ev" style="top:50%;height:30%;background:var(--c1)">Reunión</span></div>
-              <div class="cal-col"><span class="ev" style="top:30%;height:34%;background:var(--c5)">Diseño</span><div class="now-line" style="top:64%"></div></div>
+              <div class="cal-col today"><span class="ev" style="top:30%;height:34%;background:var(--c5)">Diseño</span></div>
               <div class="cal-col"><span class="ev" style="top:12%;height:20%;background:var(--c7)">Planif.</span></div>
             </div>
           </div>
@@ -388,6 +388,7 @@
           <div class="card reveal"><div class="ic">📅</div><h3>Calendario semanal</h3><p>Vista estilo Teams/Outlook. Arrastra para crear una entrada, edita bloques y navega por semanas.</p></div>
           <div class="card reveal"><div class="ic">📤</div><h3>Exportar a CSV</h3><p>Un botón y tienes el CSV en el Escritorio: fecha, tarea, segundos y horas decimales, agregado por día.</p></div>
           <div class="card reveal"><div class="ic">🎨</div><h3>Colores y bandeja</h3><p>8 colores automáticos o manuales. Vive en el tray con el total del día siempre a la vista.</p></div>
+          <div class="card reveal"><div class="ic">🗂️</div><h3>Grupos guardados</h3><p>Archiva tareas que no usas cada día en grupos con nombre, y recupéralas cuando quieras con un buscador.</p></div>
           <div class="card reveal"><div class="ic">🔄</div><h3>Se actualiza sola</h3><p>Cuando publico una versión nueva, la app te avisa y la instala con un botón. Sin descargar nada a mano.</p></div>
         </div>
       </div>
