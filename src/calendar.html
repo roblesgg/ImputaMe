@@ -4,121 +4,161 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="shared.css">
 <style>
-  body { width:960px;height:760px;border-radius:var(--radius);overflow:hidden; }
+  html, body { width:100%;height:100%; }
+  body { border-radius:var(--radius);overflow:hidden; }
 
-  .cal-app { width:100%;height:100%;display:flex;position:relative; }
+  .cal-app { width:100%;height:100%;display:flex;flex-direction:column;position:relative; }
+
+  /* Barra de título arrastrable: permite mover la ventana desde cualquier
+     zona vacía de esta franja superior (igual que el resto de ventanas). */
+  .cal-titlebar {
+    flex-shrink:0;height:54px;display:flex;align-items:center;
+    padding:0 16px;border-bottom:1px solid var(--border);
+  }
+  .cal-titlebar-title { font-size:14px;font-weight:700; }
+  .cal-titlebar-title .brand-dot { color:var(--accent); }
+
+  .cal-body { flex:1;display:flex;min-height:0;position:relative; }
 
   /* Sidebar */
   .sidebar {
     width:210px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;
-    padding:44px 16px 16px;border-right:1px solid var(--border);overflow-y:auto;
-    -webkit-app-region:no-drag;
+    padding:16px;border-right:1px solid var(--border);overflow-y:auto;
   }
-  .sidebar-title { font-size:15px;font-weight:700; }
-  .sidebar-title .brand-dot { color:var(--accent); }
+
 
   .mini-cal-nav { display:flex;align-items:center;justify-content:space-between;margin-bottom:6px; }
-  .mini-cal-title { font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em; }
+  .mini-cal-title { font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em; }
   .mini-cal-arrows { display:flex;gap:2px; }
-  .mini-nav-btn { background:transparent;border:none;color:var(--text2);width:20px;height:20px;border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center; }
+  .mini-nav-btn { background:transparent;border:none;color:var(--text2);width:22px;height:22px;border-radius:6px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center; }
   .mini-nav-btn:hover { background:var(--bg3);color:var(--text); }
 
   .mini-cal-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:2px; }
-  .mini-dow { text-align:center;font-size:9px;color:var(--text2);padding:2px 0; }
+  .mini-dow { text-align:center;font-size:11px;color:var(--text2);padding:2px 0; }
   .mini-day {
     aspect-ratio:1;display:flex;align-items:center;justify-content:center;
-    border-radius:6px;cursor:pointer;font-size:10.5px;color:var(--text);position:relative;
+    border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--text);position:relative;
+    -webkit-app-region:no-drag;
   }
   .mini-day:hover { background:var(--bg3); }
   .mini-day.other-month { color:var(--text2);opacity:.35; }
   .mini-day.in-week { background:rgba(99,102,241,.16); }
   .mini-day.today { color:var(--accent);font-weight:700; }
   .mini-day.selected { background:var(--accent2);color:#fff;font-weight:700; }
-  .mini-day .dot { position:absolute;bottom:2px;width:3px;height:3px;border-radius:50%;background:var(--accent); }
+  .mini-day .dot { position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--accent); }
 
   .today-btn {
     background:var(--bg2);border:1px solid var(--border);color:var(--text);
-    font-size:12px;padding:7px 0;border-radius:var(--radius-sm);cursor:pointer;
+    font-size:13px;padding:8px 0;border-radius:var(--radius-sm);cursor:pointer;
   }
   .today-btn:hover { background:var(--bg3); }
 
-  .legend-title { font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px; }
-  .legend-item { display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:12.5px;cursor:pointer;border-radius:6px; }
+  .legend-title { font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px; }
+  .legend-item { display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:13.5px;cursor:pointer;border-radius:6px;-webkit-app-region:no-drag; }
   .legend-item:hover { background:var(--bg3); }
   .legend-item.hidden-task { opacity:.4; }
-  .legend-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
+  .legend-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
   .legend-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 
+  .day-totals { display:flex;flex-direction:column;gap:2px; }
+  .day-total-time { font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
+
   .sidebar-footer { margin-top:auto; }
-  .export-btn { width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:12px;padding:8px 0;border-radius:var(--radius-sm);cursor:pointer; }
+  .export-btn { width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:13px;padding:9px 0;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px; }
   .export-btn:hover { background:var(--bg3); }
 
   /* Main */
-  .main { flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;-webkit-app-region:no-drag; }
+  .main { flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0; }
 
   .week-nav { display:flex;align-items:center;gap:10px;padding:14px 20px 8px; }
-  .week-nav-btn { background:var(--bg2);border:1px solid var(--border);color:var(--text);width:26px;height:26px;border-radius:8px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center; }
+  .week-nav-btn { background:var(--bg2);border:1px solid var(--border);color:var(--text);width:28px;height:28px;border-radius:8px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center; }
   .week-nav-btn:hover { background:var(--bg3); }
-  .week-label { font-size:14px;font-weight:600;text-transform:capitalize; }
+  .week-label { font-size:16px;font-weight:600;text-transform:capitalize; }
 
   .week-header { display:flex;padding:0 20px;border-bottom:1px solid var(--border); }
-  .gutter-spacer { width:44px;flex-shrink:0; }
-  .day-header { flex:1;text-align:center;padding:8px 4px;font-size:11px;color:var(--text2);cursor:pointer;border-radius:8px 8px 0 0; }
-  .day-header .dh-num { font-size:16px;font-weight:700;color:var(--text);display:block; }
+  .gutter-spacer { width:48px;flex-shrink:0; }
+  .day-header { flex:1;text-align:center;padding:8px 4px;font-size:12.5px;color:var(--text2);cursor:pointer;border-radius:8px 8px 0 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;-webkit-app-region:no-drag; }
+  .day-header .dh-num { font-size:18px;font-weight:700;color:var(--text);display:block; }
   .day-header.today .dh-num { color:var(--accent); }
   .day-header.today { background:rgba(99,102,241,.10); }
 
-  .grid-scroll { flex:1;overflow-y:auto;overflow-x:hidden;padding:0 20px 16px; }
+  .grid-scroll { flex:1;overflow-y:auto;overflow-x:hidden;padding:0 20px 16px;-webkit-app-region:no-drag; }
   .grid-body { display:flex;position:relative; }
-  .hour-gutter { width:44px;flex-shrink:0; }
+  .hour-gutter { width:48px;flex-shrink:0;position:relative; }
   .hour-cell { height:48px;position:relative; }
-  .hour-cell span { position:absolute;top:-6px;right:8px;font-size:10px;color:var(--text2); }
+  .hour-cell span { position:absolute;top:-7px;right:8px;font-size:11.5px;color:var(--text2); }
+
+  /* Marca de la hora actual, solo en la franja de horas (no cruza los días) */
+  .now-tick { position:absolute;left:6px;right:0;height:0;border-top:2px solid var(--danger);pointer-events:none; }
 
   .day-col {
     flex:1;position:relative;border-left:1px solid var(--border);
     background-image: repeating-linear-gradient(to bottom, transparent, transparent 47px, var(--border) 47px, var(--border) 48px);
-    cursor:crosshair;
+    cursor:crosshair;-webkit-app-region:no-drag;
   }
+  .day-col.today { background-color:rgba(99,102,241,.06); }
 
   .task-block {
-    position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 6px;
-    font-size:10.5px;color:#fff;overflow:hidden;cursor:pointer;
-    box-shadow:0 1px 3px rgba(0,0,0,.3);line-height:1.25;
+    position:absolute;left:2px;right:2px;border-radius:6px;padding:8px 7px;
+    font-size:12px;color:#fff;overflow:hidden;cursor:pointer;
+    box-shadow:0 1px 3px rgba(0,0,0,.3);line-height:1.3;-webkit-app-region:no-drag;
+    display:flex;flex-direction:column;justify-content:center;
   }
-  .task-block .tb-name { font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-  .task-block .tb-time { opacity:.85;font-size:9.5px; }
+  .task-block .tb-name {
+    font-weight:600;overflow:hidden;text-overflow:ellipsis;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;
+  }
+  .task-block .tb-time { display:flex;align-items:baseline;gap:6px;opacity:.85;font-size:11px; }
+  .task-block .tb-time-range { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0; }
+  .task-block .tb-time-dur { flex-shrink:0;margin-left:auto;font-weight:700; }
   .task-block.ghost { opacity:.55;background:var(--accent2)!important;pointer-events:none; }
+  .task-block.running { outline:1.5px solid var(--danger);outline-offset:1px; }
+
+  /* Tiradores para redimensionar un bloque arrastrando su borde superior/inferior:
+     una barrita flotante tipo "home indicator" de iPhone. Verde = entrada normal,
+     roja = esta es la tarea que está corriendo ahora mismo.
+     El hitbox se mantiene pequeño (ancho y alto) y pegado al borde para que,
+     en tareas cortas, siga habiendo sitio para hacer click en el bloque en vez
+     de agarrar sin querer el tirador; además evita que se solape con el
+     tirador del bloque contiguo cuando dos tareas están pegadas, que era lo
+     que hacía parpadear el hover. */
+  .tb-handle {
+    position:absolute;left:50%;transform:translateX(-50%);width:44px;height:12px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:grab;opacity:0;transition:opacity .12s;z-index:6;
+  }
+  .tb-handle::after {
+    content:'';box-sizing:border-box;width:38px;height:8px;border-radius:4px;
+    background:var(--success);
+    border:2px solid var(--handle-outline, rgba(0,0,0,.35));
+    box-shadow:0 1px 4px rgba(0,0,0,.4);
+  }
+  .tb-handle-top { top:1px; }
+  .tb-handle-bottom { bottom:1px; }
+  .task-block:hover .tb-handle { opacity:1; }
+  .tb-handle:active { cursor:grabbing; }
+  .tb-handle.resizing { opacity:1;cursor:grabbing; }
+
+  .tb-handle.running::after { background:var(--danger); animation:tbHandlePulse 1.6s ease-in-out infinite; }
+  @keyframes tbHandlePulse {
+    0%,100% { box-shadow:0 0 0 0 rgba(248,113,113,.5); }
+    70% { box-shadow:0 0 0 6px rgba(248,113,113,0); }
+  }
+
   .drag-time-label {
     position:absolute;left:50%;top:-26px;transform:translateX(-50%);
     background:rgba(20,20,32,.95);border:1px solid var(--accent);color:#fff;
-    font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
+    font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;
     padding:3px 9px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:20;
     box-shadow:0 4px 12px rgba(0,0,0,.4);
   }
 
-  .now-line { position:absolute;left:0;right:0;height:0;border-top:2px solid var(--danger);z-index:5;pointer-events:none; }
-  .now-line::before { content:'';position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--danger); }
-
-  /* Popup */
-  .popup-backdrop { position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:50;-webkit-app-region:no-drag; }
-  .entry-popup {
-    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:51;
-    width:300px;background:#1c1c2a;border:1px solid var(--border);border-radius:var(--radius-sm);
-    padding:18px;display:flex;flex-direction:column;gap:12px;-webkit-app-region:no-drag;
-    box-shadow:0 20px 60px rgba(0,0,0,.5);
-  }
-  .entry-popup-title { font-size:13px;font-weight:700; }
-  .entry-popup select, .entry-popup input[type=text] {
-    width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;
-    color:var(--text);font-family:inherit;font-size:13px;padding:8px 10px;outline:none;
-  }
-  .entry-popup select:focus, .entry-popup input:focus { border-color:var(--accent); }
+  /* Popup (estilos genéricos .popup-backdrop/.entry-popup en shared.css) */
   .popup-time-row { display:flex;align-items:center;gap:8px; }
   .popup-time-row input[type=time] {
     flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;
-    color:var(--text);font-family:inherit;font-size:13px;padding:7px 8px;outline:none;color-scheme:dark;
+    color:var(--text);font-family:inherit;font-size:14px;padding:8px 9px;outline:none;color-scheme:dark;
   }
-  .entry-popup-actions { display:flex;align-items:center;gap:8px;margin-top:2px; }
 </style>
 </head>
 <body>
@@ -130,9 +170,12 @@
     </button>
   </div>
 
-  <div class="sidebar">
-    <div class="sidebar-title">Calendario · imputa<span class="brand-dot">.</span>me</div>
+  <div class="cal-titlebar">
+    <div class="cal-titlebar-title">Calendario · imputa<span class="brand-dot">.</span>me</div>
+  </div>
 
+  <div class="cal-body">
+  <div class="sidebar">
     <div class="mini-cal">
       <div class="mini-cal-nav">
         <span class="mini-cal-title" id="miniCalTitle">—</span>
@@ -151,8 +194,16 @@
       <div id="legendList"></div>
     </div>
 
+    <div class="day-totals">
+      <div class="legend-title" id="dayTotalsTitle">Tareas de hoy</div>
+      <div id="dayTotalsList"></div>
+    </div>
+
     <div class="sidebar-footer">
-      <button class="export-btn" onclick="exportCSV()">⬇ Exportar CSV</button>
+      <button class="export-btn" onclick="exportCSV()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 21h16"/></svg>
+        Exportar CSV
+      </button>
     </div>
   </div>
 
@@ -172,6 +223,7 @@
         <div class="hour-gutter" id="hourGutter"></div>
       </div>
     </div>
+  </div>
   </div>
 
   <div class="popup-backdrop" id="popupBackdrop" style="display:none" onclick="closePopup()"></div>
@@ -203,6 +255,7 @@
 
 </div>
 
+<script src="shared.js"></script>
 <script>
 const { ipcRenderer, shell } = require('electron');
 const fs = require('fs');
@@ -213,7 +266,6 @@ const ROW_H = 48;
 const DOW = ['L','M','X','J','V','S','D'];
 const DOW_LONG = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
 
 let currentState = null;
 let miniViewYear, miniViewMonth;
@@ -223,6 +275,8 @@ let hiddenTaskIds = new Set();
 let popupMode = null;
 let popupCtx = null;
 let dragState = null;
+let resizeState = null;
+let hoveredBlocks = 0;
 let popupColor = COLORS[0];
 
 function startOfDay(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
@@ -235,25 +289,79 @@ function pad2(n) { return String(n).padStart(2,'0'); }
 function hourToHHMM(h) { const hh = Math.floor(h); const mm = Math.round((h-hh)*60); return `${pad2(hh)}:${pad2(mm)}`; }
 function hhmmToHour(str) { const [h,m] = (str||'0:0').split(':').map(Number); return h + m/60; }
 function dateKey(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function formatDur(ms) {
+  const totalMin = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return h > 0 ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}m`;
+}
+function timeRangeLabel(startMs, endMsOrNull) {
+  const endLabel = endMsOrNull ? new Date(endMsOrNull).toTimeString().slice(0,5) : 'ahora';
+  return `${new Date(startMs).toTimeString().slice(0,5)} - ${endLabel}`;
+}
 
 const today0 = startOfDay(new Date());
 
 ipcRenderer.on('state', (_, state) => {
   currentState = state;
+  let firstLoad = false;
   if (!viewWeekStart) {
+    firstLoad = true;
     viewWeekStart = mondayOf(new Date());
     selectedDate = today0;
     miniViewYear = selectedDate.getFullYear();
     miniViewMonth = selectedDate.getMonth();
   }
   renderAll();
+  if (firstLoad) scrollToNow();
 });
 ipcRenderer.send('action', { type: 'get-state' });
 
 function renderAll() {
   renderMiniCal();
   renderLegend();
+  renderDayTotals();
   renderWeek();
+}
+
+// ---------- Totales del día seleccionado ----------
+function renderDayTotals() {
+  const title = document.getElementById('dayTotalsTitle');
+  const list = document.getElementById('dayTotalsList');
+  if (!title || !list) return;
+  const day = startOfDay(selectedDate || today0);
+  title.textContent = sameDay(day, today0)
+    ? 'Tareas de hoy'
+    : `Tareas del ${day.getDate()} de ${MONTHS[day.getMonth()].toLowerCase()}`;
+
+  list.innerHTML = '';
+  if (!currentState) return;
+  const dayStart = day.getTime();
+  const dayEnd = dayStart + 86400000;
+
+  const totals = [];
+  currentState.tasks.forEach(task => {
+    let secs = 0;
+    task.entries.forEach(entry => {
+      const s = entry.start, e = entry.end || Date.now();
+      if (e <= dayStart || s >= dayEnd) return;
+      const from = Math.max(s, dayStart), to = Math.min(e, dayEnd);
+      secs += Math.max(0, (to - from) / 1000);
+    });
+    if (secs > 0) totals.push({ task, secs });
+  });
+
+  if (!totals.length) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--text2)">Sin actividad este día</div>';
+    return;
+  }
+  totals.sort((a, b) => b.secs - a.secs);
+  totals.forEach(({ task, secs }) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.style.cursor = 'default';
+    item.innerHTML = `<div class="legend-dot" style="background:${task.color}"></div><span class="legend-name">${task.name}</span><span class="day-total-time">${formatDur(secs * 1000)}</span>`;
+    list.appendChild(item);
+  });
 }
 
 // ---------- Mini calendar ----------
@@ -341,7 +449,10 @@ function renderLegend() {
 
 // ---------- Week grid ----------
 function renderWeek() {
-  if (dragState) return; // no reconstruir la rejilla mientras se está arrastrando (destruiría el elemento en uso)
+  // No reconstruir la rejilla mientras se está arrastrando (destruiría el elemento en uso),
+  // ni mientras el ratón está sobre una tarea: el estado llega cada segundo si hay una tarea
+  // activa, y recrear el bloque bajo el cursor le reinicia el :hover y hace parpadear los tiradores.
+  if (dragState || resizeState || hoveredBlocks > 0) return;
   const weekEndDay = addDays(viewWeekStart, 6);
   const sameMonth = viewWeekStart.getMonth() === weekEndDay.getMonth();
   const label = sameMonth
@@ -358,7 +469,7 @@ function renderWeek() {
     const isToday = sameDay(date, today0);
     el.className = 'day-header' + (isToday?' today':'');
     el.innerHTML = `<span class="dh-num">${date.getDate()}</span>${DOW_LONG[(date.getDay()+6)%7]}`;
-    el.onclick = () => { selectedDate = startOfDay(date); renderMiniCal(); };
+    el.onclick = () => { selectedDate = startOfDay(date); renderMiniCal(); renderDayTotals(); };
     header.appendChild(el);
   });
 
@@ -370,6 +481,7 @@ function renderWeek() {
     gutter.appendChild(cell);
   }
   gutter.style.height = (24*ROW_H)+'px';
+  renderNowTick(gutter);
 
   const gridBody = document.getElementById('gridBody');
   gridBody.querySelectorAll('.day-col').forEach(el => el.remove());
@@ -377,15 +489,16 @@ function renderWeek() {
 
   days.forEach(date => {
     const col = document.createElement('div');
-    col.className = 'day-col';
+    col.className = 'day-col' + (sameDay(date, today0) ? ' today' : '');
     col.style.height = (24*ROW_H)+'px';
     col._date = date;
     attachDragHandlers(col);
     renderDayEntries(col, date);
-    if (sameDay(date, today0)) addNowLine(col);
     gridBody.appendChild(col);
   });
 }
+
+let suppressNextClick = false;
 
 function renderDayEntries(col, date) {
   if (!currentState) return;
@@ -400,25 +513,101 @@ function renderDayEntries(col, date) {
       const startH = (from - dayStart) / 3600000;
       const endH = (to - dayStart) / 3600000;
       const block = document.createElement('div');
-      block.className = 'task-block';
+      block.className = 'task-block' + (entry.end == null ? ' running' : '');
       block.style.top = (startH*ROW_H)+'px';
       block.style.height = Math.max(16, (endH-startH)*ROW_H)+'px';
       block.style.background = task.color;
-      const timeLabel = `${new Date(entry.start).toTimeString().slice(0,5)} - ${entry.end ? new Date(entry.end).toTimeString().slice(0,5) : 'ahora'}`;
-      block.innerHTML = `<div class="tb-name">${task.name}</div><div class="tb-time">${timeLabel}</div>`;
-      block.onclick = (ev) => { ev.stopPropagation(); openEditPopup(task, idx, entry); };
+      block.style.color = contrastTextColor(task.color);
+      const durMs = (entry.end || Date.now()) - entry.start;
+      block.innerHTML = `<div class="tb-name">${task.name}</div><div class="tb-time"><span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span><span class="tb-time-dur">${formatDur(durMs)}</span></div>`;
+      block.onclick = (ev) => {
+        ev.stopPropagation();
+        if (suppressNextClick) { suppressNextClick = false; return; }
+        openEditPopup(task, idx, entry);
+      };
+      block.addEventListener('mouseenter', () => { hoveredBlocks++; });
+      block.addEventListener('mouseleave', () => { hoveredBlocks = Math.max(0, hoveredBlocks - 1); });
+
+      // El tirador superior ajusta la hora de inicio; solo tiene sentido si este
+      // segmento realmente empieza aquí (no es la cola de una entrada de un día anterior).
+      // Contorno del tirador a contraste con el color de la tarea: si la tarea es
+      // roja/verde y el tirador también, se camuflaría contra el fondo del bloque.
+      const handleOutline = contrastTextColor(task.color);
+      if (from === s) {
+        const topHandle = document.createElement('div');
+        topHandle.className = 'tb-handle tb-handle-top' + (entry.end == null ? ' running' : '');
+        topHandle.style.setProperty('--handle-outline', handleOutline);
+        attachResizeHandle(topHandle, 'start', task, idx, entry, block, col);
+        block.appendChild(topHandle);
+      }
+      // El tirador inferior ajusta la hora de fin; solo si la entrada ya tiene fin
+      // (no está en curso) y este segmento contiene realmente ese fin.
+      if (entry.end != null && to === e) {
+        const bottomHandle = document.createElement('div');
+        bottomHandle.className = 'tb-handle tb-handle-bottom';
+        bottomHandle.style.setProperty('--handle-outline', handleOutline);
+        attachResizeHandle(bottomHandle, 'end', task, idx, entry, block, col);
+        block.appendChild(bottomHandle);
+      }
+
       col.appendChild(block);
     });
   });
 }
 
-function addNowLine(col) {
+function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
+  handleEl.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    suppressNextClick = true;
+    const dayStart = startOfDay(col._date).getTime();
+    const wasOngoing = entry.end == null;
+    let newStart = entry.start;
+    let newEnd = wasOngoing ? Date.now() : entry.end;
+    handleEl.classList.add('resizing');
+    resizeState = { edge };
+
+    function onMove(ev) {
+      const rect = col.getBoundingClientRect();
+      const hour = snapHour(clamp((ev.clientY - rect.top) / ROW_H, 0, 24));
+      const ms = dayStart + hour * 3600000;
+      if (edge === 'start') newStart = Math.min(ms, newEnd - 5 * 60000);
+      else newEnd = Math.max(ms, newStart + 5 * 60000);
+      const startH = (newStart - dayStart) / 3600000;
+      const endH = (newEnd - dayStart) / 3600000;
+      block.style.top = (startH * ROW_H) + 'px';
+      block.style.height = Math.max(16, (endH - startH) * ROW_H) + 'px';
+      const rangeEl = block.querySelector('.tb-time-range');
+      const durEl = block.querySelector('.tb-time-dur');
+      const liveEndForLabel = wasOngoing && edge === 'start' ? null : newEnd;
+      if (rangeEl) rangeEl.textContent = timeRangeLabel(newStart, liveEndForLabel);
+      if (durEl) durEl.textContent = formatDur((liveEndForLabel || Date.now()) - newStart);
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      handleEl.classList.remove('resizing');
+      resizeState = null;
+      ipcRenderer.send('action', { type: 'edit-entry', payload: {
+        taskId: task.id, entryIndex: idx,
+        startMs: newStart,
+        endMs: wasOngoing && edge === 'start' ? null : newEnd,
+      }});
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function renderNowTick(gutter) {
+  const weekEnd = addDays(viewWeekStart, 7);
+  if (today0 < viewWeekStart || today0 >= weekEnd) return; // la semana visible no incluye hoy
   const now = new Date();
-  const h = now.getHours() + now.getMinutes()/60;
-  const line = document.createElement('div');
-  line.className = 'now-line';
-  line.style.top = (h*ROW_H)+'px';
-  col.appendChild(line);
+  const h = now.getHours() + now.getMinutes() / 60;
+  const tick = document.createElement('div');
+  tick.className = 'now-tick';
+  tick.style.top = (h * ROW_H) + 'px';
+  gutter.appendChild(tick);
 }
 
 function scrollToNow() {

@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="shared.css">
 <style>
-  body { width:380px;height:380px;border-radius:var(--radius);overflow:hidden; }
-  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:16px;position:relative; }
+  html, body { width:100%;height:100%; }
+  body { border-radius:var(--radius);overflow:hidden; }
+  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:16px;position:relative;min-height:0;overflow-y:auto; }
   .app-title { font-size:16px;font-weight:700; }
   .field { display:flex;flex-direction:column;gap:6px; }
   .field label { font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
@@ -24,6 +25,49 @@
   }
   .check-row input[type=checkbox] { width:16px;height:16px;accent-color:var(--accent2);cursor:pointer; }
   .footer { display:flex;gap:8px;justify-content:flex-end;-webkit-app-region:no-drag;margin-top:auto; }
+
+  /* Slider de segundos del auto-ocultado */
+  .autohide-slider {
+    margin-top:0;padding-top:0;border-top:1px solid transparent;
+    display:flex;flex-direction:column;gap:8px;
+    max-height:0;opacity:0;overflow:hidden;
+    transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .22s ease,margin-top .32s ease,padding-top .32s ease,border-color .32s ease;
+  }
+  .autohide-slider.visible {
+    max-height:90px;opacity:1;margin-top:6px;padding-top:12px;border-top-color:var(--border);
+  }
+  .slider-row { display:flex;align-items:center;gap:12px;-webkit-app-region:no-drag; }
+  .slider-track {
+    position:relative;flex:1;height:6px;border-radius:3px;
+    background:var(--bg2);border:1px solid var(--border);
+    cursor:pointer;-webkit-app-region:no-drag;
+  }
+  .slider-fill {
+    position:absolute;left:0;top:-1px;bottom:-1px;border-radius:3px;
+    background:linear-gradient(90deg,var(--accent2),var(--accent));
+    transition:width .12s ease;
+  }
+  .slider-thumb {
+    position:absolute;top:50%;width:18px;height:18px;margin-left:-9px;
+    background:#fff;border:2px solid var(--accent2);border-radius:50%;
+    transform:translateY(-50%);cursor:grab;-webkit-app-region:no-drag;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease;
+    box-shadow:0 1px 4px rgba(0,0,0,.4);
+  }
+  .slider-thumb:hover { transform:translateY(-50%) scale(1.15); }
+  .slider-thumb.dragging {
+    cursor:grabbing;transform:translateY(-50%) scale(1.3);
+    box-shadow:0 2px 14px rgba(99,102,241,.65);
+  }
+  .slider-value { font-size:12.5px;color:var(--text2);min-width:30px;text-align:right;font-variant-numeric:tabular-nums; }
+  .slider-bubble {
+    position:absolute;bottom:22px;left:50%;transform:translateX(-50%) scale(.6);
+    background:var(--accent2);color:#fff;font-size:11px;font-weight:700;
+    padding:3px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;
+    opacity:0;transition:opacity .15s ease,transform .15s cubic-bezier(.34,1.56,.64,1);
+    box-shadow:0 4px 12px rgba(0,0,0,.45);
+  }
+  .slider-thumb.dragging .slider-bubble { opacity:1;transform:translateX(-50%) scale(1); }
 </style>
 </head>
 <body>
@@ -35,7 +79,10 @@
     </button>
   </div>
 
-  <div class="app-title">⚙️ Ajustes</div>
+  <div class="app-title" style="display:flex;align-items:center;gap:8px">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Ajustes
+  </div>
 
   <div class="field">
     <label>Frecuencia del aviso</label>
@@ -47,8 +94,21 @@
   </div>
 
   <div class="field">
-    <label class="check-row"><input type="checkbox" id="widgetAutoHide"><span>Ocultar el aviso automáticamente a los 10s</span></label>
+    <label class="check-row"><input type="checkbox" id="widgetAutoHide"><span>Ocultar el aviso automáticamente</span></label>
     <span class="hint">Si lo desactivas, el aviso se queda en pantalla hasta que lo cierres, pauses o cambies de tarea.</span>
+
+    <div class="autohide-slider" id="autohideSliderWrap">
+      <div class="slider-row">
+        <div class="slider-track" id="autohideTrack">
+          <div class="slider-fill" id="autohideFill"></div>
+          <div class="slider-thumb" id="autohideThumb">
+            <div class="slider-bubble" id="autohideBubble">10s</div>
+          </div>
+        </div>
+        <span class="slider-value" id="autohideValueLabel">10s</span>
+      </div>
+      <span class="hint">Cuánto tiempo se muestra el aviso antes de ocultarse (de 2 a 60 segundos).</span>
+    </div>
   </div>
 
   <div class="field">
@@ -64,16 +124,61 @@
 
 <script>
 const { ipcRenderer } = require('electron');
+
+const AUTOHIDE_MIN = 2, AUTOHIDE_MAX = 60;
+let autohideSeconds = 10;
+
+const autohideTrack = document.getElementById('autohideTrack');
+const autohideThumb = document.getElementById('autohideThumb');
+
+function renderAutohideSlider() {
+  const pct = (autohideSeconds - AUTOHIDE_MIN) / (AUTOHIDE_MAX - AUTOHIDE_MIN);
+  document.getElementById('autohideFill').style.width = (pct * 100) + '%';
+  autohideThumb.style.left = (pct * 100) + '%';
+  document.getElementById('autohideValueLabel').textContent = autohideSeconds + 's';
+  document.getElementById('autohideBubble').textContent = autohideSeconds + 's';
+}
+
+function updateAutohideVisibility() {
+  document.getElementById('autohideSliderWrap').classList.toggle('visible', document.getElementById('widgetAutoHide').checked);
+}
+
+function setAutohideFromClientX(clientX) {
+  const rect = autohideTrack.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  autohideSeconds = Math.round(AUTOHIDE_MIN + pct * (AUTOHIDE_MAX - AUTOHIDE_MIN));
+  renderAutohideSlider();
+}
+
+autohideTrack.addEventListener('mousedown', (e) => {
+  autohideThumb.classList.add('dragging');
+  setAutohideFromClientX(e.clientX);
+  const onMove = (ev) => setAutohideFromClientX(ev.clientX);
+  const onUp = () => {
+    autohideThumb.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
+document.getElementById('widgetAutoHide').addEventListener('change', updateAutohideVisibility);
+
 ipcRenderer.on('settings', (_, s) => {
   document.getElementById('reminderMinutes').value = s.reminderMinutes || 10;
   document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
+  autohideSeconds = Math.max(AUTOHIDE_MIN, Math.min(AUTOHIDE_MAX, s.widgetAutoHideSeconds || 10));
+  renderAutohideSlider();
+  updateAutohideVisibility();
 });
 function save() {
   const mins = parseInt(document.getElementById('reminderMinutes').value) || 10;
   ipcRenderer.send('action', { type:'save-settings', payload:{
     reminderMinutes: Math.max(1, Math.min(120, mins)),
     widgetAutoHide: document.getElementById('widgetAutoHide').checked,
+    widgetAutoHideSeconds: autohideSeconds,
     colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',
   } });
 }

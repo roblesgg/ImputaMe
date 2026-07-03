@@ -13,19 +13,22 @@ let widgetWin = null;
 let calendarWin = null;
 let mainWin = null;
 let settingsWin = null;
+let groupsWin = null;
 let splashWin = null;
 let reminderTimer = null;
 let tickTimer = null;
 
 // ── Estado ──────────────────────────────────────────────────────────────────
 let state = {
-  tasks: [],           // { id, name, color, entries: [{start, end}] }
+  tasks: [],           // { id, name, color, entries: [{start, end}], archived, groupId }
+  groups: [],          // { id, name }
   activeTaskId: null,
 };
 
 let settings = {
   reminderMinutes: 10,
   widgetAutoHide: true,
+  widgetAutoHideSeconds: 10,
   colorMode: 'auto', // 'auto' | 'manual'
 };
 
@@ -37,6 +40,11 @@ function loadData() {
   try {
     if (fs.existsSync(DATA_FILE)) state = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   } catch {}
+  if (!Array.isArray(state.groups)) state.groups = [];
+  state.tasks.forEach(t => {
+    if (t.archived === undefined) t.archived = false;
+    if (t.groupId === undefined) t.groupId = null;
+  });
   try {
     if (fs.existsSync(SETTINGS_FILE)) settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) };
   } catch {}
@@ -97,7 +105,7 @@ function updateTrayTitle() {
 
 function buildTrayMenu() {
   const active = getActiveTask();
-  const taskItems = state.tasks.map(t => ({
+  const taskItems = state.tasks.filter(t => !t.archived).map(t => ({
     label: `${t.id === state.activeTaskId ? '▶ ' : '    '}${t.name}  (${formatDuration(todaySecondsForTask(t))})`,
     click: () => switchTask(t.id),
   }));
@@ -109,6 +117,7 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: 'Panel', click: () => openMain() },
     { label: 'Calendario', click: () => openCalendar() },
+    { label: 'Guardadas', click: () => openGroups() },
     { label: 'Ajustes', click: () => openSettings() },
     { label: 'Pausar', click: () => pauseActive(), enabled: !!active },
     { type: 'separator' },
@@ -146,7 +155,7 @@ function switchTask(taskId, backMinutes) {
 function createTask(name, color) {
   const id = Date.now().toString();
   const finalColor = settings.colorMode === 'manual' ? (color || nextAutoColor()) : nextAutoColor();
-  state.tasks.push({ id, name, color: finalColor, entries: [] });
+  state.tasks.push({ id, name, color: finalColor, entries: [], archived: false, groupId: null });
   saveData(); broadcastState();
   return id;
 }
@@ -155,6 +164,40 @@ function deleteTask(taskId) {
   if (state.activeTaskId === taskId) pauseActive();
   state.tasks = state.tasks.filter(t => t.id !== taskId);
   saveData(); broadcastState();
+}
+
+function editTaskColor(taskId, color) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task || !color) return;
+  task.color = color;
+  saveData(); broadcastState();
+}
+
+// ── Grupos guardados ─────────────────────────────────────────────────────────
+function archiveTask(taskId, groupId, groupName) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  let gid = groupId;
+  if (!gid && groupName) {
+    const name = groupName.trim();
+    if (!name) return;
+    let group = state.groups.find(g => g.name.toLowerCase() === name.toLowerCase());
+    if (!group) { group = { id: Date.now().toString(), name }; state.groups.push(group); }
+    gid = group.id;
+  }
+  if (!gid || !state.groups.some(g => g.id === gid)) return;
+  if (state.activeTaskId === taskId) pauseActive();
+  task.archived = true;
+  task.groupId = gid;
+  saveData(); broadcastState();
+}
+
+function restoreAndStartTask(taskId, backMinutes) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task.archived = false;
+  startTask(taskId, backMinutes);
+  openMain();
 }
 
 function editEntry(taskId, entryIndex, startMs, endMs) {
@@ -178,7 +221,7 @@ function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs) {
   if (!task && newTaskName) {
     const id = Date.now().toString();
     const finalColor = settings.colorMode === 'manual' ? (newTaskColor || nextAutoColor()) : nextAutoColor();
-    task = { id, name: newTaskName, color: finalColor, entries: [] };
+    task = { id, name: newTaskName, color: finalColor, entries: [], archived: false, groupId: null };
     state.tasks.push(task);
   }
   if (!task || startMs == null) return;
@@ -208,16 +251,17 @@ function scheduleWidgetAutoHide() {
   if (widgetHideTimer) clearTimeout(widgetHideTimer);
   widgetHideTimer = null;
   if (!settings.widgetAutoHide) return;
+  const ms = (settings.widgetAutoHideSeconds || 10) * 1000;
   widgetHideTimer = setTimeout(() => {
     if (widgetWin && !widgetWin.isDestroyed()) widgetWin.hide();
-  }, 10000);
+  }, ms);
 }
 
 function makeWindow(file, w, h, opts = {}) {
   const win = new BrowserWindow({
     width: w, height: h,
     frame: false, transparent: true, hasShadow: false,
-    resizable: false, roundedCorners: true,
+    resizable: true, roundedCorners: true,
     icon: APP_ICON_PATH,
     ...opts,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
@@ -233,13 +277,20 @@ function createWidgetWindow() {
   widgetWin = makeWindow('widget.html', W, H, {
     x: width - W - 20, y: height - H - 20,
     alwaysOnTop: true, skipTaskbar: true,
+    minWidth: 280, minHeight: 140,
+    maxWidth: 460, maxHeight: 260,
   });
   widgetWin.once('ready-to-show', () => { widgetWin.show(); sendStateToWindow(widgetWin); scheduleWidgetAutoHide(); });
 }
 
 function openMain() {
   if (mainWin && !mainWin.isDestroyed()) { mainWin.show(); mainWin.focus(); sendStateToWindow(mainWin); return; }
-  mainWin = makeWindow('main.html', 480, 660, { center: true });
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  mainWin = makeWindow('main.html', 560, 660, {
+    center: true,
+    minWidth: 380, minHeight: 480,
+    maxWidth: Math.min(900, width), maxHeight: Math.min(1000, height),
+  });
   mainWin.once('ready-to-show', () => { mainWin.show(); sendStateToWindow(mainWin); });
   mainWin.on('closed', () => { mainWin = null; });
 }
@@ -277,16 +328,34 @@ function showSplashThenMain() {
 
 function openCalendar() {
   if (calendarWin && !calendarWin.isDestroyed()) { calendarWin.show(); calendarWin.focus(); sendStateToWindow(calendarWin); return; }
-  calendarWin = makeWindow('calendar.html', 960, 760);
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  calendarWin = makeWindow('calendar.html', Math.min(1280, width), 760, {
+    minWidth: 760, minHeight: 520,
+    maxWidth: Math.min(1600, width), maxHeight: Math.min(1000, height),
+  });
   calendarWin.once('ready-to-show', () => { calendarWin.show(); sendStateToWindow(calendarWin); });
   calendarWin.on('closed', () => { calendarWin = null; });
 }
 
 function openSettings() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
-  settingsWin = makeWindow('settings.html', 380, 380);
+  settingsWin = makeWindow('settings.html', 380, 380, {
+    minWidth: 340, minHeight: 360,
+    maxWidth: 520, maxHeight: 560,
+  });
   settingsWin.once('ready-to-show', () => { settingsWin.show(); settingsWin.webContents.send('settings', settings); });
   settingsWin.on('closed', () => { settingsWin = null; });
+}
+
+function openGroups() {
+  if (groupsWin && !groupsWin.isDestroyed()) { groupsWin.show(); groupsWin.focus(); sendStateToWindow(groupsWin); return; }
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  groupsWin = makeWindow('groups.html', 420, 620, {
+    minWidth: 340, minHeight: 420,
+    maxWidth: Math.min(700, width), maxHeight: Math.min(1000, height),
+  });
+  groupsWin.once('ready-to-show', () => { groupsWin.show(); sendStateToWindow(groupsWin); });
+  groupsWin.on('closed', () => { groupsWin = null; });
 }
 
 // ── IPC ───────────────────────────────────────────────────────────────────────
@@ -297,6 +366,7 @@ function getSerializableState() {
       todaySecs: todaySecondsForTask(t),
       totalSecs: totalSecondsForTask(t),
     })),
+    groups: state.groups,
     activeTaskId: state.activeTaskId,
     todayTotal: totalTodaySeconds(),
     settings,
@@ -309,7 +379,7 @@ function sendStateToWindow(win) {
 
 function broadcastState() {
   updateTrayTitle();
-  [widgetWin, mainWin, calendarWin].forEach(w => sendStateToWindow(w));
+  [widgetWin, mainWin, calendarWin, groupsWin].forEach(w => sendStateToWindow(w));
 }
 
 ipcMain.on('action', (event, { type, payload }) => {
@@ -320,9 +390,13 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'create-task': {
       const id = createTask(payload.name, payload.color);
       startTask(id, payload.backMinutes);
+      openMain();
       break;
     }
     case 'delete-task':   deleteTask(payload.taskId); break;
+    case 'edit-task-color': editTaskColor(payload.taskId, payload.color); break;
+    case 'archive-task':  archiveTask(payload.taskId, payload.groupId, payload.groupName); break;
+    case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes); break;
     case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
     case 'add-calendar-entry':
@@ -336,6 +410,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'open-main':     openMain(); break;
     case 'open-calendar': openCalendar(); break;
     case 'open-settings': openSettings(); break;
+    case 'open-groups':   openGroups(); break;
     case 'close-widget':
       if (widgetHideTimer) { clearTimeout(widgetHideTimer); widgetHideTimer = null; }
       if (widgetWin && !widgetWin.isDestroyed()) widgetWin.hide();
@@ -344,6 +419,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'min-main':      if (mainWin && !mainWin.isDestroyed()) mainWin.minimize(); break;
     case 'close-calendar': if (calendarWin && !calendarWin.isDestroyed()) calendarWin.hide(); break;
     case 'close-settings': if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide(); break;
+    case 'close-groups':   if (groupsWin && !groupsWin.isDestroyed()) groupsWin.hide(); break;
     case 'get-state':     event.reply('state', getSerializableState()); break;
   }
 });

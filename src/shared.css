@@ -13,6 +13,11 @@
   --success: #34d399;
   --radius: 16px;
   --radius-sm: 10px;
+  /* Sin esto, los controles nativos (el desplegable de <select>, las flechas de
+     <input type=number>, checkboxes sin marcar...) se dibujan con el tema claro
+     del sistema por defecto, y con texto claro sobre fondo claro quedan
+     invisibles hasta pasar el ratón por encima. */
+  color-scheme: dark;
 }
 
 body {
@@ -79,10 +84,15 @@ button {
 }
 .btn-icon:hover { color: var(--text); background: var(--bg3); }
 
-/* Window controls top right */
+/* Window controls top right.
+   top se deja algo más generoso que el mínimo visual: al hacer las ventanas
+   redimensionables, Windows reserva una franja de "agarre" para cambiar el
+   tamaño justo en el borde/esquina superior, y si el botón queda demasiado
+   pegado al borde esa franja se come sus clics (por eso antes sólo
+   respondía la mitad inferior del botón). */
 .win-controls {
   position: absolute;
-  top: 12px; right: 14px;
+  top: 20px; right: 14px;
   display: flex; gap: 6px;
   -webkit-app-region: no-drag;
 }
@@ -164,6 +174,30 @@ input[type="text"] {
 input[type="text"]:focus { border-color: var(--accent); }
 input[type="text"]::placeholder { color: var(--text2); }
 
+/* Select: quitamos la flecha nativa (que arrastra el look claro del sistema)
+   y ponemos una propia a juego con el resto de iconos de la app. */
+select {
+  -webkit-app-region: no-drag;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--bg2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-opacity='.55' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 9px 32px 9px 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s, background-color .15s;
+}
+select:hover { background-color: var(--bg3); }
+select:focus { border-color: var(--accent); }
+select option { background: #1c1c2a; color: var(--text); }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -176,7 +210,29 @@ input[type="text"]::placeholder { color: var(--text2); }
 }
 .animate-in { animation: slideIn .22s ease forwards; }
 
+/* Fila "¿ya llevas tiempo? / o desde qué hora" (usada por main.html y groups.html) */
+.back-row { display:flex;align-items:center;gap:8px;-webkit-app-region:no-drag; }
+.back-label { font-size:12px;color:var(--text2);white-space:nowrap; }
+
+/* Popup modal genérico (usado por calendar.html, main.html y groups.html) */
+.popup-backdrop { position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:50;-webkit-app-region:no-drag; }
+.entry-popup {
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:51;
+  width:320px;max-width:90%;background:#1c1c2a;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:20px;display:flex;flex-direction:column;gap:13px;-webkit-app-region:no-drag;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.entry-popup-title { font-size:14.5px;font-weight:700; }
+.entry-popup select { width:100%; }
+.entry-popup input[type="text"] {
+  width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:inherit;font-size:14px;padding:9px 11px;outline:none;
+}
+.entry-popup input:focus { border-color:var(--accent); }
+.entry-popup-actions { display:flex;align-items:center;gap:8px;margin-top:2px; }
+
 /* Color picker row */
+.colors-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
 .color-row {
   display: flex; gap: 8px; -webkit-app-region: no-drag;
 }

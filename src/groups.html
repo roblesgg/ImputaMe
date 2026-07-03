@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="shared.css">
+<style>
+  html, body { width:100%;height:100%; }
+  body { border-radius:var(--radius);overflow:hidden; }
+  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:14px;position:relative;min-height:0; }
+  .app-title { font-size:16px;font-weight:700; }
+
+  .groups-list { flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px; }
+
+  .group-card { border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);overflow:hidden; }
+  .group-header {
+    display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;
+    -webkit-app-region:no-drag;
+  }
+  .group-header:hover { background:var(--bg3); }
+  .group-name { flex:1;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .group-count { font-size:11px;color:var(--text2); }
+  .group-chevron { color:var(--text2);transition:transform .15s;flex-shrink:0; }
+  .group-card.collapsed .group-chevron { transform:rotate(-90deg); }
+
+  .group-tasks { display:flex;flex-direction:column;padding:2px 8px 8px; }
+  .group-card.collapsed .group-tasks { display:none; }
+
+  .archived-task-row {
+    display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;cursor:pointer;
+    -webkit-app-region:no-drag;
+  }
+  .archived-task-row:hover { background:var(--bg3); }
+  .archived-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
+  .archived-task-name { flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .archived-task-time { font-size:11.5px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
+
+  .empty-state { text-align:center;color:var(--text2);font-size:13px;padding:34px 12px;line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="app animate-in">
+
+  <div class="win-controls">
+    <button class="win-btn close" onclick="closeWin()" title="Cerrar">
+      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="app-title" style="display:flex;align-items:center;gap:8px">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    Guardadas
+  </div>
+
+  <div style="display:flex;gap:8px;-webkit-app-region:no-drag">
+    <input type="text" id="searchInput" placeholder="Buscar tarea guardada..." oninput="renderGroups()" style="flex:1">
+    <button class="btn-primary" onclick="openStartPopup(null)" style="white-space:nowrap;display:flex;align-items:center;gap:6px">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Nueva
+    </button>
+  </div>
+
+  <div class="groups-list" id="groupsList"></div>
+
+  <div class="popup-backdrop" id="startPopupBackdrop" style="display:none" onclick="closeStartPopup()"></div>
+  <div class="entry-popup" id="startPopup" style="display:none">
+    <div class="entry-popup-title" id="startPopupTitle">Nueva tarea</div>
+    <div id="startPopupNameFields">
+      <input type="text" id="startPopupName" placeholder="Nombre de la tarea..." maxlength="40">
+    </div>
+    <div id="startPopupColorSection" style="display:none">
+      <div class="colors-label">Color</div>
+      <div class="color-row" id="startPopupColorPicker"></div>
+    </div>
+    <div class="back-row" style="flex-wrap:wrap;row-gap:6px">
+      <span class="back-label">¿Ya llevas tiempo? Empezó hace:</span>
+      <input type="number" id="startBackMinutes" placeholder="0" min="0" max="600"
+        style="width:64px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:13px;padding:6px 8px;outline:none;-webkit-app-region:no-drag">
+      <span class="back-label">min</span>
+      <span class="back-label">o desde:</span>
+      <input type="time" id="startBackTime"
+        style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:13px;padding:6px 8px;outline:none;-webkit-app-region:no-drag">
+    </div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeStartPopup()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmStart()">▶ Empezar</button>
+    </div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+const { ipcRenderer } = require('electron');
+let currentState = null;
+let startPopupTaskId = null; // null = crear tarea nueva
+let startPopupColor = COLORS[0];
+const collapsedGroups = new Set();
+
+function fmt(secs) {
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+}
+
+ipcRenderer.on('state', (_, state) => { currentState = state; renderGroups(); });
+ipcRenderer.send('action', { type: 'get-state' });
+
+function renderGroups() {
+  const list = document.getElementById('groupsList');
+  list.innerHTML = '';
+  if (!currentState) return;
+
+  const query = document.getElementById('searchInput').value.trim().toLowerCase();
+  const groups = currentState.groups || [];
+  const archivedTasks = currentState.tasks.filter(t => t.archived);
+
+  if (!groups.length || !archivedTasks.length) {
+    list.innerHTML = '<div class="empty-state">Todavía no has guardado ninguna tarea.<br>Crea una con el botón "+ Nueva" de arriba, o guarda una existente desde el panel principal.</div>';
+    return;
+  }
+
+  let anyVisible = false;
+  groups.forEach(g => {
+    const tasksInGroup = archivedTasks.filter(t => t.groupId === g.id);
+    if (!tasksInGroup.length) return;
+    const filtered = query ? tasksInGroup.filter(t => t.name.toLowerCase().includes(query)) : tasksInGroup;
+    if (query && !filtered.length) return;
+    anyVisible = true;
+
+    const collapsed = !query && collapsedGroups.has(g.id);
+    const card = document.createElement('div');
+    card.className = 'group-card' + (collapsed ? ' collapsed' : '');
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    header.innerHTML = `
+      <svg class="group-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg>
+      <span class="group-name">${g.name}</span>
+      <span class="group-count">${tasksInGroup.length}</span>`;
+    header.onclick = () => {
+      if (collapsedGroups.has(g.id)) collapsedGroups.delete(g.id); else collapsedGroups.add(g.id);
+      renderGroups();
+    };
+    card.appendChild(header);
+
+    const tasksWrap = document.createElement('div');
+    tasksWrap.className = 'group-tasks';
+    filtered.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'archived-task-row';
+      row.title = 'Click para empezarla y volver a mostrarla en el panel principal';
+      row.innerHTML = `<div class="archived-dot" style="background:${t.color}"></div><span class="archived-task-name">${t.name}</span><span class="archived-task-time">${fmt(t.totalSecs)}</span>`;
+      row.onclick = () => openStartPopup(t);
+      tasksWrap.appendChild(row);
+    });
+    card.appendChild(tasksWrap);
+    list.appendChild(card);
+  });
+
+  if (!anyVisible) {
+    list.innerHTML = '<div class="empty-state">Sin resultados para esa búsqueda.</div>';
+  }
+}
+
+function openStartPopup(task) {
+  const isNew = !task;
+  startPopupTaskId = isNew ? null : task.id;
+
+  document.getElementById('startPopupTitle').textContent = isNew ? 'Nueva tarea' : task.name;
+  document.getElementById('startPopupNameFields').style.display = isNew ? 'block' : 'none';
+  document.getElementById('startPopupName').value = '';
+
+  const manualColors = currentState && currentState.settings && currentState.settings.colorMode === 'manual';
+  document.getElementById('startPopupColorSection').style.display = (isNew && manualColors) ? '' : 'none';
+  if (isNew) buildStartColorPicker();
+
+  document.getElementById('startBackMinutes').value = '';
+  document.getElementById('startBackTime').value = '';
+  document.getElementById('startPopupBackdrop').style.display = 'block';
+  document.getElementById('startPopup').style.display = 'flex';
+}
+function buildStartColorPicker() {
+  const cp = document.getElementById('startPopupColorPicker');
+  cp.innerHTML = '';
+  startPopupColor = COLORS[0];
+  COLORS.forEach((c, i) => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch' + (i === 0 ? ' selected' : '');
+    sw.style.background = c;
+    sw.onclick = () => { cp.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected')); sw.classList.add('selected'); startPopupColor = c; };
+    cp.appendChild(sw);
+  });
+}
+function closeStartPopup() {
+  document.getElementById('startPopupBackdrop').style.display = 'none';
+  document.getElementById('startPopup').style.display = 'none';
+  startPopupTaskId = null;
+}
+function confirmStart() {
+  const backMinutes = computeBackMinutes('startBackMinutes', 'startBackTime');
+  if (startPopupTaskId) {
+    ipcRenderer.send('action', { type: 'restore-and-start-task', payload: { taskId: startPopupTaskId, backMinutes } });
+  } else {
+    const name = document.getElementById('startPopupName').value.trim();
+    if (!name) { alert('Ponle un nombre a la tarea'); return; }
+    ipcRenderer.send('action', { type: 'create-task', payload: { name, color: startPopupColor, backMinutes } });
+  }
+  closeStartPopup();
+}
+
+function closeWin() { ipcRenderer.send('action', { type: 'close-groups' }); }
+</script>
+</body>
+</html>

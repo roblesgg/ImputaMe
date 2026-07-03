@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="shared.css">
 <style>
-  body { width: 480px; height: 660px; border-radius: var(--radius); overflow: hidden; }
+  html, body { width:100%;height:100%; }
+  body { border-radius: var(--radius); overflow: hidden; }
 
-  .app { width:100%;height:100%;display:flex;flex-direction:column;padding:24px;gap:16px;position:relative; }
+  .app { width:100%;height:100%;display:flex;flex-direction:column;padding:24px;gap:16px;position:relative;min-height:0; }
 
   .titlebar { display:flex;align-items:center;justify-content:space-between; }
   .app-title { font-size:18px;font-weight:700;letter-spacing:-.02em; }
@@ -23,7 +24,7 @@
 
   .section-label { font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px; }
 
-  .tasks-list { display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto;padding-right:4px; }
+  .tasks-list { display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow-y:auto;padding-right:4px; }
 
   .task-row { display:flex;align-items:center;gap:8px; }
   .task-row .task-pill { flex:1; }
@@ -40,14 +41,8 @@
   .icon-btn.is-stopped { color:var(--success); }
 
   .new-task-area { border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:8px; }
-  .new-task-row { display:flex;gap:8px;-webkit-app-region:no-drag; }
-  .new-task-row input { flex:1; }
-
-  .back-row { display:flex;align-items:center;gap:8px;-webkit-app-region:no-drag; }
-  .back-label { font-size:12px;color:var(--text2);white-space:nowrap; }
 
   .empty-state { text-align:center;color:var(--text2);font-size:14px;padding:30px 0; }
-  .colors-label { font-size:11px;color:var(--text2);margin-bottom:4px; }
 
   .playing-badge {
     display:inline-flex;align-items:center;gap:5px;
@@ -76,7 +71,7 @@
       <div class="app-title">imputa<span class="brand-dot">.</span>me</div>
       <div class="app-subtitle" id="subtitle">Cargando...</div>
     </div>
-    <div id="activeBadge" style="display:none;margin-top:16px" class="playing-badge">
+    <div id="activeBadge" style="display:none;margin-top:40px" class="playing-badge">
       <div class="dot"></div>
       <span id="activeName">—</span>
     </div>
@@ -88,14 +83,21 @@
       <div class="total-time" id="totalTime">0m 00s</div>
     </div>
     <div style="display:flex;gap:8px;-webkit-app-region:no-drag">
-      <button class="btn-ghost" onclick="openCalendar()" style="font-size:12px">📅 Calendario</button>
+      <button class="btn-ghost" onclick="openCalendar()" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Calendario
+      </button>
+      <button class="btn-ghost" onclick="openGroups()" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Guardadas
+      </button>
       <button class="btn-ghost" onclick="openSettings()" style="font-size:12px;padding:8px 10px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </div>
   </div>
 
-  <div>
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <div class="section-label" style="margin-bottom:0">Tareas</div>
       <div class="back-row" style="margin:0;flex-wrap:wrap;row-gap:4px">
@@ -114,47 +116,48 @@
   </div>
 
   <div class="new-task-area">
-    <div class="section-label">Nueva tarea</div>
-    <div class="new-task-row">
-      <input type="text" id="newTaskName" placeholder="Nombre de la tarea..." maxlength="40"
-        onkeydown="if(event.key==='Enter') addTask()">
-      <button class="btn-primary" onclick="addTask()">+ Añadir</button>
+    <button class="btn-primary" onclick="openGroups()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Añadir tarea
+    </button>
+  </div>
+
+  <div class="popup-backdrop" id="colorPopupBackdrop" style="display:none" onclick="closeColorPopup()"></div>
+  <div class="entry-popup" id="colorPopup" style="display:none">
+    <div class="entry-popup-title">Color de la tarea</div>
+    <div class="color-row" id="colorPopupPicker"></div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeColorPopup()">Cerrar</button>
     </div>
-    <div class="back-row" style="flex-wrap:wrap;row-gap:6px">
-      <span class="back-label">¿Ya llevas tiempo? Empezó hace:</span>
-      <input type="number" id="backMinutes" placeholder="0" min="0" max="600"
-        style="width:64px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:13px;padding:6px 8px;outline:none;-webkit-app-region:no-drag">
-      <span class="back-label">min</span>
-      <span class="back-label">o desde:</span>
-      <input type="time" id="backTime"
-        style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:13px;padding:6px 8px;outline:none;-webkit-app-region:no-drag;color-scheme:dark">
+  </div>
+
+  <div class="popup-backdrop" id="archivePopupBackdrop" style="display:none" onclick="closeArchivePopup()"></div>
+  <div class="entry-popup" id="archivePopup" style="display:none">
+    <div class="entry-popup-title">Guardar en un grupo</div>
+    <select id="archiveGroupSelect" onchange="onArchiveGroupChange()"></select>
+    <div id="archiveNewGroupFields" style="display:none;flex-direction:column;gap:8px">
+      <input type="text" id="archiveNewGroupName" placeholder="Nombre del grupo nuevo..." maxlength="40">
     </div>
-    <div id="colorSection">
-      <div class="colors-label">Color</div>
-      <div class="color-row" id="colorPicker"></div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeArchivePopup()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmArchive()">Guardar</button>
     </div>
   </div>
 </div>
 
+<script src="shared.js"></script>
 <script>
 const { ipcRenderer } = require('electron');
 
-const COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
-let selectedColor = COLORS[0];
 let currentState = null;
 let ticker = null;
+let colorPopupTaskId = null;
+let archivePopupTaskId = null;
 
 const SVG_PLAY = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M3 2l7 4-7 4V2z"/></svg>`;
 const SVG_PAUSE = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg>`;
-
-const cp = document.getElementById('colorPicker');
-COLORS.forEach((c, i) => {
-  const sw = document.createElement('div');
-  sw.className = 'color-swatch' + (i===0?' selected':'');
-  sw.style.background = c;
-  sw.onclick = () => { document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected')); sw.classList.add('selected'); selectedColor = c; };
-  cp.appendChild(sw);
-});
 
 function fmt(secs) {
   const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;
@@ -165,50 +168,96 @@ function fmt(secs) {
 ipcRenderer.on('state', (_, state) => { currentState = state; render(state); });
 ipcRenderer.send('action', { type: 'get-state' });
 
+const SVG_SAVE = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+
+let lastRenderedIds = null;
+
+function buildRow(t, state) {
+  const isActive = t.id === state.activeTaskId;
+  const row = document.createElement('div');
+  row.className = 'task-row';
+  row.dataset.taskId = t.id;
+
+  const pill = document.createElement('div');
+  pill.className = 'task-pill' + (isActive?' active':'');
+  pill.innerHTML = `
+    <div class="task-pill-inner">
+      <div class="task-dot" style="background:${t.color};cursor:pointer" title="Cambiar color" onclick="event.stopPropagation();openColorPopup('${t.id}')"></div>
+      <span class="task-name">${t.name}</span>
+      <span class="task-time">${fmt(t.todaySecs)}</span>
+      <div class="task-pill-actions">
+        <button class="icon-btn" title="Guardar en un grupo" onclick="event.stopPropagation();archiveTask('${t.id}')">
+          ${SVG_SAVE}
+        </button>
+        <button class="icon-btn ${isActive?'is-playing':'is-stopped'}" title="${isActive?'Pausar':'Iniciar'}"
+          onclick="switchTask('${t.id}')">
+          ${isActive ? SVG_PAUSE : SVG_PLAY}
+        </button>
+      </div>
+    </div>`;
+
+  const del = document.createElement('button');
+  del.className = 'btn-danger';
+  del.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  del.style.cssText = 'padding:7px 9px;';
+  del.onclick = () => {
+    if (confirm(`¿Eliminar "${t.name}"?`))
+      ipcRenderer.send('action', { type:'delete-task', payload:{ taskId:t.id } });
+  };
+  row.appendChild(pill);
+  row.appendChild(del);
+  return row;
+}
+
+function updateRowContent(row, t, state) {
+  const isActive = t.id === state.activeTaskId;
+  const pill = row.querySelector('.task-pill');
+  pill.classList.toggle('active', isActive);
+  const dot = pill.querySelector('.task-dot');
+  if (dot) dot.style.background = t.color;
+  const timeEl = pill.querySelector('.task-time');
+  if (timeEl) timeEl.textContent = fmt(t.todaySecs);
+  const playBtn = pill.querySelector('.task-pill-actions .icon-btn:last-child');
+  if (playBtn) {
+    playBtn.className = 'icon-btn ' + (isActive ? 'is-playing' : 'is-stopped');
+    playBtn.title = isActive ? 'Pausar' : 'Iniciar';
+    playBtn.innerHTML = isActive ? SVG_PAUSE : SVG_PLAY;
+  }
+}
+
 function render(state) {
+  const visibleTasks = state.tasks.filter(t => !t.archived);
   const active = state.tasks.find(t => t.id === state.activeTaskId);
-  document.getElementById('colorSection').style.display = (state.settings && state.settings.colorMode === 'manual') ? '' : 'none';
   document.getElementById('totalTime').textContent = fmt(state.todayTotal);
-  document.getElementById('subtitle').textContent = active ? `▶ ${active.name}` : `${state.tasks.length} tarea(s)`;
+  document.getElementById('subtitle').textContent = active ? `▶ ${active.name}` : `${visibleTasks.length} tarea(s)`;
   const badge = document.getElementById('activeBadge');
   if (active) { badge.style.display='inline-flex'; document.getElementById('activeName').textContent=active.name; }
   else badge.style.display='none';
 
   const list = document.getElementById('tasksList');
-  if (!state.tasks.length) { list.innerHTML='<div class="empty-state">Sin tareas. Crea una abajo ↓</div>'; return; }
+  if (!visibleTasks.length) {
+    list.innerHTML='<div class="empty-state">Sin tareas. Crea una abajo ↓</div>';
+    lastRenderedIds = null;
+    return;
+  }
+
+  // Si las tareas visibles son exactamente las mismas que la última vez (mismo orden),
+  // actualizamos cada fila en el sitio en vez de destruir y recrear todo el DOM: así,
+  // durante el segundo a segundo mientras hay una tarea activa, no se pierde el :hover
+  // ni parpadean los botones bajo el cursor (mismo problema que había en el calendario).
+  const ids = visibleTasks.map(t => t.id);
+  const sameSet = lastRenderedIds && ids.length === lastRenderedIds.length && ids.every((id, i) => id === lastRenderedIds[i]);
+  if (sameSet) {
+    visibleTasks.forEach(t => {
+      const row = list.querySelector(`[data-task-id="${t.id}"]`);
+      if (row) updateRowContent(row, t, state);
+    });
+    return;
+  }
+
+  lastRenderedIds = ids;
   list.innerHTML = '';
-  state.tasks.forEach(t => {
-    const isActive = t.id === state.activeTaskId;
-    const row = document.createElement('div');
-    row.className = 'task-row';
-
-    const pill = document.createElement('div');
-    pill.className = 'task-pill' + (isActive?' active':'');
-    pill.innerHTML = `
-      <div class="task-pill-inner">
-        <div class="task-dot" style="background:${t.color}"></div>
-        <span class="task-name">${t.name}</span>
-        <span class="task-time">${fmt(t.todaySecs)}</span>
-        <div class="task-pill-actions">
-          <button class="icon-btn ${isActive?'is-playing':'is-stopped'}" title="${isActive?'Pausar':'Iniciar'}"
-            onclick="switchTask('${t.id}')">
-            ${isActive ? SVG_PAUSE : SVG_PLAY}
-          </button>
-        </div>
-      </div>`;
-
-    const del = document.createElement('button');
-    del.className = 'btn-danger';
-    del.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-    del.style.cssText = 'padding:7px 9px;';
-    del.onclick = () => {
-      if (confirm(`¿Eliminar "${t.name}"?`))
-        ipcRenderer.send('action', { type:'delete-task', payload:{ taskId:t.id } });
-    };
-    row.appendChild(pill);
-    row.appendChild(del);
-    list.appendChild(row);
-  });
+  visibleTasks.forEach(t => list.appendChild(buildRow(t, state)));
 }
 
 if (ticker) clearInterval(ticker);
@@ -218,37 +267,91 @@ ticker = setInterval(() => {
   if (t) { t.todaySecs++; currentState.todayTotal++; render(currentState); }
 }, 1000);
 
-function computeBackMinutes(minId, timeId) {
-  const timeVal = document.getElementById(timeId).value;
-  if (timeVal) {
-    const [h, m] = timeVal.split(':').map(Number);
-    const start = new Date();
-    start.setHours(h, m, 0, 0);
-    let diffMin = Math.round((Date.now() - start.getTime()) / 60000);
-    if (diffMin < 0) diffMin += 24 * 60;
-    return diffMin;
-  }
-  return parseInt(document.getElementById(minId).value) || 0;
-}
 function switchTask(taskId) {
   const backMinutes = computeBackMinutes('startBackMin', 'startBackTime');
   ipcRenderer.send('action', { type:'switch-task', payload:{ taskId, backMinutes: backMinutes || undefined } });
   document.getElementById('startBackMin').value = '';
   document.getElementById('startBackTime').value = '';
 }
-function addTask() {
-  const name = document.getElementById('newTaskName').value.trim();
-  if (!name) return;
-  const backMinutes = computeBackMinutes('backMinutes', 'backTime');
-  ipcRenderer.send('action', { type:'create-task', payload:{ name, color:selectedColor, backMinutes } });
-  document.getElementById('newTaskName').value = '';
-  document.getElementById('backMinutes').value = '';
-  document.getElementById('backTime').value = '';
-}
 function openCalendar() { ipcRenderer.send('action', { type:'open-calendar' }); }
 function openSettings() { ipcRenderer.send('action', { type:'open-settings' }); }
+function openGroups() { ipcRenderer.send('action', { type:'open-groups' }); }
 function minimize() { ipcRenderer.send('action', { type:'min-main' }); }
 function closeWin() { ipcRenderer.send('action', { type:'close-main' }); }
+
+// ---------- Color de una tarea existente ----------
+function openColorPopup(taskId) {
+  colorPopupTaskId = taskId;
+  const task = currentState && currentState.tasks.find(t => t.id === taskId);
+  const picker = document.getElementById('colorPopupPicker');
+  picker.innerHTML = '';
+  COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch' + (task && task.color === c ? ' selected' : '');
+    sw.style.background = c;
+    sw.onclick = () => {
+      ipcRenderer.send('action', { type:'edit-task-color', payload:{ taskId: colorPopupTaskId, color: c } });
+      closeColorPopup();
+    };
+    picker.appendChild(sw);
+  });
+  document.getElementById('colorPopupBackdrop').style.display = 'block';
+  document.getElementById('colorPopup').style.display = 'flex';
+}
+function closeColorPopup() {
+  document.getElementById('colorPopupBackdrop').style.display = 'none';
+  document.getElementById('colorPopup').style.display = 'none';
+  colorPopupTaskId = null;
+}
+
+// ---------- Guardar tarea en un grupo ----------
+function archiveTask(taskId) {
+  const task = currentState && currentState.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  if (task.groupId) {
+    ipcRenderer.send('action', { type:'archive-task', payload:{ taskId, groupId: task.groupId } });
+  } else {
+    openArchivePopup(taskId);
+  }
+}
+function openArchivePopup(taskId) {
+  archivePopupTaskId = taskId;
+  const select = document.getElementById('archiveGroupSelect');
+  select.innerHTML = '';
+  const groups = (currentState && currentState.groups) || [];
+  groups.forEach(g => {
+    const opt = document.createElement('option'); opt.value = g.id; opt.textContent = g.name;
+    select.appendChild(opt);
+  });
+  const newOpt = document.createElement('option'); newOpt.value = '__new__'; newOpt.textContent = '+ Grupo nuevo';
+  select.appendChild(newOpt);
+  select.value = groups.length ? groups[0].id : '__new__';
+  onArchiveGroupChange();
+  document.getElementById('archivePopupBackdrop').style.display = 'block';
+  document.getElementById('archivePopup').style.display = 'flex';
+}
+function onArchiveGroupChange() {
+  const isNew = document.getElementById('archiveGroupSelect').value === '__new__';
+  document.getElementById('archiveNewGroupFields').style.display = isNew ? 'flex' : 'none';
+}
+function closeArchivePopup() {
+  document.getElementById('archivePopupBackdrop').style.display = 'none';
+  document.getElementById('archivePopup').style.display = 'none';
+  archivePopupTaskId = null;
+}
+function confirmArchive() {
+  const select = document.getElementById('archiveGroupSelect');
+  const isNew = select.value === '__new__';
+  if (isNew) {
+    const name = document.getElementById('archiveNewGroupName').value.trim();
+    if (!name) { alert('Ponle un nombre al grupo'); return; }
+    ipcRenderer.send('action', { type:'archive-task', payload:{ taskId: archivePopupTaskId, groupName: name } });
+  } else {
+    ipcRenderer.send('action', { type:'archive-task', payload:{ taskId: archivePopupTaskId, groupId: select.value } });
+  }
+  document.getElementById('archiveNewGroupName').value = '';
+  closeArchivePopup();
+}
 </script>
 </body>
 </html>
