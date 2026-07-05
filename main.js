@@ -17,6 +17,12 @@ let groupsWin = null;
 let splashWin = null;
 let reminderTimer = null;
 let tickTimer = null;
+let syncWin = null;
+let syncStatus = { loggedIn: false, email: null };
+
+// Módulo de sincronización opcional (Supabase). Si falla el require, la app sigue local.
+let sync = null;
+try { sync = require('./sync'); } catch {}
 
 // ── Estado ──────────────────────────────────────────────────────────────────
 let state = {
@@ -50,8 +56,12 @@ function loadData() {
   } catch {}
 }
 
-function saveData() {
+function saveDataRaw() {
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2)); } catch {}
+}
+function saveData() {
+  saveDataRaw();
+  if (sync) sync.schedulePush();   // sube los cambios al servidor (si hay sesión)
 }
 
 function saveSettings() {
@@ -119,6 +129,7 @@ function buildTrayMenu() {
     { label: 'Calendario', click: () => openCalendar() },
     { label: 'Guardadas', click: () => openGroups() },
     { label: 'Ajustes', click: () => openSettings() },
+    { label: `Sincronizar (móvil)${syncStatus.loggedIn ? ' ✓' : ''}…`, click: () => openSync() },
     { label: 'Pausar', click: () => pauseActive(), enabled: !!active },
     { type: 'separator' },
     { label: 'Buscar actualizaciones…', click: () => checkForUpdates(true) },
@@ -358,6 +369,13 @@ function openGroups() {
   groupsWin.on('closed', () => { groupsWin = null; });
 }
 
+function openSync() {
+  if (syncWin && !syncWin.isDestroyed()) { syncWin.show(); syncWin.focus(); return; }
+  syncWin = makeWindow('sync.html', 380, 360, { center: true });
+  syncWin.once('ready-to-show', () => { syncWin.show(); syncWin.webContents.send('sync-status', syncStatus); });
+  syncWin.on('closed', () => { syncWin = null; });
+}
+
 // ── IPC ───────────────────────────────────────────────────────────────────────
 function getSerializableState() {
   return {
@@ -420,9 +438,16 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'close-calendar': if (calendarWin && !calendarWin.isDestroyed()) calendarWin.hide(); break;
     case 'close-settings': if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide(); break;
     case 'close-groups':   if (groupsWin && !groupsWin.isDestroyed()) groupsWin.hide(); break;
+    case 'open-sync':     openSync(); break;
+    case 'close-sync':    if (syncWin && !syncWin.isDestroyed()) syncWin.hide(); break;
     case 'get-state':     event.reply('state', getSerializableState()); break;
   }
 });
+
+// Login/logout de sincronización (respuestas asíncronas)
+ipcMain.handle('sync-login', async (_e, { email, password }) => sync ? sync.login(email, password) : { ok: false, error: 'Sync no disponible' });
+ipcMain.handle('sync-logout', async () => sync ? sync.logout() : { ok: true });
+ipcMain.handle('sync-status', async () => syncStatus);
 
 function startTick() {
   tickTimer = setInterval(() => {
@@ -516,6 +541,19 @@ app.whenReady().then(() => {
   DATA_FILE = path.join(app.getPath('userData'), 'imputa-tasks.json');
   SETTINGS_FILE = path.join(app.getPath('userData'), 'imputa-settings.json');
   loadData();
+
+  // Sincronización opcional (Supabase). Si hay sesión guardada, arranca sola.
+  if (sync) sync.init({
+    sessionFile: path.join(app.getPath('userData'), 'imputa-sync.json'),
+    getState: () => state,
+    saveRaw: saveDataRaw,
+    onChange: () => { saveDataRaw(); broadcastState(); },
+    onStatus: (s) => {
+      syncStatus = s;
+      if (tray) tray.setContextMenu(buildTrayMenu());
+      if (syncWin && !syncWin.isDestroyed()) syncWin.webContents.send('sync-status', s);
+    },
+  }).catch(() => {});
 
   const trayIcon = nativeImage.createFromPath(APP_ICON_PATH).resize({ width: 32, height: 32, quality: 'best' });
 

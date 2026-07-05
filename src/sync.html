@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="shared.css">
+<style>
+  html, body { width:100%;height:100%; }
+  body { border-radius:var(--radius);overflow:hidden; }
+  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:16px;position:relative; }
+  .app-title { font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px; }
+  .sub { font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:-6px; }
+  .field { display:flex;flex-direction:column;gap:8px; }
+  input[type=email], input[type=password] {
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);
+    color:var(--text);font-family:inherit;font-size:14px;padding:11px 13px;outline:none;
+    -webkit-app-region:no-drag;
+  }
+  input:focus { border-color:var(--accent); }
+  .msg { font-size:12.5px;min-height:16px; }
+  .msg.err { color:#f87171; }
+  .msg.ok { color:#34d399; }
+  .footer { display:flex;gap:8px;justify-content:flex-end;-webkit-app-region:no-drag;margin-top:auto; }
+  .who { font-size:13.5px;color:var(--text); }
+  .who b { color:var(--accent2); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div class="app animate-in">
+  <div class="win-controls">
+    <button class="win-btn close" onclick="cerrar()" title="Cerrar">
+      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="app-title">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 0 1 9-9"/></svg>
+    Sincronización
+  </div>
+
+  <!-- Logueado -->
+  <div id="loggedIn" class="hidden field">
+    <p class="who">Sesión iniciada como <b id="who"></b></p>
+    <p class="sub">Tus tareas y tiempos se sincronizan con el móvil y la web en vivo. Usa la misma cuenta en todos los dispositivos.</p>
+    <div class="footer">
+      <button class="btn-ghost" onclick="salir()">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <!-- No logueado -->
+  <div id="loggedOut" class="hidden field">
+    <p class="sub">Inicia sesión con la misma cuenta de la app móvil (imputame-app.dripdev.dev) para sincronizar tus horas entre el PC y el móvil.</p>
+    <input type="email" id="email" placeholder="Correo electrónico" autocomplete="email">
+    <input type="password" id="password" placeholder="Contraseña" autocomplete="current-password">
+    <div class="msg" id="msg"></div>
+    <div class="footer">
+      <button class="btn-ghost" onclick="cerrar()">Cancelar</button>
+      <button class="btn-primary" id="btnEntrar" onclick="entrar()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+
+function pinta(status) {
+  const inSes = status && status.loggedIn;
+  document.getElementById('loggedIn').classList.toggle('hidden', !inSes);
+  document.getElementById('loggedOut').classList.toggle('hidden', !!inSes);
+  if (inSes) document.getElementById('who').textContent = status.email || '';
+}
+
+async function refrescar() {
+  try { pinta(await ipcRenderer.invoke('sync-status')); } catch { pinta({ loggedIn:false }); }
+}
+
+async function entrar() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('btnEntrar');
+  msg.className = 'msg'; msg.textContent = '';
+  if (!email || !password) { msg.className = 'msg err'; msg.textContent = 'Escribe correo y contraseña.'; return; }
+  btn.disabled = true; btn.textContent = 'Un momento…';
+  try {
+    const r = await ipcRenderer.invoke('sync-login', { email, password });
+    if (r && r.ok) { msg.className = 'msg ok'; msg.textContent = 'Conectado. Sincronizando…'; refrescar(); }
+    else { msg.className = 'msg err'; msg.textContent = (r && r.error) || 'No se pudo entrar.'; }
+  } catch (e) { msg.className = 'msg err'; msg.textContent = String(e.message || e); }
+  btn.disabled = false; btn.textContent = 'Entrar';
+}
+
+async function salir() { try { await ipcRenderer.invoke('sync-logout'); } catch {} refrescar(); }
+function cerrar() { ipcRenderer.send('action', { type:'close-sync' }); }
+
+ipcRenderer.on('sync-status', (_, s) => pinta(s));
+refrescar();
+</script>
+</body>
+</html>
