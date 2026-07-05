@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+*.log
+
+# Capacitor / Android
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+*.keystore
+!debug.keystore
+
+.vercel
+
+# Firma Android (NO subir: contiene la contraseña / clave de firma)
+android/keystore.properties
+android/imputame.keystore
