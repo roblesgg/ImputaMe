@@ -57,6 +57,9 @@
     display:inline-flex;align-items:center;gap:5px;
     background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);
     border-radius:20px;font-size:11px;color:var(--success);padding:3px 10px;
+    /* Es solo informativo (la tarea activa ya sale en el subtítulo). Sin esto, al
+       colgar sobre los botones de abajo les robaba el clic en su mitad superior. */
+    pointer-events:none;
   }
   .playing-badge .dot { width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse2 1.4s ease-in-out infinite; }
   @keyframes pulse2 { 0%,100%{opacity:1}50%{opacity:.3} }

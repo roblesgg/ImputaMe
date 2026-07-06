@@ -1,4 +1,4 @@
 {
-  "version": "1.2.1",
-  "notes": "Correcciones: la × del calendario vuelve a funcionar y queda centrada, el scroll con la rueda funciona en Ajustes, y los nombres largos de las tareas bajan de línea para verse enteros (en el panel, en Guardadas y en el calendario). Además, ahora puedes iniciar sesión con Google para sincronizar con el móvil."
+  "version": "1.2.2",
+  "notes": "Instalador de una sola ventana (sin asistente de Windows). Arreglado que el badge de tarea activa robaba el clic a la mitad superior de los botones Calendario/Ajustes, la ventana de sincronización ahora se ve completa, y el inicio de sesión con Google se hace por el navegador del sistema (más fiable)."
 }

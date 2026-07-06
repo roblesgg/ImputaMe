@@ -70,14 +70,15 @@ const OAUTH_REDIRECT = 'https://imputame-app.dripdev.dev';
 
 // Paso 1 del login social: devuelve la URL a la que hay que llevar al usuario
 // (se abre en una ventana de la app). El main.js intercepta el redirect con el ?code=.
-async function getOAuthUrl(provider) {
+async function getOAuthUrl(provider, redirectTo) {
   if (!supabase) return { ok: false, error: 'Sync no disponible' };
+  const redirect = redirectTo || OAUTH_REDIRECT;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: OAUTH_REDIRECT, skipBrowserRedirect: true },
+    options: { redirectTo: redirect, skipBrowserRedirect: true },
   });
   if (error) return { ok: false, error: traducir(error.message) };
-  return { ok: true, url: data.url, redirect: OAUTH_REDIRECT };
+  return { ok: true, url: data.url, redirect };
 }
 
 // Paso 2: intercambia el ?code= por una sesión (usa el code_verifier PKCE guardado
