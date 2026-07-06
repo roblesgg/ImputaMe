@@ -1,7 +1,6 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const http = require('http');
 
 const APP_ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
 const TASK_COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
@@ -551,48 +550,6 @@ ipcMain.handle('export-csv', async (_e, { content, defaultName }) => {
 
 // Login/logout de sincronización (respuestas asíncronas)
 ipcMain.handle('sync-login', async (_e, { email, password }) => sync ? sync.login(email, password) : { ok: false, error: 'Sync no disponible' });
-
-// Login con Google (OAuth PKCE) por el navegador del sistema:
-//  1) pedimos a Supabase la URL de autorización (redirectTo = servidor local).
-//  2) la abrimos en el navegador normal del usuario (Google no bloquea así).
-//  3) un pequeño servidor local en 127.0.0.1 recibe el ?code= del redirect y lo
-//     canjeamos por una sesión. Esto evita el bloqueo de "webview embebida" de Google.
-const OAUTH_LOOPBACK_PORT = 8438;
-ipcMain.handle('sync-login-google', async () => {
-  if (!sync || !sync.getOAuthUrl) return { ok: false, error: 'Sync no disponible' };
-  const redirectTo = `http://localhost:${OAUTH_LOOPBACK_PORT}`;
-  let start;
-  try { start = await sync.getOAuthUrl('google', redirectTo); } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
-  if (!start || !start.ok) return start || { ok: false, error: 'No se pudo iniciar el login de Google' };
-
-  return await new Promise((resolve) => {
-    let settled = false, server = null, timer = null;
-    const finish = (result) => {
-      if (settled) return; settled = true;
-      if (timer) clearTimeout(timer);
-      try { if (server) server.close(); } catch {}
-      if (syncWin && !syncWin.isDestroyed()) { syncWin.show(); syncWin.focus(); }
-      resolve(result);
-    };
-    const page = (title, msg) => `<!doctype html><html><head><meta charset="utf-8"><title>imputa.me</title></head><body style="font-family:'Segoe UI',system-ui,sans-serif;background:#12121c;color:#f0f0f8;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center;max-width:340px;padding:24px"><h2 style="margin:0 0 8px">${title}</h2><p style="color:#a9a9c0;line-height:1.5">${msg}</p></div></body></html>`;
-    try {
-      server = http.createServer(async (req, res) => {
-        let u; try { u = new URL(req.url, redirectTo); } catch { u = null; }
-        const code = u && u.searchParams.get('code');
-        const err = u && (u.searchParams.get('error_description') || u.searchParams.get('error'));
-        if (!code && !err) { res.writeHead(204); res.end(); return; }   // favicon u otras peticiones
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        if (err) { res.end(page('No se pudo iniciar sesión', err)); return finish({ ok: false, error: err }); }
-        res.end(page('¡Listo!', 'Ya puedes volver a imputa.me. Puedes cerrar esta pestaña.'));
-        const r = await sync.completeOAuth(code);
-        finish(r);
-      });
-      server.on('error', (e) => finish({ ok: false, error: `No se pudo abrir el puerto local ${OAUTH_LOOPBACK_PORT}: ${String((e && e.message) || e)}` }));
-      server.listen(OAUTH_LOOPBACK_PORT, '127.0.0.1', () => { shell.openExternal(start.url); });
-      timer = setTimeout(() => finish({ ok: false, canceled: true }), 180000);  // 3 min
-    } catch (e) { finish({ ok: false, error: String((e && e.message) || e) }); }
-  });
-});
 ipcMain.handle('sync-logout', async () => sync ? sync.logout() : { ok: true });
 ipcMain.handle('sync-status', async () => syncStatus);
 

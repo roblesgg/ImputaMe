@@ -34,7 +34,7 @@ async function init(opts) {
   cb = opts;
   sessionFile = opts.sessionFile;
   supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: fileStorage(), flowType: 'pkce' },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: fileStorage() },
   });
   try {
     const { data } = await supabase.auth.getSession();
@@ -63,35 +63,6 @@ async function logout() {
   currentUser = null;
   emitStatus();
   return { ok: true };
-}
-
-// URL de redirección tras el consentimiento OAuth (debe estar permitida en Supabase).
-const OAUTH_REDIRECT = 'https://imputame-app.dripdev.dev';
-
-// Paso 1 del login social: devuelve la URL a la que hay que llevar al usuario
-// (se abre en una ventana de la app). El main.js intercepta el redirect con el ?code=.
-async function getOAuthUrl(provider, redirectTo) {
-  if (!supabase) return { ok: false, error: 'Sync no disponible' };
-  const redirect = redirectTo || OAUTH_REDIRECT;
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo: redirect, skipBrowserRedirect: true },
-  });
-  if (error) return { ok: false, error: traducir(error.message) };
-  return { ok: true, url: data.url, redirect };
-}
-
-// Paso 2: intercambia el ?code= por una sesión (usa el code_verifier PKCE guardado
-// en el almacenamiento del cliente durante el paso 1) y arranca la sincronización.
-async function completeOAuth(code) {
-  if (!supabase) return { ok: false, error: 'Sync no disponible' };
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) return { ok: false, error: traducir(error.message) };
-  currentUser = (data && data.user) || (data && data.session && data.session.user) || null;
-  if (!currentUser) return { ok: false, error: 'No se pudo iniciar sesión con Google.' };
-  emitStatus();
-  await startSync();
-  return { ok: true, email: currentUser.email };
 }
 
 async function startSync() {
@@ -190,4 +161,4 @@ function traducir(msg) {
   return msg;
 }
 
-module.exports = { init, login, logout, getOAuthUrl, completeOAuth, schedulePush, isLoggedIn: () => !!currentUser };
+module.exports = { init, login, logout, schedulePush, isLoggedIn: () => !!currentUser };
