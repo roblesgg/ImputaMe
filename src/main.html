@@ -27,7 +27,16 @@
   .tasks-list { display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow-y:auto;padding-right:4px; }
 
   .task-row { display:flex;align-items:center;gap:8px; }
-  .task-row .task-pill { flex:1; }
+  .task-row .task-pill { flex:1;min-width:0; }
+
+  /* El nombre puede ser largo: se recorta con puntos suspensivos y el nombre
+     completo queda en el tooltip. Doble clic para renombrarlo en el sitio. */
+  .task-name { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;cursor:text; }
+  .rename-input {
+    width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:6px;
+    color:var(--text);font-family:inherit;font-size:14px;font-weight:500;padding:2px 6px;
+    outline:none;-webkit-app-region:no-drag;
+  }
 
   .task-pill-inner { display:flex;align-items:center;gap:10px;width:100%; }
   .task-pill-actions { display:flex;gap:4px; }
@@ -137,7 +146,7 @@
     <div class="entry-popup-title">Guardar en un grupo</div>
     <select id="archiveGroupSelect" onchange="onArchiveGroupChange()"></select>
     <div id="archiveNewGroupFields" style="display:none;flex-direction:column;gap:8px">
-      <input type="text" id="archiveNewGroupName" placeholder="Nombre del grupo nuevo..." maxlength="40">
+      <input type="text" id="archiveNewGroupName" placeholder="Nombre del grupo nuevo..." maxlength="60">
     </div>
     <div class="entry-popup-actions">
       <div style="flex:1"></div>
@@ -204,9 +213,53 @@ function buildRow(t, state) {
     if (confirm(`¿Eliminar "${t.name}"?`))
       ipcRenderer.send('action', { type:'delete-task', payload:{ taskId:t.id } });
   };
+  const nameEl = pill.querySelector('.task-name');
+  if (nameEl) {
+    nameEl.title = t.name + ' — doble clic para renombrar';
+    nameEl.ondblclick = (e) => { e.stopPropagation(); startRename(t.id); };
+  }
+
   row.appendChild(pill);
   row.appendChild(del);
   return row;
+}
+
+// Renombrado en el sitio: convierte el nombre en un textbox editable.
+function startRename(taskId) {
+  const row = document.querySelector(`[data-task-id="${taskId}"]`);
+  if (!row) return;
+  const nameEl = row.querySelector('.task-name');
+  if (!nameEl || nameEl.querySelector('input')) return;
+  const task = currentState && currentState.tasks.find(t => t.id === taskId);
+  const current = task ? task.name : nameEl.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'rename-input';
+  input.maxLength = 120;
+  input.value = current;
+  nameEl.textContent = '';
+  nameEl.appendChild(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const commit = (save) => {
+    if (done) return; done = true;
+    const val = input.value.trim();
+    if (save && val && val !== current) {
+      nameEl.textContent = val;   // optimista; el próximo state lo confirma
+      ipcRenderer.send('action', { type:'rename-task', payload:{ taskId, name: val } });
+    } else {
+      nameEl.textContent = current;
+    }
+    nameEl.title = nameEl.textContent + ' — doble clic para renombrar';
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+  });
+  input.addEventListener('blur', () => commit(true));
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('dblclick', e => e.stopPropagation());
 }
 
 function updateRowContent(row, t, state) {
@@ -215,6 +268,11 @@ function updateRowContent(row, t, state) {
   pill.classList.toggle('active', isActive);
   const dot = pill.querySelector('.task-dot');
   if (dot) dot.style.background = t.color;
+  const nameEl = pill.querySelector('.task-name');
+  if (nameEl && !nameEl.querySelector('input') && nameEl.textContent !== t.name) {
+    nameEl.textContent = t.name;
+    nameEl.title = t.name + ' — doble clic para renombrar';
+  }
   const timeEl = pill.querySelector('.task-time');
   if (timeEl) timeEl.textContent = fmt(t.todaySecs);
   const playBtn = pill.querySelector('.task-pill-actions .icon-btn:last-child');

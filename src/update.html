@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="shared.css">
+<style>
+  html, body { width:100%;height:100%; }
+  body { border-radius:var(--radius);overflow:hidden; }
+  .app { width:100%;height:100%;padding:26px 24px;display:flex;flex-direction:column;gap:14px;position:relative;align-items:center;text-align:center; }
+
+  .u-icon {
+    width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    background:linear-gradient(135deg,rgba(99,102,241,.28),rgba(129,140,248,.12));
+    border:1px solid rgba(129,140,248,.3);color:var(--accent);margin-top:6px;
+  }
+  .u-icon.ok { color:var(--success);background:linear-gradient(135deg,rgba(52,211,153,.24),rgba(52,211,153,.08));border-color:rgba(52,211,153,.3); }
+  .u-icon.err { color:var(--danger);background:linear-gradient(135deg,rgba(248,113,113,.24),rgba(248,113,113,.08));border-color:rgba(248,113,113,.3); }
+
+  .u-title { font-size:17px;font-weight:700;letter-spacing:-.01em; }
+  .u-sub { font-size:13px;color:var(--text2);line-height:1.5;max-width:300px; }
+  .u-versions { font-size:12.5px;color:var(--text2);font-variant-numeric:tabular-nums; }
+  .u-versions b { color:var(--accent2); }
+
+  .u-actions { display:flex;gap:8px;justify-content:center;margin-top:auto;padding-top:6px;width:100%; }
+  .u-actions .btn-primary, .u-actions .btn-ghost { padding:9px 18px;font-size:13px; }
+
+  /* Barra de progreso de descarga */
+  .u-progress-wrap { width:100%;max-width:300px;display:flex;flex-direction:column;gap:6px; }
+  .u-progress-track { height:8px;border-radius:5px;background:var(--bg2);border:1px solid var(--border);overflow:hidden; }
+  .u-progress-fill { height:100%;width:0%;border-radius:5px;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .25s ease; }
+  .u-progress-pct { font-size:12.5px;color:var(--text2);font-variant-numeric:tabular-nums; }
+
+  /* Spinner de "buscando" */
+  .u-spinner { width:34px;height:34px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app animate-in">
+  <div class="win-controls">
+    <button class="win-btn close" onclick="closeWin()" title="Cerrar">
+      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div id="content"></div>
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+let state = { phase: 'checking' };
+
+const ICONS = {
+  download: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 21h16"/></svg>`,
+  check: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`,
+  rocket: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 8-10 6 6 0 0 1 5 5 22 22 0 0 1-10 8z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/></svg>`,
+  warn: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>`,
+};
+
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function render() {
+  const c = document.getElementById('content');
+  const p = state.phase;
+
+  if (p === 'checking') {
+    c.innerHTML = `
+      <div class="u-spinner" style="margin:14px auto 4px"></div>
+      <div class="u-title">Buscando actualizaciones…</div>
+      <div class="u-sub">Un momento, comprobando si hay una versión más nueva.</div>
+      <div class="u-actions"><button class="btn-ghost" onclick="closeWin()">Cancelar</button></div>`;
+  } else if (p === 'available') {
+    c.innerHTML = `
+      <div class="u-icon">${ICONS.download}</div>
+      <div class="u-title">Hay una actualización disponible</div>
+      <div class="u-versions">Tu versión <b>${esc(state.current)}</b> → nueva <b>${esc(state.version)}</b></div>
+      <div class="u-sub">¿Quieres descargarla e instalarla ahora?</div>
+      <div class="u-actions">
+        <button class="btn-ghost" onclick="closeWin()">Ahora no</button>
+        <button class="btn-primary" onclick="act('update-download')">Actualizar</button>
+      </div>`;
+  } else if (p === 'downloading') {
+    const pct = state.percent || 0;
+    c.innerHTML = `
+      <div class="u-icon">${ICONS.download}</div>
+      <div class="u-title">Descargando actualización…</div>
+      <div class="u-progress-wrap">
+        <div class="u-progress-track"><div class="u-progress-fill" style="width:${pct}%"></div></div>
+        <div class="u-progress-pct">${pct}%</div>
+      </div>
+      <div class="u-sub">Puedes cerrar esta ventana; te avisaré cuando esté lista.</div>
+      <div class="u-actions"><button class="btn-ghost" onclick="closeWin()">Ocultar</button></div>`;
+  } else if (p === 'downloaded') {
+    c.innerHTML = `
+      <div class="u-icon ok">${ICONS.rocket}</div>
+      <div class="u-title">Actualización lista para instalar</div>
+      <div class="u-versions">Versión <b>${esc(state.version)}</b> descargada</div>
+      <div class="u-sub">La app se reiniciará para instalarla. No perderás ninguna tarea ni tiempo.</div>
+      <div class="u-actions">
+        <button class="btn-ghost" onclick="closeWin()">Más tarde</button>
+        <button class="btn-primary" onclick="act('update-install')">Reiniciar e instalar</button>
+      </div>`;
+  } else if (p === 'uptodate') {
+    c.innerHTML = `
+      <div class="u-icon ok">${ICONS.check}</div>
+      <div class="u-title">Todo al día</div>
+      <div class="u-sub">Ya tienes la última versión${state.current ? ` (<b>${esc(state.current)}</b>)` : ''}.</div>
+      <div class="u-actions"><button class="btn-primary" onclick="closeWin()">Vale</button></div>`;
+  } else if (p === 'unavailable') {
+    c.innerHTML = `
+      <div class="u-icon">${ICONS.warn}</div>
+      <div class="u-title">Actualizaciones no disponibles</div>
+      <div class="u-sub">Las actualizaciones automáticas solo funcionan en la versión instalada de la app (no en modo desarrollo ni en la portable).</div>
+      <div class="u-actions"><button class="btn-primary" onclick="closeWin()">Vale</button></div>`;
+  } else if (p === 'error') {
+    c.innerHTML = `
+      <div class="u-icon err">${ICONS.warn}</div>
+      <div class="u-title">No se pudo comprobar</div>
+      <div class="u-sub">${esc(state.message) || 'Ha ocurrido un error al buscar la actualización.'}</div>
+      <div class="u-actions"><button class="btn-primary" onclick="closeWin()">Vale</button></div>`;
+  }
+}
+
+function act(type) { ipcRenderer.send('action', { type }); }
+function closeWin() { ipcRenderer.send('action', { type: 'close-update' }); }
+
+ipcRenderer.on('update-state', (_, s) => { state = s || state; render(); });
+render();
+</script>
+</body>
+</html>

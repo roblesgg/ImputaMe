@@ -11,18 +11,29 @@
 
   .groups-list { flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px; }
 
-  .group-card { border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);overflow:hidden; }
+  .group-card { border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);overflow:hidden;transition:outline .1s,background .1s; }
+  .group-card.drop-target { outline:2px dashed var(--accent);outline-offset:-2px;background:rgba(99,102,241,.10); }
   .group-header {
     display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;
     -webkit-app-region:no-drag;
   }
   .group-header:hover { background:var(--bg3); }
-  .group-name { flex:1;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .group-name { flex:1;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text; }
   .group-count { font-size:11px;color:var(--text2); }
   .group-chevron { color:var(--text2);transition:transform .15s;flex-shrink:0; }
   .group-card.collapsed .group-chevron { transform:rotate(-90deg); }
+  .group-del {
+    background:transparent;border:none;color:var(--text2);width:24px;height:24px;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:all .12s;-webkit-app-region:no-drag;
+  }
+  .group-header:hover .group-del { opacity:1; }
+  .group-del:hover { background:rgba(248,113,113,.2);color:var(--danger); }
+  .group-rename-input {
+    flex:1;background:var(--bg);border:1px solid var(--accent);border-radius:6px;
+    color:var(--text);font-family:inherit;font-size:13.5px;font-weight:600;padding:2px 6px;outline:none;-webkit-app-region:no-drag;
+  }
 
-  .group-tasks { display:flex;flex-direction:column;padding:2px 8px 8px; }
+  .group-tasks { display:flex;flex-direction:column;padding:2px 8px 8px;min-height:8px; }
   .group-card.collapsed .group-tasks { display:none; }
 
   .archived-task-row {
@@ -30,10 +41,13 @@
     -webkit-app-region:no-drag;
   }
   .archived-task-row:hover { background:var(--bg3); }
+  .archived-task-row.dragging { opacity:.4; }
+  .archived-grip { color:var(--text2);opacity:.5;flex-shrink:0;cursor:grab; }
   .archived-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
   .archived-task-name { flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
   .archived-task-time { font-size:11.5px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
 
+  .group-empty-hint { font-size:11.5px;color:var(--text2);text-align:center;padding:8px 6px;font-style:italic; }
   .empty-state { text-align:center;color:var(--text2);font-size:13px;padding:34px 12px;line-height:1.5; }
 </style>
 </head>
@@ -53,6 +67,10 @@
 
   <div style="display:flex;gap:8px;-webkit-app-region:no-drag">
     <input type="text" id="searchInput" placeholder="Buscar tarea guardada..." oninput="renderGroups()" style="flex:1">
+    <button class="btn-ghost" onclick="openSectionPopup('create')" style="white-space:nowrap;display:flex;align-items:center;gap:6px" title="Crear una sección nueva">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10v4M10 12h4"/></svg>
+      Sección
+    </button>
     <button class="btn-primary" onclick="openStartPopup(null)" style="white-space:nowrap;display:flex;align-items:center;gap:6px">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       Nueva
@@ -61,11 +79,12 @@
 
   <div class="groups-list" id="groupsList"></div>
 
+  <!-- Popup crear tarea / empezar tarea guardada -->
   <div class="popup-backdrop" id="startPopupBackdrop" style="display:none" onclick="closeStartPopup()"></div>
   <div class="entry-popup" id="startPopup" style="display:none">
     <div class="entry-popup-title" id="startPopupTitle">Nueva tarea</div>
     <div id="startPopupNameFields">
-      <input type="text" id="startPopupName" placeholder="Nombre de la tarea..." maxlength="40">
+      <input type="text" id="startPopupName" placeholder="Nombre de la tarea..." maxlength="120">
     </div>
     <div id="startPopupColorSection" style="display:none">
       <div class="colors-label">Color</div>
@@ -86,6 +105,19 @@
       <button class="btn-primary" onclick="confirmStart()">▶ Empezar</button>
     </div>
   </div>
+
+  <!-- Popup crear / renombrar sección -->
+  <div class="popup-backdrop" id="sectionPopupBackdrop" style="display:none" onclick="closeSectionPopup()"></div>
+  <div class="entry-popup" id="sectionPopup" style="display:none">
+    <div class="entry-popup-title" id="sectionPopupTitle">Nueva sección</div>
+    <input type="text" id="sectionPopupName" placeholder="Nombre de la sección..." maxlength="60"
+      onkeydown="if(event.key==='Enter')confirmSection()">
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeSectionPopup()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmSection()">Guardar</button>
+    </div>
+  </div>
 </div>
 
 <script src="shared.js"></script>
@@ -94,6 +126,9 @@ const { ipcRenderer } = require('electron');
 let currentState = null;
 let startPopupTaskId = null; // null = crear tarea nueva
 let startPopupColor = COLORS[0];
+let sectionPopupMode = null;  // 'create' | 'rename'
+let sectionPopupGroupId = null;
+let draggedTaskId = null;
 const collapsedGroups = new Set();
 
 function fmt(secs) {
@@ -113,46 +148,94 @@ function renderGroups() {
   const groups = currentState.groups || [];
   const archivedTasks = currentState.tasks.filter(t => t.archived);
 
-  if (!groups.length || !archivedTasks.length) {
-    list.innerHTML = '<div class="empty-state">Todavía no has guardado ninguna tarea.<br>Crea una con el botón "+ Nueva" de arriba, o guarda una existente desde el panel principal.</div>';
+  if (!groups.length) {
+    list.innerHTML = '<div class="empty-state">Todavía no tienes secciones.<br>Crea una con "+ Sección" y guarda tareas en ella desde el panel principal, o arrastra tareas entre secciones aquí.</div>';
     return;
   }
 
   let anyVisible = false;
   groups.forEach(g => {
     const tasksInGroup = archivedTasks.filter(t => t.groupId === g.id);
-    if (!tasksInGroup.length) return;
     const filtered = query ? tasksInGroup.filter(t => t.name.toLowerCase().includes(query)) : tasksInGroup;
+    // Al buscar, ocultamos las secciones sin coincidencias; sin búsqueda mostramos
+    // todas (aunque estén vacías) para poder arrastrar tareas hacia ellas.
     if (query && !filtered.length) return;
     anyVisible = true;
 
     const collapsed = !query && collapsedGroups.has(g.id);
     const card = document.createElement('div');
     card.className = 'group-card' + (collapsed ? ' collapsed' : '');
+    card.dataset.groupId = g.id;
 
     const header = document.createElement('div');
     header.className = 'group-header';
     header.innerHTML = `
       <svg class="group-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg>
-      <span class="group-name">${g.name}</span>
-      <span class="group-count">${tasksInGroup.length}</span>`;
+      <span class="group-name" title="Doble clic para renombrar">${g.name}</span>
+      <span class="group-count">${tasksInGroup.length}</span>
+      <button class="group-del" title="Eliminar sección">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+      </button>`;
     header.onclick = () => {
       if (collapsedGroups.has(g.id)) collapsedGroups.delete(g.id); else collapsedGroups.add(g.id);
       renderGroups();
+    };
+    const nameEl = header.querySelector('.group-name');
+    nameEl.ondblclick = (e) => { e.stopPropagation(); openSectionPopup('rename', g.id, g.name); };
+    header.querySelector('.group-del').onclick = (e) => {
+      e.stopPropagation();
+      if (confirm(`¿Eliminar la sección "${g.name}"?\nLas tareas que contenga volverán al panel principal (no se borran).`))
+        ipcRenderer.send('action', { type: 'delete-group', payload: { groupId: g.id } });
     };
     card.appendChild(header);
 
     const tasksWrap = document.createElement('div');
     tasksWrap.className = 'group-tasks';
+    if (!filtered.length) {
+      const hint = document.createElement('div');
+      hint.className = 'group-empty-hint';
+      hint.textContent = 'Sección vacía · arrastra tareas aquí';
+      tasksWrap.appendChild(hint);
+    }
     filtered.forEach(t => {
       const row = document.createElement('div');
       row.className = 'archived-task-row';
-      row.title = 'Click para empezarla y volver a mostrarla en el panel principal';
-      row.innerHTML = `<div class="archived-dot" style="background:${t.color}"></div><span class="archived-task-name">${t.name}</span><span class="archived-task-time">${fmt(t.totalSecs)}</span>`;
+      row.draggable = true;
+      row.dataset.taskId = t.id;
+      row.title = 'Click para empezarla · arrástrala para moverla de sección';
+      row.innerHTML = `
+        <svg class="archived-grip" width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2.5" cy="2.5" r="1.3"/><circle cx="7.5" cy="2.5" r="1.3"/><circle cx="2.5" cy="7" r="1.3"/><circle cx="7.5" cy="7" r="1.3"/><circle cx="2.5" cy="11.5" r="1.3"/><circle cx="7.5" cy="11.5" r="1.3"/></svg>
+        <div class="archived-dot" style="background:${t.color}"></div>
+        <span class="archived-task-name">${t.name}</span>
+        <span class="archived-task-time">${fmt(t.totalSecs)}</span>`;
       row.onclick = () => openStartPopup(t);
+      row.addEventListener('dragstart', (e) => {
+        draggedTaskId = t.id;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', t.id); } catch {}
+      });
+      row.addEventListener('dragend', () => { draggedTaskId = null; row.classList.remove('dragging'); document.querySelectorAll('.group-card.drop-target').forEach(c => c.classList.remove('drop-target')); });
       tasksWrap.appendChild(row);
     });
     card.appendChild(tasksWrap);
+
+    // La tarjeta entera es zona de soltado.
+    card.addEventListener('dragover', (e) => { if (draggedTaskId) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } });
+    card.addEventListener('dragenter', (e) => { if (draggedTaskId) { e.preventDefault(); card.classList.add('drop-target'); } });
+    card.addEventListener('dragleave', (e) => { if (!card.contains(e.relatedTarget)) card.classList.remove('drop-target'); });
+    card.addEventListener('drop', (e) => {
+      e.preventDefault();
+      card.classList.remove('drop-target');
+      const taskId = draggedTaskId;
+      draggedTaskId = null;
+      if (!taskId) return;
+      const task = currentState.tasks.find(t => t.id === taskId);
+      if (task && task.groupId !== g.id) {
+        ipcRenderer.send('action', { type: 'move-task-to-group', payload: { taskId, groupId: g.id } });
+      }
+    });
+
     list.appendChild(card);
   });
 
@@ -161,6 +244,7 @@ function renderGroups() {
   }
 }
 
+// ---------- Popup nueva tarea / empezar guardada ----------
 function openStartPopup(task) {
   const isNew = !task;
   startPopupTaskId = isNew ? null : task.id;
@@ -205,6 +289,33 @@ function confirmStart() {
     ipcRenderer.send('action', { type: 'create-task', payload: { name, color: startPopupColor, backMinutes } });
   }
   closeStartPopup();
+}
+
+// ---------- Popup crear / renombrar sección ----------
+function openSectionPopup(mode, groupId, currentName) {
+  sectionPopupMode = mode;
+  sectionPopupGroupId = groupId || null;
+  document.getElementById('sectionPopupTitle').textContent = mode === 'rename' ? 'Renombrar sección' : 'Nueva sección';
+  const input = document.getElementById('sectionPopupName');
+  input.value = currentName || '';
+  document.getElementById('sectionPopupBackdrop').style.display = 'block';
+  document.getElementById('sectionPopup').style.display = 'flex';
+  setTimeout(() => { input.focus(); input.select(); }, 0);
+}
+function closeSectionPopup() {
+  document.getElementById('sectionPopupBackdrop').style.display = 'none';
+  document.getElementById('sectionPopup').style.display = 'none';
+  sectionPopupMode = null; sectionPopupGroupId = null;
+}
+function confirmSection() {
+  const name = document.getElementById('sectionPopupName').value.trim();
+  if (!name) { alert('Ponle un nombre a la sección'); return; }
+  if (sectionPopupMode === 'rename' && sectionPopupGroupId) {
+    ipcRenderer.send('action', { type: 'rename-group', payload: { groupId: sectionPopupGroupId, name } });
+  } else {
+    ipcRenderer.send('action', { type: 'create-group', payload: { name } });
+  }
+  closeSectionPopup();
 }
 
 function closeWin() { ipcRenderer.send('action', { type: 'close-groups' }); }

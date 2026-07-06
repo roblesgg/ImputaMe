@@ -18,6 +18,8 @@ let splashWin = null;
 let reminderTimer = null;
 let tickTimer = null;
 let syncWin = null;
+let updateWin = null;
+let pendingUpdateState = null;   // último estado enviado a la ventana de actualización
 let syncStatus = { loggedIn: false, email: null };
 
 // Módulo de sincronización opcional (Supabase). Si falla el require, la app sigue local.
@@ -36,6 +38,7 @@ let settings = {
   widgetAutoHide: true,
   widgetAutoHideSeconds: 10,
   colorMode: 'auto', // 'auto' | 'manual'
+  openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
 };
 
 function nextAutoColor() {
@@ -66,6 +69,16 @@ function saveData() {
 
 function saveSettings() {
   try { fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2)); } catch {}
+}
+
+// Registra (o quita) imputa.me del arranque de Windows según el ajuste.
+// Al arrancar por el login se le pasa "--hidden" para ir directo a la bandeja
+// sin abrir el panel. En desarrollo no se toca el registro (apuntaría a electron.exe).
+function applyLoginItem() {
+  if (!app.isPackaged) return;
+  try {
+    app.setLoginItemSettings({ openAtLogin: !!settings.openAtLogin, args: ['--hidden'] });
+  } catch {}
 }
 
 // ── Utilidades de tiempo ─────────────────────────────────────────────────────
@@ -184,6 +197,14 @@ function editTaskColor(taskId, color) {
   saveData(); broadcastState();
 }
 
+function renameTask(taskId, name) {
+  const task = state.tasks.find(t => t.id === taskId);
+  const n = (name || '').trim();
+  if (!task || !n) return;
+  task.name = n.slice(0, 120);
+  saveData(); broadcastState();
+}
+
 // ── Grupos guardados ─────────────────────────────────────────────────────────
 function archiveTask(taskId, groupId, groupName) {
   const task = state.tasks.find(t => t.id === taskId);
@@ -200,6 +221,41 @@ function archiveTask(taskId, groupId, groupName) {
   if (state.activeTaskId === taskId) pauseActive();
   task.archived = true;
   task.groupId = gid;
+  saveData(); broadcastState();
+}
+
+function createGroup(name) {
+  const n = (name || '').trim();
+  if (!n) return null;
+  let group = state.groups.find(g => g.name.toLowerCase() === n.toLowerCase());
+  if (!group) { group = { id: Date.now().toString(), name: n.slice(0, 60) }; state.groups.push(group); }
+  saveData(); broadcastState();
+  return group.id;
+}
+
+function renameGroup(groupId, name) {
+  const g = state.groups.find(x => x.id === groupId);
+  const n = (name || '').trim();
+  if (!g || !n) return;
+  g.name = n.slice(0, 60);
+  saveData(); broadcastState();
+}
+
+function deleteGroup(groupId) {
+  if (!state.groups.some(g => g.id === groupId)) return;
+  // Las tareas de la sección vuelven al panel principal (no se pierden).
+  state.tasks.forEach(t => { if (t.groupId === groupId) { t.archived = false; t.groupId = null; } });
+  state.groups = state.groups.filter(g => g.id !== groupId);
+  saveData(); broadcastState();
+}
+
+// Mueve una tarea (ya guardada) de una sección a otra sin sacarla de "Guardadas".
+function moveTaskToGroup(taskId, groupId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task || !state.groups.some(g => g.id === groupId)) return;
+  if (state.activeTaskId === taskId) pauseActive();
+  task.groupId = groupId;
+  task.archived = true;
   saveData(); broadcastState();
 }
 
@@ -376,6 +432,27 @@ function openSync() {
   syncWin.on('closed', () => { syncWin = null; });
 }
 
+// Ventana de actualización con el estilo de la app (sustituye a los diálogos nativos,
+// que quedaban ocultos tras el splash). Su contenido cambia según el estado que le
+// envía el auto-updater vía 'update-state'.
+function openUpdateWindow() {
+  if (updateWin && !updateWin.isDestroyed()) { updateWin.show(); updateWin.focus(); return; }
+  updateWin = makeWindow('update.html', 400, 320, {
+    center: true, alwaysOnTop: true, resizable: false,
+    minWidth: 360, minHeight: 280, maxWidth: 460, maxHeight: 380,
+  });
+  updateWin.once('ready-to-show', () => {
+    updateWin.show(); updateWin.focus();
+    if (pendingUpdateState) updateWin.webContents.send('update-state', pendingUpdateState);
+  });
+  updateWin.on('closed', () => { updateWin = null; });
+}
+
+function sendUpdateState(state) {
+  pendingUpdateState = state;
+  if (updateWin && !updateWin.isDestroyed()) updateWin.webContents.send('update-state', state);
+}
+
 // ── IPC ───────────────────────────────────────────────────────────────────────
 function getSerializableState() {
   return {
@@ -413,7 +490,12 @@ ipcMain.on('action', (event, { type, payload }) => {
     }
     case 'delete-task':   deleteTask(payload.taskId); break;
     case 'edit-task-color': editTaskColor(payload.taskId, payload.color); break;
+    case 'rename-task':   renameTask(payload.taskId, payload.name); break;
     case 'archive-task':  archiveTask(payload.taskId, payload.groupId, payload.groupName); break;
+    case 'create-group':  createGroup(payload.name); break;
+    case 'rename-group':  renameGroup(payload.groupId, payload.name); break;
+    case 'delete-group':  deleteGroup(payload.groupId); break;
+    case 'move-task-to-group': moveTaskToGroup(payload.taskId, payload.groupId); break;
     case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes); break;
     case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
@@ -422,7 +504,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     case 'save-settings':
       settings = { ...settings, ...payload };
-      saveSettings(); resetReminderTimer();
+      saveSettings(); resetReminderTimer(); applyLoginItem();
       if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
       break;
     case 'open-main':     openMain(); break;
@@ -440,7 +522,29 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'close-groups':   if (groupsWin && !groupsWin.isDestroyed()) groupsWin.hide(); break;
     case 'open-sync':     openSync(); break;
     case 'close-sync':    if (syncWin && !syncWin.isDestroyed()) syncWin.hide(); break;
+    case 'update-download': if (autoUpdater) autoUpdater.downloadUpdate(); break;
+    case 'update-install':  if (autoUpdater) setImmediate(() => autoUpdater.quitAndInstall()); break;
+    case 'close-update':    if (updateWin && !updateWin.isDestroyed()) updateWin.close(); break;
     case 'get-state':     event.reply('state', getSerializableState()); break;
+  }
+});
+
+// Exportar CSV: abre un diálogo nativo "Guardar como…" y escribe el archivo.
+// El contenido lo genera el renderer (que ya tiene el estado y sabe qué rango exportar).
+ipcMain.handle('export-csv', async (_e, { content, defaultName }) => {
+  try {
+    const parent = calendarWin && !calendarWin.isDestroyed() ? calendarWin : undefined;
+    const baseDir = app.getPath('documents') || app.getPath('home') || app.getPath('desktop') || '';
+    const { canceled, filePath } = await dialog.showSaveDialog(parent, {
+      title: 'Exportar horas',
+      defaultPath: path.join(baseDir, defaultName || 'imputa-horas.csv'),
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(filePath, '﻿' + (content || ''), 'utf8');  // BOM para que Excel respete los acentos
+    return { ok: true, path: filePath };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
   }
 });
 
@@ -475,46 +579,27 @@ function setupAutoUpdate() {
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => {
-    const idx = dialog.showMessageBoxSync({
-      type: 'info',
-      title: 'imputa.me',
-      message: 'Hay una actualización disponible',
-      detail: `Tu versión: ${app.getVersion()}\nNueva versión: ${info.version}\n\n¿Descargarla e instalarla ahora?`,
-      buttons: ['Actualizar', 'Ahora no'],
-      defaultId: 0, cancelId: 1, noLink: true,
-    });
     manualCheck = false;
-    if (idx === 0) autoUpdater.downloadUpdate();
+    openUpdateWindow();
+    sendUpdateState({ phase: 'available', current: app.getVersion(), version: info.version });
+  });
+
+  autoUpdater.on('download-progress', (p) => {
+    sendUpdateState({ phase: 'downloading', percent: Math.max(0, Math.min(100, Math.round(p.percent || 0))) });
   });
 
   autoUpdater.on('update-not-available', () => {
-    if (manualCheck) {
-      dialog.showMessageBoxSync({
-        type: 'info', title: 'imputa.me', message: 'Todo al día',
-        detail: `Ya tienes la última versión (${app.getVersion()}).`, buttons: ['Vale'],
-      });
-    }
+    if (manualCheck) { openUpdateWindow(); sendUpdateState({ phase: 'uptodate', current: app.getVersion() }); }
     manualCheck = false;
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    const idx = dialog.showMessageBoxSync({
-      type: 'info', title: 'imputa.me',
-      message: 'Actualización lista para instalar',
-      detail: `Se ha descargado la versión ${info.version}. La app se reiniciará para instalarla.`,
-      buttons: ['Reiniciar e instalar', 'Más tarde'],
-      defaultId: 0, cancelId: 1, noLink: true,
-    });
-    if (idx === 0) setImmediate(() => autoUpdater.quitAndInstall());
+    openUpdateWindow();
+    sendUpdateState({ phase: 'downloaded', version: info.version });
   });
 
   autoUpdater.on('error', (err) => {
-    if (manualCheck) {
-      dialog.showMessageBoxSync({
-        type: 'error', title: 'imputa.me', message: 'No se pudo comprobar la actualización',
-        detail: String((err && err.message) || err), buttons: ['Vale'],
-      });
-    }
+    if (manualCheck) { openUpdateWindow(); sendUpdateState({ phase: 'error', message: String((err && err.message) || err) }); }
     manualCheck = false;
   });
 
@@ -523,17 +608,15 @@ function setupAutoUpdate() {
 
 function checkForUpdates(manual) {
   if (!autoUpdater) {
-    if (manual) {
-      dialog.showMessageBoxSync({
-        type: 'info', title: 'imputa.me', message: 'Actualizaciones no disponibles',
-        detail: 'Las actualizaciones automáticas solo funcionan en la versión instalada de la app.',
-        buttons: ['Vale'],
-      });
-    }
+    if (manual) { openUpdateWindow(); sendUpdateState({ phase: 'unavailable' }); }
     return;
   }
   manualCheck = manual;
-  autoUpdater.checkForUpdates().catch(() => { manualCheck = false; });
+  if (manual) { openUpdateWindow(); sendUpdateState({ phase: 'checking' }); }
+  autoUpdater.checkForUpdates().catch((err) => {
+    if (manualCheck) { openUpdateWindow(); sendUpdateState({ phase: 'error', message: String((err && err.message) || err) }); }
+    manualCheck = false;
+  });
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
@@ -552,6 +635,7 @@ app.whenReady().then(() => {
       syncStatus = s;
       if (tray) tray.setContextMenu(buildTrayMenu());
       if (syncWin && !syncWin.isDestroyed()) syncWin.webContents.send('sync-status', s);
+      if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('sync-status', s);
     },
   }).catch(() => {});
 
@@ -564,7 +648,10 @@ app.whenReady().then(() => {
 
   startTick();
   resetReminderTimer();
-  showSplashThenMain();
+  applyLoginItem();                         // sincroniza el registro con el ajuste guardado
+  // Si arranca solo por el inicio de sesión de Windows (--hidden), vamos directos
+  // a la bandeja sin abrir el panel; en un arranque normal sí mostramos el panel.
+  if (!process.argv.includes('--hidden')) showSplashThenMain();
   setupAutoUpdate();
 });
 

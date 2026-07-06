@@ -9,13 +9,19 @@
 
   .cal-app { width:100%;height:100%;display:flex;flex-direction:column;position:relative; }
 
-  /* Barra de título arrastrable: permite mover la ventana desde cualquier
-     zona vacía de esta franja superior (igual que el resto de ventanas). */
+  /* Barra de título arrastrable: permite mover la ventana desde CUALQUIER punto
+     de esta franja superior, no solo desde el texto. Lo marcamos explícitamente
+     (y también la fila de navegación de semana) para que toda la parte superior
+     de la ventana sirva para arrastrar. */
   .cal-titlebar {
     flex-shrink:0;height:54px;display:flex;align-items:center;
     padding:0 16px;border-bottom:1px solid var(--border);
+    -webkit-app-region:drag;
   }
-  .cal-titlebar-title { font-size:14px;font-weight:700; }
+  .cal-titlebar * { -webkit-app-region:drag; }
+  .cal-titlebar-title { font-size:14px;font-weight:700;-webkit-app-region:drag; }
+  .week-nav { -webkit-app-region:drag; }
+  .week-nav .week-nav-btn { -webkit-app-region:no-drag; }
   .cal-titlebar-title .brand-dot { color:var(--accent); }
 
   .cal-body { flex:1;display:flex;min-height:0;position:relative; }
@@ -159,6 +165,17 @@
     flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;
     color:var(--text);font-family:inherit;font-size:14px;padding:8px 9px;outline:none;color-scheme:dark;
   }
+
+  /* Popup de exportación */
+  .export-opts { display:flex;flex-direction:column;gap:2px; }
+  .export-opt { display:flex;align-items:center;gap:9px;font-size:13.5px;padding:6px 4px;border-radius:6px;cursor:pointer;-webkit-app-region:no-drag; }
+  .export-opt:hover { background:var(--bg2); }
+  .export-opt input[type=radio] { width:15px;height:15px;accent-color:var(--accent2);cursor:pointer; }
+  .export-hint { font-size:11.5px;color:var(--text2);min-height:14px; }
+  #exportCustomRow input[type=date] {
+    flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+    color:var(--text);font-family:inherit;font-size:13px;padding:7px 9px;outline:none;color-scheme:dark;-webkit-app-region:no-drag;
+  }
 </style>
 </head>
 <body>
@@ -253,14 +270,34 @@
     </div>
   </div>
 
+  <!-- Popup de exportación: elige qué días exportar y luego dónde guardar -->
+  <div class="popup-backdrop" id="exportPopupBackdrop" style="display:none" onclick="closeExportPopup()"></div>
+  <div class="entry-popup" id="exportPopup" style="display:none">
+    <div class="entry-popup-title">Exportar horas (CSV)</div>
+    <div class="export-opts">
+      <label class="export-opt"><input type="radio" name="exportRange" value="all" checked onchange="updateExportHint()"> Todos los días</label>
+      <label class="export-opt"><input type="radio" name="exportRange" value="week" onchange="updateExportHint()"> Semana visible</label>
+      <label class="export-opt"><input type="radio" name="exportRange" value="day" onchange="updateExportHint()"> Día seleccionado</label>
+      <label class="export-opt"><input type="radio" name="exportRange" value="custom" onchange="updateExportHint()"> Rango personalizado</label>
+    </div>
+    <div id="exportCustomRow" class="popup-time-row" style="display:none">
+      <input type="date" id="exportFrom" onchange="updateExportHint()">
+      <span style="color:var(--text2);font-size:12px">→</span>
+      <input type="date" id="exportTo" onchange="updateExportHint()">
+    </div>
+    <div class="export-hint" id="exportHint"></div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeExportPopup()">Cancelar</button>
+      <button class="btn-primary" id="exportConfirmBtn" onclick="confirmExport()">Exportar…</button>
+    </div>
+  </div>
+
 </div>
 
 <script src="shared.js"></script>
 <script>
 const { ipcRenderer, shell } = require('electron');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
 
 const ROW_H = 48;
 const DOW = ['L','M','X','J','V','S','D'];
@@ -775,8 +812,54 @@ function prevWeek() { viewWeekStart = addDays(viewWeekStart,-7); renderWeek(); r
 function nextWeek() { viewWeekStart = addDays(viewWeekStart,7); renderWeek(); renderMiniCal(); }
 
 // ---------- Export ----------
-function exportCSV() {
+// Al pulsar "Exportar CSV" se abre un popup para elegir QUÉ días exportar; luego
+// un diálogo nativo "Guardar como…" (en main.js) para elegir DÓNDE guardarlo.
+function exportCSV() { openExportPopup(); }
+
+function openExportPopup() {
   if (!currentState) return;
+  const dk = dateKey(startOfDay(selectedDate || today0));
+  document.getElementById('exportFrom').value = dk;
+  document.getElementById('exportTo').value = dk;
+  document.querySelector('input[name="exportRange"][value="all"]').checked = true;
+  updateExportHint();
+  document.getElementById('exportPopupBackdrop').style.display = 'block';
+  document.getElementById('exportPopup').style.display = 'flex';
+}
+function closeExportPopup() {
+  document.getElementById('exportPopupBackdrop').style.display = 'none';
+  document.getElementById('exportPopup').style.display = 'none';
+}
+
+// Devuelve { fromMs, toMsExcl, label } según la opción elegida, o null si es inválida.
+function currentExportRange() {
+  const val = document.querySelector('input[name="exportRange"]:checked').value;
+  if (val === 'all')  return { fromMs: 0, toMsExcl: Infinity, label: 'todos' };
+  if (val === 'week') { const f = startOfDay(viewWeekStart).getTime(); return { fromMs: f, toMsExcl: f + 7*86400000, label: 'semana' }; }
+  if (val === 'day')  { const d = startOfDay(selectedDate || today0).getTime(); return { fromMs: d, toMsExcl: d + 86400000, label: 'dia' }; }
+  const fromV = document.getElementById('exportFrom').value;
+  const toV = document.getElementById('exportTo').value;
+  if (!fromV || !toV) return null;
+  const fromMs = startOfDay(new Date(fromV + 'T00:00:00')).getTime();
+  const toMsExcl = startOfDay(new Date(toV + 'T00:00:00')).getTime() + 86400000;
+  if (!(toMsExcl > fromMs)) return null;
+  return { fromMs, toMsExcl, label: 'rango' };
+}
+
+function updateExportHint() {
+  const val = document.querySelector('input[name="exportRange"]:checked').value;
+  document.getElementById('exportCustomRow').style.display = val === 'custom' ? 'flex' : 'none';
+  const hint = document.getElementById('exportHint');
+  const r = currentExportRange();
+  if (val === 'all') { hint.textContent = 'Se exportarán todos los días con actividad registrada.'; return; }
+  if (!r) { hint.textContent = 'Elige las fechas de inicio y fin.'; return; }
+  const fromD = new Date(r.fromMs), toD = new Date(r.toMsExcl - 86400000);
+  const f = `${pad2(fromD.getDate())}/${pad2(fromD.getMonth()+1)}/${fromD.getFullYear()}`;
+  const t = `${pad2(toD.getDate())}/${pad2(toD.getMonth()+1)}/${toD.getFullYear()}`;
+  hint.textContent = f === t ? `Día ${f}.` : `Del ${f} al ${t}.`;
+}
+
+function buildCSV(fromMs, toMsExcl) {
   const rows = ['Fecha,Tarea,Segundos,Horas'];
   const map = {};
   currentState.tasks.forEach(task => {
@@ -784,25 +867,52 @@ function exportCSV() {
       let cur = startOfDay(new Date(entry.start));
       const end = startOfDay(new Date(entry.end || Date.now()));
       while (cur <= end) {
-        const dayStart = cur.getTime(), dayEnd = dayStart+86400000;
-        const from = Math.max(entry.start, dayStart), to = Math.min(entry.end||Date.now(), dayEnd);
-        const secs = Math.max(0, Math.floor((to-from)/1000));
-        if (secs > 0) {
-          const key = dateKey(cur)+'|'+task.id;
-          map[key] = (map[key]||0) + secs;
+        const dayStart = cur.getTime(), dayEnd = dayStart + 86400000;
+        if (dayStart >= fromMs && dayStart < toMsExcl) {
+          const from = Math.max(entry.start, dayStart), to = Math.min(entry.end || Date.now(), dayEnd);
+          const secs = Math.max(0, Math.floor((to - from) / 1000));
+          if (secs > 0) {
+            const key = dateKey(cur) + '|' + task.id;
+            map[key] = (map[key] || 0) + secs;
+          }
         }
-        cur = addDays(cur,1);
+        cur = addDays(cur, 1);
       }
     });
   });
-  Object.entries(map).sort().forEach(([key,secs]) => {
-    const [day,taskId] = key.split('|');
-    const task = currentState.tasks.find(t=>t.id===taskId);
-    rows.push(`${day},"${task?task.name:taskId}",${secs},${(secs/3600).toFixed(2)}`);
+  Object.entries(map).sort().forEach(([key, secs]) => {
+    const [day, taskId] = key.split('|');
+    const task = currentState.tasks.find(t => t.id === taskId);
+    const name = (task ? task.name : taskId).replace(/"/g, '""');
+    rows.push(`${day},"${name}",${secs},${(secs/3600).toFixed(2)}`);
   });
-  const csvPath = path.join(os.homedir(), 'Desktop', 'imputa-horas.csv');
-  fs.writeFileSync(csvPath, rows.join('\n'), 'utf8');
-  shell.openPath(csvPath);
+  return rows.join('\n');
+}
+
+function exportFileName(r) {
+  if (r.label === 'todos')  return 'imputa-horas-todos.csv';
+  if (r.label === 'semana') return 'imputa-horas-semana.csv';
+  if (r.label === 'dia')    return `imputa-horas-${dateKey(new Date(r.fromMs))}.csv`;
+  return `imputa-horas-${dateKey(new Date(r.fromMs))}_a_${dateKey(new Date(r.toMsExcl - 86400000))}.csv`;
+}
+
+async function confirmExport() {
+  if (!currentState) return;
+  const r = currentExportRange();
+  if (!r) { alert('Indica un rango de fechas válido.'); return; }
+  const content = buildCSV(r.fromMs, r.toMsExcl);
+  if (content.split('\n').length <= 1) { alert('No hay actividad registrada en el rango elegido.'); return; }
+  const btn = document.getElementById('exportConfirmBtn');
+  const prev = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const res = await ipcRenderer.invoke('export-csv', { content, defaultName: exportFileName(r) });
+    if (res && res.ok) { closeExportPopup(); shell.openPath(res.path); }
+    else if (!(res && res.canceled)) { alert('No se pudo exportar: ' + ((res && res.error) || 'error desconocido')); }
+  } catch (e) {
+    alert('No se pudo exportar: ' + (e.message || e));
+  }
+  btn.disabled = false; btn.textContent = prev;
 }
 
 function closeWin() { ipcRenderer.send('action', { type:'close-calendar' }); }

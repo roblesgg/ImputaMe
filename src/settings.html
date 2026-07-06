@@ -26,6 +26,10 @@
   .check-row input[type=checkbox] { width:16px;height:16px;accent-color:var(--accent2);cursor:pointer; }
   .footer { display:flex;gap:8px;justify-content:flex-end;-webkit-app-region:no-drag;margin-top:auto; }
 
+  .account-field { border-top:1px solid var(--border);padding-top:14px; }
+  .account-status { font-size:13px;color:var(--text);text-transform:none;letter-spacing:normal; }
+  .account-status.online b { color:var(--accent2); }
+
   /* Slider de segundos del auto-ocultado */
   .autohide-slider {
     margin-top:0;padding-top:0;border-top:1px solid transparent;
@@ -116,6 +120,18 @@
     <span class="hint">Si lo desactivas, cada tarea nueva recibe automáticamente el siguiente color de la paleta.</span>
   </div>
 
+  <div class="field">
+    <label class="check-row"><input type="checkbox" id="openAtLogin"><span>Iniciar imputa.me al encender el PC</span></label>
+    <span class="hint">Si lo activas, la app arranca sola al iniciar sesión en Windows y se queda en la bandeja del sistema. Desactivado por defecto.</span>
+  </div>
+
+  <div class="field account-field">
+    <label>Cuenta y sincronización</label>
+    <div class="account-status" id="accountStatus">Trabajando en local (sin cuenta)</div>
+    <button class="btn-ghost" id="accountBtn" style="align-self:flex-start" onclick="openSync()">Iniciar sesión para sincronizar…</button>
+    <span class="hint">imputa.me funciona sin cuenta y todo se guarda en este equipo. Inicia sesión solo si quieres sincronizar tus horas con la app móvil; lo que ya tengas en local se conservará y se subirá a tu cuenta.</span>
+  </div>
+
   <div class="footer">
     <button class="btn-ghost" onclick="cancel()">Cancelar</button>
     <button class="btn-primary" onclick="save()">Guardar</button>
@@ -169,6 +185,7 @@ ipcRenderer.on('settings', (_, s) => {
   document.getElementById('reminderMinutes').value = s.reminderMinutes || 10;
   document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
+  document.getElementById('openAtLogin').checked = !!s.openAtLogin;
   autohideSeconds = Math.max(AUTOHIDE_MIN, Math.min(AUTOHIDE_MAX, s.widgetAutoHideSeconds || 10));
   renderAutohideSlider();
   updateAutohideVisibility();
@@ -180,9 +197,32 @@ function save() {
     widgetAutoHide: document.getElementById('widgetAutoHide').checked,
     widgetAutoHideSeconds: autohideSeconds,
     colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',
+    openAtLogin: document.getElementById('openAtLogin').checked,
   } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
+
+// ---------- Cuenta / sincronización ----------
+function openSync() { ipcRenderer.send('action', { type:'open-sync' }); }
+
+async function refreshAccount() {
+  let s = { loggedIn: false };
+  try { s = await ipcRenderer.invoke('sync-status'); } catch {}
+  const status = document.getElementById('accountStatus');
+  const btn = document.getElementById('accountBtn');
+  if (s && s.loggedIn) {
+    status.className = 'account-status online';
+    status.innerHTML = `Sesión iniciada como <b>${s.email || ''}</b> · sincronizando con el móvil`;
+    btn.textContent = 'Gestionar sincronización…';
+  } else {
+    status.className = 'account-status';
+    status.textContent = 'Trabajando en local (sin cuenta)';
+    btn.textContent = 'Iniciar sesión para sincronizar…';
+  }
+}
+ipcRenderer.on('sync-status', (_, s) => refreshAccount());
+window.addEventListener('focus', refreshAccount);
+refreshAccount();
 </script>
 </body>
 </html>
