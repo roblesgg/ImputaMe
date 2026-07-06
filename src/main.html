@@ -29,9 +29,9 @@
   .task-row { display:flex;align-items:center;gap:8px; }
   .task-row .task-pill { flex:1;min-width:0; }
 
-  /* El nombre puede ser largo: se recorta con puntos suspensivos y el nombre
-     completo queda en el tooltip. Doble clic para renombrarlo en el sitio. */
-  .task-name { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;cursor:text; }
+  /* El nombre puede ser largo: baja de línea para mostrarse entero (no se recorta).
+     Doble clic para renombrarlo en el sitio. */
+  .task-name { min-width:0;cursor:text;white-space:normal;overflow-wrap:anywhere; }
   .rename-input {
     width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:6px;
     color:var(--text);font-family:inherit;font-size:14px;font-weight:500;padding:2px 6px;

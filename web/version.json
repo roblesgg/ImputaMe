@@ -1,4 +1,4 @@
 {
-  "version": "1.2.0",
-  "notes": "Renombra tus tareas (con nombres largos) desde el panel, organiza las guardadas en secciones y arrastra tareas entre ellas, exporta a CSV eligiendo dónde guardarlo y qué días, y mueve el calendario desde toda su barra superior. El inicio de sesión (para sincronizar con el móvil) ahora está también en Ajustes; usar la app en local sigue sin necesitar cuenta."
+  "version": "1.2.1",
+  "notes": "Correcciones: la × del calendario vuelve a funcionar y queda centrada, el scroll con la rueda funciona en Ajustes, y los nombres largos de las tareas bajan de línea para verse enteros (en el panel, en Guardadas y en el calendario). Además, ahora puedes iniciar sesión con Google para sincronizar con el móvil."
 }

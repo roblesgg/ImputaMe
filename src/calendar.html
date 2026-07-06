@@ -14,12 +14,15 @@
      (y también la fila de navegación de semana) para que toda la parte superior
      de la ventana sirva para arrastrar. */
   .cal-titlebar {
-    flex-shrink:0;height:54px;display:flex;align-items:center;
+    flex-shrink:0;height:54px;display:flex;align-items:center;gap:10px;
     padding:0 16px;border-bottom:1px solid var(--border);
     -webkit-app-region:drag;
   }
-  .cal-titlebar * { -webkit-app-region:drag; }
-  .cal-titlebar-title { font-size:14px;font-weight:700;-webkit-app-region:drag; }
+  .cal-titlebar-title { font-size:14px;font-weight:700;flex:1;min-width:0; }
+  /* La × va dentro de la barra como hijo flex: centrada verticalmente y clicable
+     (no arrastrable), por encima de la zona de arrastre de la barra. */
+  .cal-titlebar .win-controls { position:static;top:auto;right:auto;margin-left:auto; }
+  .cal-titlebar .win-btn { -webkit-app-region:no-drag; }
   .week-nav { -webkit-app-region:drag; }
   .week-nav .week-nav-btn { -webkit-app-region:no-drag; }
   .cal-titlebar-title .brand-dot { color:var(--accent); }
@@ -111,8 +114,7 @@
     display:flex;flex-direction:column;justify-content:center;
   }
   .task-block .tb-name {
-    font-weight:600;overflow:hidden;text-overflow:ellipsis;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;
+    font-weight:600;overflow:hidden;white-space:normal;overflow-wrap:anywhere;
   }
   .task-block .tb-time { display:flex;align-items:baseline;gap:6px;opacity:.85;font-size:11px; }
   .task-block .tb-time-range { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0; }
@@ -181,14 +183,13 @@
 <body>
 <div class="cal-app animate-in">
 
-  <div class="win-controls">
-    <button class="win-btn close" onclick="closeWin()" title="Cerrar">
-      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-    </button>
-  </div>
-
   <div class="cal-titlebar">
     <div class="cal-titlebar-title">Calendario · imputa<span class="brand-dot">.</span>me</div>
+    <div class="win-controls">
+      <button class="win-btn close" onclick="closeWin()" title="Cerrar">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
   </div>
 
   <div class="cal-body">
@@ -555,6 +556,7 @@ function renderDayEntries(col, date) {
       block.style.height = Math.max(16, (endH-startH)*ROW_H)+'px';
       block.style.background = task.color;
       block.style.color = contrastTextColor(task.color);
+      block.title = task.name;
       const durMs = (entry.end || Date.now()) - entry.start;
       block.innerHTML = `<div class="tb-name">${task.name}</div><div class="tb-time"><span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span><span class="tb-time-dur">${formatDur(durMs)}</span></div>`;
       block.onclick = (ev) => {

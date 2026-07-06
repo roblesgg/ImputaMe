@@ -550,6 +550,47 @@ ipcMain.handle('export-csv', async (_e, { content, defaultName }) => {
 
 // Login/logout de sincronización (respuestas asíncronas)
 ipcMain.handle('sync-login', async (_e, { email, password }) => sync ? sync.login(email, password) : { ok: false, error: 'Sync no disponible' });
+
+// Login con Google (OAuth PKCE): abrimos una ventana con la pantalla de Google e
+// interceptamos el redirect final (que trae ?code=) para canjearlo por una sesión.
+ipcMain.handle('sync-login-google', async () => {
+  if (!sync || !sync.getOAuthUrl) return { ok: false, error: 'Sync no disponible' };
+  let start;
+  try { start = await sync.getOAuthUrl('google'); } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+  if (!start || !start.ok) return start || { ok: false, error: 'No se pudo iniciar el login de Google' };
+
+  const REDIRECT = start.redirect;
+  return await new Promise((resolve) => {
+    const authWin = new BrowserWindow({
+      width: 480, height: 660, center: true, autoHideMenuBar: true, title: 'Iniciar sesión con Google',
+      parent: (syncWin && !syncWin.isDestroyed()) ? syncWin : undefined,
+      webPreferences: { nodeIntegration: false, contextIsolation: true, partition: 'oauth-google' },
+    });
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return; settled = true;
+      try { if (!authWin.isDestroyed()) authWin.close(); } catch {}
+      resolve(result);
+    };
+    const handleUrl = async (navUrl, ev) => {
+      if (!navUrl || navUrl.indexOf(REDIRECT) !== 0) return;
+      let u; try { u = new URL(navUrl); } catch { return; }
+      const code = u.searchParams.get('code');
+      const err = u.searchParams.get('error_description') || u.searchParams.get('error');
+      if (!code && !err) return;
+      if (ev) { try { ev.preventDefault(); } catch {} }   // no cargamos la web de destino
+      if (err) return finish({ ok: false, error: err });
+      const r = await sync.completeOAuth(code);
+      finish(r);
+    };
+    authWin.webContents.on('will-redirect', (e, u) => { handleUrl(u, e); });
+    authWin.webContents.on('will-navigate', (e, u) => { handleUrl(u, e); });
+    authWin.on('closed', () => { if (!settled) { settled = true; resolve({ ok: false, canceled: true }); } });
+    // UA de Chrome "normal": si Google detecta "Electron" bloquea el login en ventana embebida.
+    const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+    authWin.loadURL(start.url, { userAgent: CHROME_UA }).catch((e) => finish({ ok: false, error: String((e && e.message) || e) }));
+  });
+});
 ipcMain.handle('sync-logout', async () => sync ? sync.logout() : { ok: true });
 ipcMain.handle('sync-status', async () => syncStatus);
 
