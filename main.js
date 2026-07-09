@@ -40,7 +40,7 @@ let settings = {
   widgetAutoHideSeconds: 10,
   colorMode: 'auto', // 'auto' | 'manual'
   openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
-  bgEffect: 'acrylic', // efecto de fondo/blur: 'acrylic' (como antes) | 'mica' (suave) | 'none' (sólido)
+  bgOpacity: 50,       // 0 = muy translúcida (se ve más el blur), 100 = muy opaca. Blur siempre puesto.
 };
 
 function nextAutoColor() {
@@ -326,15 +326,29 @@ function scheduleWidgetAutoHide() {
   }, ms);
 }
 
-// Efecto de fondo (blur). Windows solo expone materiales fijos, no una intensidad
-// continua: 'acrylic' (cristal, el de antes), 'mica' (blur suave/tenue) o 'none'
-// (sólido, sin blur). Por defecto 'acrylic' para mantener el look de siempre.
+// El blur (acrílico) está SIEMPRE puesto. El deslizador controla la opacidad del
+// tinte oscuro que va sobre el cristal: más opaco (tapa el blur, más sólido) o más
+// translúcido (se ve más el blur del escritorio). Como el material no cambia, no
+// aparece el "gris" de togglear el material en caliente.
+function bgAlphaFromOpacity(op) {
+  const x = Math.max(0, Math.min(100, op == null ? 50 : Number(op))) / 100;
+  return (0.20 + x * 0.72).toFixed(3);   // 0 → 0.20 (muy translúcido) .. 100 → 0.92 (muy opaco)
+}
+
 function applyTranslucency(win) {
   if (!win || win.isDestroyed()) return;
-  const valid = ['acrylic', 'mica', 'none'];
-  const mat = valid.includes(settings.bgEffect) ? settings.bgEffect : 'acrylic';
-  try { win.setOpacity(1); } catch {}                 // por si una versión previa bajó la opacidad
-  try { win.setBackgroundMaterial(mat); } catch {}
+  try { win.setOpacity(1); } catch {}
+  try { win.setBackgroundColor('#00000000'); } catch {}   // mantiene la transparencia del cristal
+  try { win.setBackgroundMaterial('acrylic'); } catch {}  // blur SIEMPRE
+  const css = `:root{ --bg: rgba(18,18,28,${bgAlphaFromOpacity(settings.bgOpacity)}) !important; }`;
+  const doInsert = async () => {
+    try {
+      if (win.__bgCssKey) { try { await win.webContents.removeInsertedCSS(win.__bgCssKey); } catch {} }
+      win.__bgCssKey = await win.webContents.insertCSS(css);
+    } catch {}
+  };
+  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', doInsert);
+  else doInsert();
 }
 
 function applyTranslucencyAll() {
@@ -530,8 +544,8 @@ ipcMain.on('action', (event, { type, payload }) => {
       saveSettings(); resetReminderTimer(); applyLoginItem(); applyTranslucencyAll();
       if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
       break;
-    case 'set-bg-effect':
-      settings.bgEffect = ['acrylic', 'mica', 'none'].includes(payload.value) ? payload.value : 'acrylic';
+    case 'set-bg-opacity':
+      settings.bgOpacity = Math.max(0, Math.min(100, Number(payload.value)));
       saveSettings(); applyTranslucencyAll();
       break;
     case 'open-main':     openMain(); break;

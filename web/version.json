@@ -1,4 +1,4 @@
 {
-  "version": "1.2.7",
-  "notes": "El efecto de fondo (blur) vuelve a ser el cristal de siempre por defecto, y ahora se puede cambiar en Ajustes entre Cristal, Suave o Sólido (sin blur) para los equipos donde se veía blanquecino."
+  "version": "1.2.8",
+  "notes": "El efecto cristal (blur) está siempre puesto, y ahora en Ajustes hay un deslizador para hacer la ventana más translúcida (se ve más el blur) o más opaca (más sólida). Ideal si en algún equipo se veía blanquecina: se mueve hacia 'Opaca'. El cambio se ve al instante."
 }
