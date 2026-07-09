@@ -7,7 +7,7 @@
   html, body { width:100%;height:100%; }
   body { border-radius:var(--radius);overflow:hidden; }
 
-  .cal-app { width:100%;height:100%;display:flex;flex-direction:column;position:relative; }
+  .cal-app { width:100%;height:100%;display:flex;flex-direction:column;position:relative;-webkit-app-region:no-drag; }
 
   /* Barra de título arrastrable: permite mover la ventana desde CUALQUIER punto
      de esta franja superior, no solo desde el texto. Lo marcamos explícitamente
@@ -16,12 +16,11 @@
   .cal-titlebar {
     flex-shrink:0;height:54px;display:flex;align-items:center;gap:10px;
     padding:0 16px;border-bottom:1px solid var(--border);
-    -webkit-app-region:drag;
   }
-  .cal-titlebar-title { font-size:14px;font-weight:700; }
-  /* La × usa el .win-controls absoluto estándar (top:20/right:14, como el resto de
-     ventanas): un elemento no-drag absoluto se pulsa con fiabilidad, mientras que un
-     hijo flex no-drag dentro de la barra arrastrable a veces no recibe bien el clic. */
+  /* El contenedor es no-drag; el arrastre va SOLO en el título (izquierda) y en la fila
+     de semana, para que la X (arriba a la derecha) se pulse entera. Una zona drag detrás
+     del botón no-drag se come parte del clic. */
+  .cal-titlebar-title { font-size:14px;font-weight:700;-webkit-app-region:drag; }
   .week-nav { -webkit-app-region:drag; }
   .week-nav .week-nav-btn { -webkit-app-region:no-drag; }
   .cal-titlebar-title .brand-dot { color:var(--accent); }

@@ -7,7 +7,10 @@
   html, body { width:100%;height:100%; }
   body { border-radius: var(--radius); overflow: hidden; }
 
-  .app { width:100%;height:100%;display:flex;flex-direction:column;padding:24px;gap:16px;position:relative;min-height:0; }
+  /* Contenedor no-drag; el arrastre va solo en el bloque del título (izquierda) para
+     que la X (arriba a la derecha) se pulse entera. */
+  .app { width:100%;height:100%;display:flex;flex-direction:column;padding:24px;gap:16px;position:relative;min-height:0;-webkit-app-region:no-drag; }
+  .th-drag { -webkit-app-region:drag; }
 
   .titlebar { display:flex;align-items:center;justify-content:space-between; }
   .app-title { font-size:18px;font-weight:700;letter-spacing:-.02em; }
@@ -89,7 +92,7 @@
   </div>
 
   <div class="titlebar">
-    <div>
+    <div class="th-drag">
       <div class="app-title">imputa<span class="brand-dot">.</span>me</div>
       <div class="app-subtitle" id="subtitle">Cargando...</div>
     </div>

@@ -1,4 +1,4 @@
 {
-  "version": "1.2.10",
-  "notes": "Segundo intento con la X de cerrar del calendario: ahora usa exactamente el mismo botón que el resto de ventanas (absoluto, fuera de la barra arrastrable), que es donde se pulsa con fiabilidad."
+  "version": "1.2.11",
+  "notes": "Arregladas las X de cerrar de todas las ventanas (Panel, Guardadas, Calendario y la de actualización): ahora se pulsan enteras. El problema era la zona de arrastre que había detrás del botón; ahora el arrastre está solo en el título."
 }

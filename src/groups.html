@@ -6,8 +6,11 @@
 <style>
   html, body { width:100%;height:100%; }
   body { border-radius:var(--radius);overflow:hidden; }
-  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:14px;position:relative;min-height:0; }
-  .app-title { font-size:16px;font-weight:700; }
+  /* Contenedor no-drag + asa de arrastre solo en el título (izquierda): así la X de
+     cerrar (arriba a la derecha, no-drag) se pulsa entera. Un botón no-drag con una
+     zona drag detrás solo responde en parte. */
+  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:14px;position:relative;min-height:0;-webkit-app-region:no-drag; }
+  .app-title { font-size:16px;font-weight:700;-webkit-app-region:drag;align-self:flex-start; }
 
   .groups-list { flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px; }
 
