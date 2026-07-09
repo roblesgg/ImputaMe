@@ -326,29 +326,19 @@ function scheduleWidgetAutoHide() {
   }, ms);
 }
 
-// Traduce el ajuste de translucidez (0..100) al alfa del fondo de las ventanas.
-// 0 → 1.0 (sólido/opaco), 100 → 0.15 (muy translúcido, se ve el escritorio detrás).
-function bgAlphaFromTranslucency(t) {
-  const x = Math.max(0, Math.min(100, t == null ? 25 : Number(t))) / 100;
-  return (1 - x * 0.85).toFixed(3);
+// Translucidez CON efecto cristal (blur del escritorio, como antes). El desenfoque
+// lo da el material acrílico de Windows; el deslizador ajusta la opacidad global de
+// la ventana (setOpacity), que sí cambia cuánto se ve a través manteniendo el cristal.
+// 0 = sólido/opaco (look clásico), 100 = muy translúcido (se ve más el escritorio).
+function opacityFromTranslucency(t) {
+  const x = Math.max(0, Math.min(100, t == null ? 30 : Number(t))) / 100;
+  return 1 - x * 0.45;   // 1.0 (opaco) .. 0.55 (muy translúcido)
 }
 
-// Aplica la translucidez a una ventana. SIN material acrílico: sobre una ventana
-// transparente, el alfa del fondo deja ver el escritorio detrás → translucidez real
-// y consistente. (El acrílico se veía blanquecino en algunos equipos y hacía que el
-// deslizador solo pareciera "más claro/oscuro" en vez de más/menos translúcido.)
 function applyTranslucency(win) {
   if (!win || win.isDestroyed()) return;
-  try { win.setBackgroundMaterial('none'); } catch {}
-  const css = `:root{ --bg: rgba(18,18,28,${bgAlphaFromTranslucency(settings.translucency)}) !important; }`;
-  const doInsert = async () => {
-    try {
-      if (win.__bgCssKey) { try { await win.webContents.removeInsertedCSS(win.__bgCssKey); } catch {} }
-      win.__bgCssKey = await win.webContents.insertCSS(css);
-    } catch {}
-  };
-  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', doInsert);
-  else doInsert();
+  try { win.setBackgroundMaterial('acrylic'); } catch {}
+  try { win.setOpacity(opacityFromTranslucency(settings.translucency)); } catch {}
 }
 
 function applyTranslucencyAll() {

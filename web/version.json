@@ -1,4 +1,4 @@
 {
-  "version": "1.2.5",
-  "notes": "La translucidez de la ventana ahora funciona de verdad (se ve el escritorio detrás, más o menos translúcido, sin el efecto blanquecino de antes) y se ajusta desde Ajustes. La ventana de actualización sale bien centrada, aparece un botón rojo de \"Actualizar\" en el panel cuando hay versión nueva, y el logo de inicio ya no se queda enganchado."
+  "version": "1.2.6",
+  "notes": "La translucidez vuelve a tener el efecto cristal (blur) de antes, pero ahora es regulable desde Ajustes (súbela para ver más el escritorio detrás, bájala para dejarla más sólida). Y se arregla que la X de cerrar en Ajustes no se pulsaba bien."
 }

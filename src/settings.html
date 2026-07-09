@@ -10,7 +10,10 @@
      rueda del ratón no desplazaría el contenido. El título queda como asa para
      mover la ventana. */
   .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:16px;position:relative;min-height:0;overflow-y:auto;-webkit-app-region:no-drag; }
-  .app-title { font-size:16px;font-weight:700;-webkit-app-region:drag; }
+  /* align-self:flex-start → el asa de arrastre ocupa solo el ancho del título (a la
+     izquierda) y no se solapa con la X de cerrar (arriba a la derecha), que así se
+     pulsa bien. */
+  .app-title { font-size:16px;font-weight:700;-webkit-app-region:drag;align-self:flex-start; }
   .field { display:flex;flex-direction:column;gap:6px; }
   .field label { font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
   .field-row { display:flex;align-items:center;gap:10px;-webkit-app-region:no-drag; }
@@ -130,7 +133,7 @@
         style="flex:1;accent-color:var(--accent2);-webkit-app-region:no-drag;cursor:pointer">
       <span class="field-unit" id="translucencyVal">70%</span>
     </div>
-    <span class="hint">Si la app se ve blanquecina en algún equipo, baja la translucidez (más sólida). Súbela para verla más translúcida. El cambio se ve al instante.</span>
+    <span class="hint">Regula cuánto se ve el escritorio a través del cristal (mantiene el efecto blur). Si en algún equipo se ve muy blanquecina, súbela para verla más translúcida; bájala para dejarla más sólida. Se ve al instante.</span>
   </div>
 
   <div class="field">
@@ -206,7 +209,7 @@ ipcRenderer.on('settings', (_, s) => {
   document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
   document.getElementById('openAtLogin').checked = !!s.openAtLogin;
-  const tr = (s.translucency == null ? 70 : s.translucency);
+  const tr = (s.translucency == null ? 30 : s.translucency);
   document.getElementById('translucency').value = tr;
   document.getElementById('translucencyVal').textContent = tr + '%';
   autohideSeconds = Math.max(AUTOHIDE_MIN, Math.min(AUTOHIDE_MAX, s.widgetAutoHideSeconds || 10));
