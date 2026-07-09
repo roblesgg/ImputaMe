@@ -1,4 +1,4 @@
 {
-  "version": "1.2.3",
-  "notes": "Ajustes menores: se retira el inicio de sesión con Google (seguimos con correo y contraseña, o en local sin cuenta) y se centra el icono de la ventana de actualización."
+  "version": "1.2.4",
+  "notes": "Nuevo control de translucidez de la ventana en Ajustes (si la app se ve blanquecina en algún equipo, ahora puedes hacerla más sólida con un deslizador, y se ve al instante). Además, la app comprueba si hay actualización al arrancar de forma más fiable (con reintento por si la red aún no está lista)."
 }

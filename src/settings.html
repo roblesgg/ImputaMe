@@ -124,6 +124,16 @@
   </div>
 
   <div class="field">
+    <label>Translucidez de la ventana</label>
+    <div class="field-row">
+      <input type="range" id="translucency" min="0" max="100" step="5"
+        style="flex:1;accent-color:var(--accent2);-webkit-app-region:no-drag;cursor:pointer">
+      <span class="field-unit" id="translucencyVal">70%</span>
+    </div>
+    <span class="hint">Si la app se ve blanquecina en algún equipo, baja la translucidez (más sólida). Súbela para verla más translúcida. El cambio se ve al instante.</span>
+  </div>
+
+  <div class="field">
     <label class="check-row"><input type="checkbox" id="openAtLogin"><span>Iniciar imputa.me al encender el PC</span></label>
     <span class="hint">Si lo activas, la app arranca sola al iniciar sesión en Windows y se queda en la bandeja del sistema. Desactivado por defecto.</span>
   </div>
@@ -184,11 +194,21 @@ autohideTrack.addEventListener('mousedown', (e) => {
 
 document.getElementById('widgetAutoHide').addEventListener('change', updateAutohideVisibility);
 
+// Translucidez: vista previa en vivo (aplica a todas las ventanas al instante).
+document.getElementById('translucency').addEventListener('input', (e) => {
+  const v = parseInt(e.target.value) || 0;
+  document.getElementById('translucencyVal').textContent = v + '%';
+  ipcRenderer.send('action', { type: 'set-translucency', payload: { value: v } });
+});
+
 ipcRenderer.on('settings', (_, s) => {
   document.getElementById('reminderMinutes').value = s.reminderMinutes || 10;
   document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
   document.getElementById('openAtLogin').checked = !!s.openAtLogin;
+  const tr = (s.translucency == null ? 70 : s.translucency);
+  document.getElementById('translucency').value = tr;
+  document.getElementById('translucencyVal').textContent = tr + '%';
   autohideSeconds = Math.max(AUTOHIDE_MIN, Math.min(AUTOHIDE_MAX, s.widgetAutoHideSeconds || 10));
   renderAutohideSlider();
   updateAutohideVisibility();
@@ -201,6 +221,7 @@ function save() {
     widgetAutoHideSeconds: autohideSeconds,
     colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',
     openAtLogin: document.getElementById('openAtLogin').checked,
+    translucency: parseInt(document.getElementById('translucency').value) || 0,
   } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }

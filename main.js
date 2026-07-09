@@ -39,6 +39,7 @@ let settings = {
   widgetAutoHideSeconds: 10,
   colorMode: 'auto', // 'auto' | 'manual'
   openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
+  translucency: 70,   // 0 = sólido (opaco), 100 = muy translúcido. Controla el fondo de las ventanas.
 };
 
 function nextAutoColor() {
@@ -324,6 +325,34 @@ function scheduleWidgetAutoHide() {
   }, ms);
 }
 
+// Traduce el ajuste de translucidez (0..100) al alfa del fondo de las ventanas.
+// 0 → 1.0 (sólido, sin efecto acrílico), 100 → 0.30 (muy translúcido). 70 ≈ look original.
+function bgAlphaFromTranslucency(t) {
+  const x = Math.max(0, Math.min(100, t == null ? 70 : Number(t))) / 100;
+  return (1 - x * 0.7).toFixed(3);
+}
+
+// Aplica la translucidez a una ventana: material acrílico (o sólido) + variable
+// CSS --bg. Así el usuario puede subir la opacidad si la app se le ve blanquecina.
+function applyTranslucency(win) {
+  if (!win || win.isDestroyed()) return;
+  const solid = Number(settings.translucency) <= 0;
+  try { win.setBackgroundMaterial(solid ? 'none' : 'acrylic'); } catch {}
+  const css = `:root{ --bg: rgba(18,18,28,${bgAlphaFromTranslucency(settings.translucency)}) !important; }`;
+  const doInsert = async () => {
+    try {
+      if (win.__bgCssKey) { try { await win.webContents.removeInsertedCSS(win.__bgCssKey); } catch {} }
+      win.__bgCssKey = await win.webContents.insertCSS(css);
+    } catch {}
+  };
+  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', doInsert);
+  else doInsert();
+}
+
+function applyTranslucencyAll() {
+  [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin].forEach(w => applyTranslucency(w));
+}
+
 function makeWindow(file, w, h, opts = {}) {
   const win = new BrowserWindow({
     width: w, height: h,
@@ -333,8 +362,8 @@ function makeWindow(file, w, h, opts = {}) {
     ...opts,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
-  try { win.setBackgroundMaterial('acrylic'); } catch {}
   win.loadFile(path.join(__dirname, 'src', file));
+  applyTranslucency(win);
   return win;
 }
 
@@ -504,8 +533,12 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     case 'save-settings':
       settings = { ...settings, ...payload };
-      saveSettings(); resetReminderTimer(); applyLoginItem();
+      saveSettings(); resetReminderTimer(); applyLoginItem(); applyTranslucencyAll();
       if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
+      break;
+    case 'set-translucency':
+      settings.translucency = Math.max(0, Math.min(100, Number(payload.value)));
+      saveSettings(); applyTranslucencyAll();
       break;
     case 'open-main':     openMain(); break;
     case 'open-calendar': openCalendar(); break;
@@ -603,7 +636,9 @@ function setupAutoUpdate() {
     manualCheck = false;
   });
 
-  checkForUpdates(false);               // comprobación silenciosa al arrancar
+  checkForUpdates(false);                              // al arrancar
+  setTimeout(() => checkForUpdates(false), 15000);     // reintento por si la red aún no estaba lista (p.ej. arranque con Windows)
+  setInterval(() => checkForUpdates(false), 4 * 60 * 60 * 1000);  // y cada 4 horas mientras esté abierta
 }
 
 function checkForUpdates(manual) {
