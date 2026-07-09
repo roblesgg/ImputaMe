@@ -1,4 +1,4 @@
 {
-  "version": "1.2.8",
-  "notes": "El efecto cristal (blur) está siempre puesto, y ahora en Ajustes hay un deslizador para hacer la ventana más translúcida (se ve más el blur) o más opaca (más sólida). Ideal si en algún equipo se veía blanquecina: se mueve hacia 'Opaca'. El cambio se ve al instante."
+  "version": "1.2.9",
+  "notes": "Arreglada la X de cerrar del calendario: estaba demasiado pegada al borde superior y la franja de redimensionar de Windows se comía parte del clic; ahora se pulsa entera."
 }

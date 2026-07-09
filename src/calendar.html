@@ -19,9 +19,11 @@
     -webkit-app-region:drag;
   }
   .cal-titlebar-title { font-size:14px;font-weight:700;flex:1;min-width:0; }
-  /* La × va dentro de la barra como hijo flex: centrada verticalmente y clicable
-     (no arrastrable), por encima de la zona de arrastre de la barra. */
-  .cal-titlebar .win-controls { position:static;top:auto;right:auto;margin-left:auto; }
+  /* La × va dentro de la barra como hijo flex, pero separada 20px del borde superior:
+     Windows reserva una franja de "agarre" para redimensionar pegada al borde y, si el
+     botón queda muy arriba (centrado a ~13px), esa franja se come los clics de su mitad
+     superior. A 20px (como el resto de ventanas) se pulsa entero. */
+  .cal-titlebar .win-controls { position:static;top:auto;right:auto;margin-left:auto;align-self:flex-start;margin-top:20px; }
   .cal-titlebar .win-btn { -webkit-app-region:no-drag; }
   .week-nav { -webkit-app-region:drag; }
   .week-nav .week-nav-btn { -webkit-app-region:no-drag; }
