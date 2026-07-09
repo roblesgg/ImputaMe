@@ -40,7 +40,7 @@ let settings = {
   widgetAutoHideSeconds: 10,
   colorMode: 'auto', // 'auto' | 'manual'
   openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
-  translucency: 25,   // 0 = sólido (opaco), 100 = muy translúcido. Controla el fondo de las ventanas.
+  bgEffect: 'acrylic', // efecto de fondo/blur: 'acrylic' (como antes) | 'mica' (suave) | 'none' (sólido)
 };
 
 function nextAutoColor() {
@@ -326,19 +326,15 @@ function scheduleWidgetAutoHide() {
   }, ms);
 }
 
-// Translucidez CON efecto cristal (blur del escritorio, como antes). El desenfoque
-// lo da el material acrílico de Windows; el deslizador ajusta la opacidad global de
-// la ventana (setOpacity), que sí cambia cuánto se ve a través manteniendo el cristal.
-// 0 = sólido/opaco (look clásico), 100 = muy translúcido (se ve más el escritorio).
-function opacityFromTranslucency(t) {
-  const x = Math.max(0, Math.min(100, t == null ? 30 : Number(t))) / 100;
-  return 1 - x * 0.45;   // 1.0 (opaco) .. 0.55 (muy translúcido)
-}
-
+// Efecto de fondo (blur). Windows solo expone materiales fijos, no una intensidad
+// continua: 'acrylic' (cristal, el de antes), 'mica' (blur suave/tenue) o 'none'
+// (sólido, sin blur). Por defecto 'acrylic' para mantener el look de siempre.
 function applyTranslucency(win) {
   if (!win || win.isDestroyed()) return;
-  try { win.setBackgroundMaterial('acrylic'); } catch {}
-  try { win.setOpacity(opacityFromTranslucency(settings.translucency)); } catch {}
+  const valid = ['acrylic', 'mica', 'none'];
+  const mat = valid.includes(settings.bgEffect) ? settings.bgEffect : 'acrylic';
+  try { win.setOpacity(1); } catch {}                 // por si una versión previa bajó la opacidad
+  try { win.setBackgroundMaterial(mat); } catch {}
 }
 
 function applyTranslucencyAll() {
@@ -534,8 +530,8 @@ ipcMain.on('action', (event, { type, payload }) => {
       saveSettings(); resetReminderTimer(); applyLoginItem(); applyTranslucencyAll();
       if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
       break;
-    case 'set-translucency':
-      settings.translucency = Math.max(0, Math.min(100, Number(payload.value)));
+    case 'set-bg-effect':
+      settings.bgEffect = ['acrylic', 'mica', 'none'].includes(payload.value) ? payload.value : 'acrylic';
       saveSettings(); applyTranslucencyAll();
       break;
     case 'open-main':     openMain(); break;

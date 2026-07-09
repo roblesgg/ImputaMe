@@ -127,13 +127,13 @@
   </div>
 
   <div class="field">
-    <label>Translucidez de la ventana</label>
-    <div class="field-row">
-      <input type="range" id="translucency" min="0" max="100" step="5"
-        style="flex:1;accent-color:var(--accent2);-webkit-app-region:no-drag;cursor:pointer">
-      <span class="field-unit" id="translucencyVal">70%</span>
-    </div>
-    <span class="hint">Regula cuánto se ve el escritorio a través del cristal (mantiene el efecto blur). Si en algún equipo se ve muy blanquecina, súbela para verla más translúcida; bájala para dejarla más sólida. Se ve al instante.</span>
+    <label>Efecto de fondo (blur)</label>
+    <select id="bgEffect" onchange="onBgEffectChange()">
+      <option value="acrylic">Cristal (por defecto)</option>
+      <option value="mica">Suave</option>
+      <option value="none">Sólido (sin blur)</option>
+    </select>
+    <span class="hint">El desenfoque del escritorio detrás de la ventana. "Cristal" es el de siempre. Si en algún equipo se ve blanquecino, prueba "Suave" o "Sólido". Se ve al instante.</span>
   </div>
 
   <div class="field">
@@ -197,21 +197,17 @@ autohideTrack.addEventListener('mousedown', (e) => {
 
 document.getElementById('widgetAutoHide').addEventListener('change', updateAutohideVisibility);
 
-// Translucidez: vista previa en vivo (aplica a todas las ventanas al instante).
-document.getElementById('translucency').addEventListener('input', (e) => {
-  const v = parseInt(e.target.value) || 0;
-  document.getElementById('translucencyVal').textContent = v + '%';
-  ipcRenderer.send('action', { type: 'set-translucency', payload: { value: v } });
-});
+// Efecto de fondo: vista previa en vivo (aplica a todas las ventanas al instante).
+function onBgEffectChange() {
+  ipcRenderer.send('action', { type: 'set-bg-effect', payload: { value: document.getElementById('bgEffect').value } });
+}
 
 ipcRenderer.on('settings', (_, s) => {
   document.getElementById('reminderMinutes').value = s.reminderMinutes || 10;
   document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
   document.getElementById('openAtLogin').checked = !!s.openAtLogin;
-  const tr = (s.translucency == null ? 30 : s.translucency);
-  document.getElementById('translucency').value = tr;
-  document.getElementById('translucencyVal').textContent = tr + '%';
+  document.getElementById('bgEffect').value = s.bgEffect || 'acrylic';
   autohideSeconds = Math.max(AUTOHIDE_MIN, Math.min(AUTOHIDE_MAX, s.widgetAutoHideSeconds || 10));
   renderAutohideSlider();
   updateAutohideVisibility();
@@ -224,7 +220,7 @@ function save() {
     widgetAutoHideSeconds: autohideSeconds,
     colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',
     openAtLogin: document.getElementById('openAtLogin').checked,
-    translucency: parseInt(document.getElementById('translucency').value) || 0,
+    bgEffect: document.getElementById('bgEffect').value,
   } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
