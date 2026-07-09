@@ -63,6 +63,16 @@
   }
   .playing-badge .dot { width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse2 1.4s ease-in-out infinite; }
   @keyframes pulse2 { 0%,100%{opacity:1}50%{opacity:.3} }
+
+  /* Barra roja de actualización (solo visible si hay una versión nueva) */
+  .update-bar {
+    display:none;align-items:center;justify-content:center;gap:8px;width:100%;
+    background:#ef4444;color:#fff;font-size:13px;font-weight:600;padding:10px 12px;
+    border-radius:var(--radius-sm);cursor:pointer;-webkit-app-region:no-drag;border:none;
+    animation:updatePulse 2s ease-in-out infinite;
+  }
+  .update-bar:hover { background:#dc2626; }
+  @keyframes updatePulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)} 70%{box-shadow:0 0 0 7px rgba(239,68,68,0)} }
 </style>
 </head>
 <body>
@@ -108,6 +118,11 @@
       </button>
     </div>
   </div>
+
+  <button class="update-bar" id="updateBtn" onclick="openUpdate()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 21h16"/></svg>
+    <span id="updateBarText">Hay una actualización disponible</span>
+  </button>
 
   <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -291,6 +306,16 @@ function render(state) {
   const active = state.tasks.find(t => t.id === state.activeTaskId);
   document.getElementById('totalTime').textContent = fmt(state.todayTotal);
   document.getElementById('subtitle').textContent = active ? `▶ ${active.name}` : `${visibleTasks.length} tarea(s)`;
+
+  const upBtn = document.getElementById('updateBtn');
+  if (upBtn) {
+    if (state.updateAvailable) {
+      upBtn.style.display = 'flex';
+      document.getElementById('updateBarText').textContent = `Actualizar a la versión ${state.updateAvailable.version}`;
+    } else {
+      upBtn.style.display = 'none';
+    }
+  }
   const badge = document.getElementById('activeBadge');
   if (active) { badge.style.display='inline-flex'; document.getElementById('activeName').textContent=active.name; }
   else badge.style.display='none';
@@ -334,6 +359,7 @@ function switchTask(taskId) {
   document.getElementById('startBackMin').value = '';
   document.getElementById('startBackTime').value = '';
 }
+function openUpdate() { ipcRenderer.send('action', { type:'open-update-window' }); }
 function openCalendar() { ipcRenderer.send('action', { type:'open-calendar' }); }
 function openSettings() { ipcRenderer.send('action', { type:'open-settings' }); }
 function openGroups() { ipcRenderer.send('action', { type:'open-groups' }); }

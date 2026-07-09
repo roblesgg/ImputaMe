@@ -20,6 +20,7 @@ let tickTimer = null;
 let syncWin = null;
 let updateWin = null;
 let pendingUpdateState = null;   // último estado enviado a la ventana de actualización
+let updateInfo = null;           // { version } si hay una actualización disponible (para el botón del panel)
 let syncStatus = { loggedIn: false, email: null };
 
 // Módulo de sincronización opcional (Supabase). Si falla el require, la app sigue local.
@@ -410,16 +411,21 @@ function createSplash() {
 
 function showSplashThenMain() {
   const splash = createSplash();
+  let closed = false;
+  const closeSplash = () => {
+    if (closed) return; closed = true;
+    if (!splash || splash.isDestroyed()) return;
+    try { splash.webContents.send('leave'); } catch {}
+    setTimeout(() => { if (splash && !splash.isDestroyed()) splash.close(); }, 340);
+  };
   setTimeout(() => {
     openMain();
-    if (mainWin) {
-      mainWin.once('show', () => {
-        if (splash.isDestroyed()) return;
-        splash.webContents.send('leave');
-        setTimeout(() => { if (!splash.isDestroyed()) splash.close(); }, 340);
-      });
-    }
-  }, 4000);
+    if (mainWin && !mainWin.isDestroyed()) mainWin.once('show', closeSplash);
+    else closeSplash();
+    // Cierre de seguridad: pase lo que pase (si 'show' no llega, la ventana tarda,
+    // etc.) el splash nunca se queda enganchado.
+    setTimeout(closeSplash, 2500);
+  }, 3500);
 }
 
 function openCalendar() {
@@ -494,6 +500,7 @@ function getSerializableState() {
     activeTaskId: state.activeTaskId,
     todayTotal: totalTodaySeconds(),
     settings,
+    updateAvailable: updateInfo,
   };
 }
 
@@ -555,6 +562,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'close-groups':   if (groupsWin && !groupsWin.isDestroyed()) groupsWin.hide(); break;
     case 'open-sync':     openSync(); break;
     case 'close-sync':    if (syncWin && !syncWin.isDestroyed()) syncWin.hide(); break;
+    case 'open-update-window': openUpdateWindow(); break;   // desde el botón rojo del panel
     case 'update-download': if (autoUpdater) autoUpdater.downloadUpdate(); break;
     case 'update-install':  if (autoUpdater) setImmediate(() => autoUpdater.quitAndInstall()); break;
     case 'close-update':    if (updateWin && !updateWin.isDestroyed()) updateWin.close(); break;
@@ -613,6 +621,8 @@ function setupAutoUpdate() {
 
   autoUpdater.on('update-available', (info) => {
     manualCheck = false;
+    updateInfo = { version: info.version };
+    broadcastState();                    // muestra el botón rojo "Actualizar" en el panel
     openUpdateWindow();
     sendUpdateState({ phase: 'available', current: app.getVersion(), version: info.version });
   });

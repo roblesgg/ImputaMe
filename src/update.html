@@ -6,12 +6,14 @@
 <style>
   html, body { width:100%;height:100%; }
   body { border-radius:var(--radius);overflow:hidden; }
-  .app { width:100%;height:100%;padding:26px 24px;display:flex;flex-direction:column;gap:14px;position:relative;align-items:center;text-align:center; }
+  .app { width:100%;height:100%;padding:26px 24px;display:flex;flex-direction:column;position:relative; }
+  /* Todo el contenido (icono + textos + botones) centrado vertical y horizontalmente. */
+  #content { flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;width:100%;text-align:center; }
 
   .u-icon {
     width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
     background:linear-gradient(135deg,rgba(99,102,241,.28),rgba(129,140,248,.12));
-    border:1px solid rgba(129,140,248,.3);color:var(--accent);margin-top:6px;
+    border:1px solid rgba(129,140,248,.3);color:var(--accent);
   }
   .u-icon.ok { color:var(--success);background:linear-gradient(135deg,rgba(52,211,153,.24),rgba(52,211,153,.08));border-color:rgba(52,211,153,.3); }
   .u-icon.err { color:var(--danger);background:linear-gradient(135deg,rgba(248,113,113,.24),rgba(248,113,113,.08));border-color:rgba(248,113,113,.3); }
@@ -21,7 +23,7 @@
   .u-versions { font-size:12.5px;color:var(--text2);font-variant-numeric:tabular-nums; }
   .u-versions b { color:var(--accent2); }
 
-  .u-actions { display:flex;gap:8px;justify-content:center;margin-top:auto;padding-top:6px;width:100%; }
+  .u-actions { display:flex;gap:8px;justify-content:center;margin-top:6px;width:100%; }
   .u-actions .btn-primary, .u-actions .btn-ghost { padding:9px 18px;font-size:13px; }
 
   /* Barra de progreso de descarga */

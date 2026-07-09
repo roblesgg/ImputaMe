@@ -1,4 +1,4 @@
 {
-  "version": "1.2.4",
-  "notes": "Nuevo control de translucidez de la ventana en Ajustes (si la app se ve blanquecina en algún equipo, ahora puedes hacerla más sólida con un deslizador, y se ve al instante). Además, la app comprueba si hay actualización al arrancar de forma más fiable (con reintento por si la red aún no está lista)."
+  "version": "1.2.5",
+  "notes": "La ventana de actualización ahora sale bien centrada, y si hay una versión nueva aparece un botón rojo de \"Actualizar\" en el panel principal. Además, el logo de inicio ya no se queda enganchado (cierre de seguridad garantizado)."
 }
