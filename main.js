@@ -40,7 +40,7 @@ let settings = {
   widgetAutoHideSeconds: 10,
   colorMode: 'auto', // 'auto' | 'manual'
   openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
-  translucency: 70,   // 0 = sólido (opaco), 100 = muy translúcido. Controla el fondo de las ventanas.
+  translucency: 25,   // 0 = sólido (opaco), 100 = muy translúcido. Controla el fondo de las ventanas.
 };
 
 function nextAutoColor() {
@@ -327,18 +327,19 @@ function scheduleWidgetAutoHide() {
 }
 
 // Traduce el ajuste de translucidez (0..100) al alfa del fondo de las ventanas.
-// 0 → 1.0 (sólido, sin efecto acrílico), 100 → 0.30 (muy translúcido). 70 ≈ look original.
+// 0 → 1.0 (sólido/opaco), 100 → 0.15 (muy translúcido, se ve el escritorio detrás).
 function bgAlphaFromTranslucency(t) {
-  const x = Math.max(0, Math.min(100, t == null ? 70 : Number(t))) / 100;
-  return (1 - x * 0.7).toFixed(3);
+  const x = Math.max(0, Math.min(100, t == null ? 25 : Number(t))) / 100;
+  return (1 - x * 0.85).toFixed(3);
 }
 
-// Aplica la translucidez a una ventana: material acrílico (o sólido) + variable
-// CSS --bg. Así el usuario puede subir la opacidad si la app se le ve blanquecina.
+// Aplica la translucidez a una ventana. SIN material acrílico: sobre una ventana
+// transparente, el alfa del fondo deja ver el escritorio detrás → translucidez real
+// y consistente. (El acrílico se veía blanquecino en algunos equipos y hacía que el
+// deslizador solo pareciera "más claro/oscuro" en vez de más/menos translúcido.)
 function applyTranslucency(win) {
   if (!win || win.isDestroyed()) return;
-  const solid = Number(settings.translucency) <= 0;
-  try { win.setBackgroundMaterial(solid ? 'none' : 'acrylic'); } catch {}
+  try { win.setBackgroundMaterial('none'); } catch {}
   const css = `:root{ --bg: rgba(18,18,28,${bgAlphaFromTranslucency(settings.translucency)}) !important; }`;
   const doInsert = async () => {
     try {
