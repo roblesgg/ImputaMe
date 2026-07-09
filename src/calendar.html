@@ -18,13 +18,10 @@
     padding:0 16px;border-bottom:1px solid var(--border);
     -webkit-app-region:drag;
   }
-  .cal-titlebar-title { font-size:14px;font-weight:700;flex:1;min-width:0; }
-  /* La × va dentro de la barra como hijo flex, pero separada 20px del borde superior:
-     Windows reserva una franja de "agarre" para redimensionar pegada al borde y, si el
-     botón queda muy arriba (centrado a ~13px), esa franja se come los clics de su mitad
-     superior. A 20px (como el resto de ventanas) se pulsa entero. */
-  .cal-titlebar .win-controls { position:static;top:auto;right:auto;margin-left:auto;align-self:flex-start;margin-top:20px; }
-  .cal-titlebar .win-btn { -webkit-app-region:no-drag; }
+  .cal-titlebar-title { font-size:14px;font-weight:700; }
+  /* La × usa el .win-controls absoluto estándar (top:20/right:14, como el resto de
+     ventanas): un elemento no-drag absoluto se pulsa con fiabilidad, mientras que un
+     hijo flex no-drag dentro de la barra arrastrable a veces no recibe bien el clic. */
   .week-nav { -webkit-app-region:drag; }
   .week-nav .week-nav-btn { -webkit-app-region:no-drag; }
   .cal-titlebar-title .brand-dot { color:var(--accent); }
@@ -185,13 +182,14 @@
 <body>
 <div class="cal-app animate-in">
 
+  <div class="win-controls">
+    <button class="win-btn close" onclick="closeWin()" title="Cerrar">
+      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
   <div class="cal-titlebar">
     <div class="cal-titlebar-title">Calendario · imputa<span class="brand-dot">.</span>me</div>
-    <div class="win-controls">
-      <button class="win-btn close" onclick="closeWin()" title="Cerrar">
-        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-    </div>
   </div>
 
   <div class="cal-body">
