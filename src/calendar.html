@@ -169,13 +169,20 @@
   /* Selector de tarea con buscador y secciones (popup de nueva entrada) */
   #popupTaskPicker { display:flex;flex-direction:column;gap:8px; }
   .task-picker {
-    max-height:190px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);
+    max-height:230px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);
     background:var(--bg2);padding:4px;-webkit-app-region:no-drag;
   }
+  /* Cabecera de sección plegable, como en el panel de Guardadas */
   .tp-group {
+    display:flex;align-items:center;gap:7px;
     font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);
-    padding:7px 8px 3px;position:sticky;top:0;background:#1c1c2a;
+    padding:8px 8px 5px;cursor:pointer;position:sticky;top:0;background:#1c1c2a;
   }
+  .tp-group:hover { color:var(--text); }
+  .tp-group-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .tp-count { font-size:10px;opacity:.75; }
+  .tp-chevron { transform:rotate(90deg);transition:transform .15s;flex-shrink:0; }
+  .tp-group.collapsed .tp-chevron { transform:rotate(0deg); }
   .tp-item {
     display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px;
   }
@@ -200,6 +207,8 @@
 </head>
 <body>
 <div class="cal-app animate-in">
+  <div class="win-drag" title="Arrastra para mover la ventana"></div>
+
 
   <div class="win-controls">
     <button class="win-btn close" onclick="closeWin()" title="Cerrar">
@@ -562,6 +571,7 @@ function renderWeek() {
 
 let lastResizeEnd = 0;   // momento en que terminó el último redimensionado
 let popupSelectedTaskId = null;   // tarea elegida en el selector ('__new__' = crear nueva)
+const tpCollapsed = new Set();    // secciones plegadas en el selector de tarea
 
 function renderDayEntries(col, date) {
   if (!currentState) return;
@@ -639,10 +649,12 @@ function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
       const ms = dayStart + hour * 3600000;
       if (edge === 'start') newStart = Math.min(ms, newEnd - 5 * 60000);
       else newEnd = Math.max(ms, newStart + 5 * 60000);
-      const startH = (newStart - dayStart) / 3600000;
-      const endH = (newEnd - dayStart) / 3600000;
+      // Se recorta al día visible: si la entrada viene de un día anterior (o sigue al
+      // siguiente), sin recortar el bloque saltaba fuera de la columna al arrastrar.
+      const startH = (Math.max(newStart, dayStart) - dayStart) / 3600000;
+      const endH = (Math.min(newEnd, dayStart + 86400000) - dayStart) / 3600000;
       block.style.top = (startH * ROW_H) + 'px';
-      block.style.height = Math.max(16, (endH - startH) * ROW_H) + 'px';
+      block.style.height = Math.max(24, (endH - startH) * ROW_H) + 'px';
       const rangeEl = block.querySelector('.tb-time-range');
       const durEl = block.querySelector('.tb-time-dur');
       const liveEndForLabel = wasOngoing && edge === 'start' ? null : newEnd;
@@ -655,11 +667,10 @@ function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
       handleEl.classList.remove('resizing');
       resizeState = null;
       lastResizeEnd = Date.now();   // evita abrir el popup por el clic de este arrastre
-      ipcRenderer.send('action', { type: 'edit-entry', payload: {
-        taskId: task.id, entryIndex: idx,
-        startMs: newStart,
-        endMs: wasOngoing && edge === 'start' ? null : newEnd,
-      }});
+      // Solo el borde arrastrado: así no pisamos el otro con un valor caducado.
+      const payload = { taskId: task.id, entryIndex: idx };
+      if (edge === 'start') payload.startMs = newStart; else payload.endMs = newEnd;
+      ipcRenderer.send('action', { type: 'edit-entry', payload });
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -756,45 +767,54 @@ function renderTaskPicker() {
   const q = document.getElementById('popupTaskSearch').value.trim().toLowerCase();
   list.innerHTML = '';
 
-  const addItem = (label, id, color, extraClass) => {
+  const addItem = (label, id, color) => {
     const el = document.createElement('div');
-    el.className = 'tp-item' + (popupSelectedTaskId === id ? ' selected' : '') + (extraClass ? ' ' + extraClass : '');
+    el.className = 'tp-item' + (popupSelectedTaskId === id ? ' selected' : '');
     el.innerHTML = color
       ? `<div class="tp-dot" style="background:${color}"></div><span class="tp-name"></span>`
       : `<span class="tp-name tp-new"></span>`;
     el.querySelector('.tp-name').textContent = label;
+    el.title = label;
     el.onclick = () => { popupSelectedTaskId = id; onPopupTaskChange(); renderTaskPicker(); };
     list.appendChild(el);
-  };
-  const addGroup = (name) => {
-    const g = document.createElement('div'); g.className = 'tp-group'; g.textContent = name; list.appendChild(g);
   };
 
   addItem('+ Nueva tarea', '__new__', null);
 
-  const tasks = (currentState.tasks || []).filter(t => !q || t.name.toLowerCase().includes(q));
+  const tasks = currentState.tasks || [];
   const groups = currentState.groups || [];
+  const orphans = tasks.filter(t => t.archived && !groups.some(g => g.id === t.groupId));
 
-  const actives = tasks.filter(t => !t.archived);
-  if (actives.length) { addGroup('Tareas activas'); actives.forEach(t => addItem(t.name, t.id, t.color)); }
+  // Secciones: tareas activas, cada sección guardada y las huérfanas.
+  const sections = [{ key: '__active__', name: 'Tareas activas', tasks: tasks.filter(t => !t.archived) }];
+  groups.forEach(g => sections.push({ key: g.id, name: g.name, tasks: tasks.filter(t => t.archived && t.groupId === g.id) }));
+  if (orphans.length) sections.push({ key: '__none__', name: 'Sin sección', tasks: orphans });
 
-  groups.forEach(g => {
-    const inGroup = tasks.filter(t => t.archived && t.groupId === g.id);
-    // Si buscas por el nombre de la sección, mostramos todas sus tareas.
-    const byGroupName = q && g.name.toLowerCase().includes(q)
-      ? (currentState.tasks || []).filter(t => t.archived && t.groupId === g.id) : [];
-    const items = inGroup.length ? inGroup : byGroupName;
+  let anyShown = false;
+  sections.forEach(sec => {
+    // Buscar por el nombre de la sección muestra todas sus tareas.
+    const secMatches = q && sec.name.toLowerCase().includes(q);
+    const items = secMatches ? sec.tasks : sec.tasks.filter(t => !q || t.name.toLowerCase().includes(q));
     if (!items.length) return;
-    addGroup(g.name);
-    items.forEach(t => addItem(t.name, t.id, t.color));
+    anyShown = true;
+    const collapsed = !q && tpCollapsed.has(sec.key);   // al buscar se despliega todo
+
+    const head = document.createElement('div');
+    head.className = 'tp-group' + (collapsed ? ' collapsed' : '');
+    head.innerHTML = `<svg class="tp-chevron" width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg><span class="tp-group-name"></span><span class="tp-count">${items.length}</span>`;
+    head.querySelector('.tp-group-name').textContent = sec.name;
+    head.onclick = () => {
+      if (tpCollapsed.has(sec.key)) tpCollapsed.delete(sec.key); else tpCollapsed.add(sec.key);
+      renderTaskPicker();
+    };
+    list.appendChild(head);
+
+    if (!collapsed) items.forEach(t => addItem(t.name, t.id, t.color));
   });
 
-  const orphans = tasks.filter(t => t.archived && !groups.some(g => g.id === t.groupId));
-  if (orphans.length) { addGroup('Sin sección'); orphans.forEach(t => addItem(t.name, t.id, t.color)); }
-
-  if (list.children.length === 1) {
+  if (!anyShown) {
     const empty = document.createElement('div');
-    empty.className = 'tp-empty'; empty.textContent = 'Sin resultados. Puedes crear una tarea nueva.';
+    empty.className = 'tp-empty'; empty.textContent = 'Sin resultados. Puedes crear una tarea nueva arriba.';
     list.appendChild(empty);
   }
   onPopupTaskChange();

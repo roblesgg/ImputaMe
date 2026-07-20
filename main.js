@@ -272,8 +272,12 @@ function restoreAndStartTask(taskId, backMinutes) {
 function editEntry(taskId, entryIndex, startMs, endMs) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task || !task.entries[entryIndex]) return;
-  task.entries[entryIndex].start = startMs;
-  task.entries[entryIndex].end = endMs || null;
+  const e = task.entries[entryIndex];
+  // Solo se aplica lo que llega. Al redimensionar se envía ÚNICAMENTE el borde que se
+  // arrastra: si se mandaban los dos, el borde no tocado se pisaba con un valor viejo
+  // (el calendario no se reconstruye con el ratón encima) y "se movía solo".
+  if (startMs !== undefined && startMs !== null) e.start = startMs;
+  if (endMs !== undefined) e.end = endMs;
   saveData(); broadcastState();
 }
 
