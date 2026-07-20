@@ -26,3 +26,35 @@ function computeBackMinutes(minId, timeId) {
   }
   return parseInt(document.getElementById(minId).value) || 0;
 }
+
+// ── Arrastre de la ventana desde el asa (.win-drag) ──────────────────────────
+// Se hace por JavaScript en vez de con -webkit-app-region: drag porque en la ventana
+// del calendario esa zona nunca llegó a funcionar. El main process mueve la ventana
+// comparando la posición del cursor con la que había al empezar.
+(function () {
+  function initWinDrag() {
+    const handle = document.querySelector('.win-drag');
+    if (!handle) return;
+    let ipc = null;
+    try { ipc = require('electron').ipcRenderer; } catch { return; }
+
+    handle.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      handle.classList.add('dragging');
+      ipc.send('win-drag', 'start');
+
+      const onMove = () => ipc.send('win-drag', 'move');
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        handle.classList.remove('dragging');
+        ipc.send('win-drag', 'end');
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initWinDrag);
+  else initWinDrag();
+})();

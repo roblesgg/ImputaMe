@@ -35,23 +35,22 @@ body {
    arriba. Va en el centro para no estorbar a la X (arriba a la derecha), y es la zona
    arrastrable ahora que el resto del contenido es no-drag (si hubiera zona de arrastre
    detrás de los botones, estos solo responderían a medias). */
-/* OJO: nada de `transform` aquí. Chromium calcula la zona arrastrable
-   (-webkit-app-region) con la caja SIN transformar, así que centrar con
-   `left:50% + translateX(-50%)` dejaba la zona real desplazada media anchura a la
-   derecha de la barrita visible: se veía centrada pero no se podía agarrar.
-   Se centra con left/right + margin auto, que sí mueve la caja de verdad. */
+/* El arrastre se hace por JavaScript (ver shared.js), NO con -webkit-app-region: en el
+   calendario esa zona no llegaba a funcionar nunca. Por eso el asa va en `no-drag`: si
+   fuese `drag`, el sistema se quedaría el ratón y el JS no recibiría el mousedown. */
 .win-drag {
-  position: fixed; top: 6px; left: 0; right: 0; margin: 0 auto;
-  width: 110px; height: 18px;
+  position: fixed; top: 5px; left: 0; right: 0; margin: 0 auto;
+  width: 168px; height: 24px;
   display: flex; align-items: center; justify-content: center;
-  -webkit-app-region: drag; cursor: grab; z-index: 60;
+  -webkit-app-region: no-drag; cursor: grab; z-index: 60;
 }
 .win-drag::after {
-  content: ''; width: 56px; height: 5px; border-radius: 3px;
-  background: rgba(255,255,255,0.20);
+  content: ''; width: 116px; height: 7px; border-radius: 4px;
+  background: rgba(255,255,255,0.22);
   transition: background .15s ease, width .15s ease;
 }
-.win-drag:hover::after { background: rgba(255,255,255,0.45); width: 66px; }
+.win-drag:hover::after { background: rgba(255,255,255,0.5); width: 132px; }
+.win-drag.dragging::after { background: rgba(255,255,255,0.6); }
 .win-drag:active { cursor: grabbing; }
 
 /* Glass card */

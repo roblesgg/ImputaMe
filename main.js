@@ -578,6 +578,25 @@ ipcMain.on('action', (event, { type, payload }) => {
   }
 });
 
+// Arrastre de ventana desde el asa (.win-drag). Lo hacemos a mano porque
+// -webkit-app-region: drag no funcionaba en la ventana del calendario. Guardamos la
+// posición del cursor y de la ventana al empezar, y en cada movimiento reposicionamos
+// según cuánto se ha desplazado el cursor.
+let winDragState = null;
+ipcMain.on('win-drag', (event, phase) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return;
+  if (phase === 'start') {
+    winDragState = { win, cursor: screen.getCursorScreenPoint(), bounds: win.getBounds() };
+  } else if (phase === 'move' && winDragState && winDragState.win === win) {
+    const p = screen.getCursorScreenPoint();
+    const { cursor, bounds } = winDragState;
+    win.setPosition(bounds.x + (p.x - cursor.x), bounds.y + (p.y - cursor.y));
+  } else if (phase === 'end') {
+    winDragState = null;
+  }
+});
+
 // Exportar CSV: abre un diálogo nativo "Guardar como…" y escribe el archivo.
 // El contenido lo genera el renderer (que ya tiene el estado y sabe qué rango exportar).
 ipcMain.handle('export-csv', async (_e, { content, defaultName }) => {
