@@ -310,7 +310,7 @@ function resetReminderTimer() {
 
 function showReminder() {
   if (!state.activeTaskId) return;
-  if (widgetWin && !widgetWin.isDestroyed()) { widgetWin.show(); widgetWin.focus(); scheduleWidgetAutoHide(); }
+  if (widgetWin && !widgetWin.isDestroyed()) { widgetWin.showInactive(); scheduleWidgetAutoHide(); }
   else createWidgetWindow();
   reminderTimer = setTimeout(showReminder, getReminderMs());
 }
@@ -375,10 +375,13 @@ function createWidgetWindow() {
   widgetWin = makeWindow('widget.html', W, H, {
     x: width - W - 20, y: height - H - 20,
     alwaysOnTop: true, skipTaskbar: true,
+    show: false,          // no mostrar al crear: mostramos sin activar (ver showInactive)
     minWidth: 280, minHeight: 140,
     maxWidth: 460, maxHeight: 260,
   });
-  widgetWin.once('ready-to-show', () => { widgetWin.show(); sendStateToWindow(widgetWin); scheduleWidgetAutoHide(); });
+  // showInactive: aparece encima pero SIN robar el foco, para no sacarte de lo que
+  // estuvieras escribiendo en otra aplicación.
+  widgetWin.once('ready-to-show', () => { widgetWin.showInactive(); sendStateToWindow(widgetWin); scheduleWidgetAutoHide(); });
 }
 
 function openMain() {

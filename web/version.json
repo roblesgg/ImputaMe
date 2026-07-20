@@ -1,4 +1,4 @@
 {
-  "version": "1.2.11",
-  "notes": "Arregladas las X de cerrar de todas las ventanas (Panel, Guardadas, Calendario y la de actualización): ahora se pulsan enteras. El problema era la zona de arrastre que había detrás del botón; ahora el arrastre está solo en el título."
+  "version": "1.2.12",
+  "notes": "El aviso ya no te saca de donde estabas escribiendo en otra aplicación. En el calendario: las entradas cortas se pueden pulsar y eliminar bien, se arregla el bloqueo que dejaba el calendario sin refrescarse al arrastrar, y al crear una entrada nueva eliges la tarea desde una lista con buscador y agrupada por secciones."
 }

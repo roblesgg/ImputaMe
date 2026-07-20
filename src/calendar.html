@@ -166,6 +166,26 @@
     color:var(--text);font-family:inherit;font-size:14px;padding:8px 9px;outline:none;color-scheme:dark;
   }
 
+  /* Selector de tarea con buscador y secciones (popup de nueva entrada) */
+  #popupTaskPicker { display:flex;flex-direction:column;gap:8px; }
+  .task-picker {
+    max-height:190px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);
+    background:var(--bg2);padding:4px;-webkit-app-region:no-drag;
+  }
+  .tp-group {
+    font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);
+    padding:7px 8px 3px;position:sticky;top:0;background:#1c1c2a;
+  }
+  .tp-item {
+    display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px;
+  }
+  .tp-item:hover { background:var(--bg3); }
+  .tp-item.selected { background:rgba(99,102,241,.28);outline:1px solid var(--accent); }
+  .tp-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
+  .tp-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .tp-new { color:var(--accent);font-weight:600; }
+  .tp-empty { font-size:12px;color:var(--text2);padding:10px 8px;text-align:center; }
+
   /* Popup de exportación */
   .export-opts { display:flex;flex-direction:column;gap:2px; }
   .export-opt { display:flex;align-items:center;gap:9px;font-size:13.5px;padding:6px 4px;border-radius:6px;cursor:pointer;-webkit-app-region:no-drag; }
@@ -247,10 +267,13 @@
   <div class="entry-popup" id="entryPopup" style="display:none">
     <div class="entry-popup-title" id="popupTitle">Nueva entrada</div>
 
-    <select id="popupTaskSelect" onchange="onPopupTaskChange()"></select>
+    <div id="popupTaskPicker">
+      <input type="text" id="popupTaskSearch" placeholder="Buscar tarea o sección..." oninput="renderTaskPicker()">
+      <div class="task-picker" id="popupTaskList"></div>
+    </div>
 
     <div id="popupNewTaskFields" style="display:none;flex-direction:column;gap:8px">
-      <input type="text" id="popupNewTaskName" placeholder="Nombre de la tarea..." maxlength="40">
+      <input type="text" id="popupNewTaskName" placeholder="Nombre de la tarea..." maxlength="120">
       <div id="popupColorSection">
         <div class="color-row" id="popupColorPicker"></div>
       </div>
@@ -313,7 +336,6 @@ let popupMode = null;
 let popupCtx = null;
 let dragState = null;
 let resizeState = null;
-let hoveredBlocks = 0;
 let popupColor = COLORS[0];
 
 function startOfDay(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
@@ -489,7 +511,10 @@ function renderWeek() {
   // No reconstruir la rejilla mientras se está arrastrando (destruiría el elemento en uso),
   // ni mientras el ratón está sobre una tarea: el estado llega cada segundo si hay una tarea
   // activa, y recrear el bloque bajo el cursor le reinicia el :hover y hace parpadear los tiradores.
-  if (dragState || resizeState || hoveredBlocks > 0) return;
+  // Se consulta el :hover real en vez de llevar un contador: si un bloque se destruía con el
+  // ratón encima, su 'mouseleave' nunca llegaba, el contador se quedaba > 0 y el calendario
+  // dejaba de refrescarse (el "se buguea" al arrastrar).
+  if (dragState || resizeState || document.querySelector('.task-block:hover')) return;
   const weekEndDay = addDays(viewWeekStart, 6);
   const sameMonth = viewWeekStart.getMonth() === weekEndDay.getMonth();
   const label = sameMonth
@@ -535,7 +560,8 @@ function renderWeek() {
   });
 }
 
-let suppressNextClick = false;
+let lastResizeEnd = 0;   // momento en que terminó el último redimensionado
+let popupSelectedTaskId = null;   // tarea elegida en el selector ('__new__' = crear nueva)
 
 function renderDayEntries(col, date) {
   if (!currentState) return;
@@ -551,8 +577,10 @@ function renderDayEntries(col, date) {
       const endH = (to - dayStart) / 3600000;
       const block = document.createElement('div');
       block.className = 'task-block' + (entry.end == null ? ' running' : '');
+      // Altura mínima algo mayor: las entradas cortas eran casi imposibles de pulsar.
+      const blockH = Math.max(24, (endH - startH) * ROW_H);
       block.style.top = (startH*ROW_H)+'px';
-      block.style.height = Math.max(16, (endH-startH)*ROW_H)+'px';
+      block.style.height = blockH + 'px';
       block.style.background = task.color;
       block.style.color = contrastTextColor(task.color);
       block.title = task.name;
@@ -560,18 +588,19 @@ function renderDayEntries(col, date) {
       block.innerHTML = `<div class="tb-name">${task.name}</div><div class="tb-time"><span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span><span class="tb-time-dur">${formatDur(durMs)}</span></div>`;
       block.onclick = (ev) => {
         ev.stopPropagation();
-        if (suppressNextClick) { suppressNextClick = false; return; }
+        // Tras redimensionar no abrimos el popup, pero solo por un instante. Antes un
+        // flag global se tragaba el siguiente clic (aunque fuera en OTRA entrada), y por
+        // eso "a veces" no se podía abrir una tarea para eliminarla.
+        if (Date.now() - lastResizeEnd < 300) return;
         openEditPopup(task, idx, entry);
       };
-      block.addEventListener('mouseenter', () => { hoveredBlocks++; });
-      block.addEventListener('mouseleave', () => { hoveredBlocks = Math.max(0, hoveredBlocks - 1); });
 
-      // El tirador superior ajusta la hora de inicio; solo tiene sentido si este
-      // segmento realmente empieza aquí (no es la cola de una entrada de un día anterior).
-      // Contorno del tirador a contraste con el color de la tarea: si la tarea es
-      // roja/verde y el tirador también, se camuflaría contra el fondo del bloque.
+      // Los tiradores solo si el bloque es lo bastante alto: en entradas cortas los dos
+      // tiradores (12px cada uno) cubrían el bloque entero y se comían el clic, así que
+      // no se podía abrir la entrada ni eliminarla.
       const handleOutline = contrastTextColor(task.color);
-      if (from === s) {
+      const roomForHandles = blockH >= 40;
+      if (roomForHandles && from === s) {
         const topHandle = document.createElement('div');
         topHandle.className = 'tb-handle tb-handle-top' + (entry.end == null ? ' running' : '');
         topHandle.style.setProperty('--handle-outline', handleOutline);
@@ -580,7 +609,7 @@ function renderDayEntries(col, date) {
       }
       // El tirador inferior ajusta la hora de fin; solo si la entrada ya tiene fin
       // (no está en curso) y este segmento contiene realmente ese fin.
-      if (entry.end != null && to === e) {
+      if (roomForHandles && entry.end != null && to === e) {
         const bottomHandle = document.createElement('div');
         bottomHandle.className = 'tb-handle tb-handle-bottom';
         bottomHandle.style.setProperty('--handle-outline', handleOutline);
@@ -597,7 +626,6 @@ function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
   handleEl.addEventListener('mousedown', (e) => {
     e.stopPropagation();
     e.preventDefault();
-    suppressNextClick = true;
     const dayStart = startOfDay(col._date).getTime();
     const wasOngoing = entry.end == null;
     let newStart = entry.start;
@@ -626,6 +654,7 @@ function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
       document.removeEventListener('mouseup', onUp);
       handleEl.classList.remove('resizing');
       resizeState = null;
+      lastResizeEnd = Date.now();   // evita abrir el popup por el clic de este arrastre
       ipcRenderer.send('action', { type: 'edit-entry', payload: {
         taskId: task.id, entryIndex: idx,
         startMs: newStart,
@@ -708,17 +737,11 @@ function openCreatePopup(date, startHour, endHour) {
   document.getElementById('popupTitle').textContent = 'Nueva entrada';
   document.getElementById('popupDeleteBtn').style.display = 'none';
 
-  const select = document.getElementById('popupTaskSelect');
-  select.innerHTML = '';
-  (currentState.tasks || []).forEach(t => {
-    const opt = document.createElement('option'); opt.value = t.id; opt.textContent = t.name;
-    select.appendChild(opt);
-  });
-  const newOpt = document.createElement('option'); newOpt.value = '__new__'; newOpt.textContent = '+ Nueva tarea';
-  select.appendChild(newOpt);
-  select.value = currentState.tasks.length ? currentState.tasks[0].id : '__new__';
-  select.style.display = '';
-  onPopupTaskChange();
+  document.getElementById('popupTaskPicker').style.display = '';
+  document.getElementById('popupTaskSearch').value = '';
+  const first = (currentState.tasks || []).find(t => !t.archived) || (currentState.tasks || [])[0];
+  popupSelectedTaskId = first ? first.id : '__new__';
+  renderTaskPicker();
 
   document.getElementById('popupStart').value = hourToHHMM(startHour);
   document.getElementById('popupEnd').value = hourToHHMM(endHour);
@@ -727,13 +750,63 @@ function openCreatePopup(date, startHour, endHour) {
   showPopup();
 }
 
+// Lista de tareas con buscador y agrupadas por sección (las guardadas) más las activas.
+function renderTaskPicker() {
+  const list = document.getElementById('popupTaskList');
+  const q = document.getElementById('popupTaskSearch').value.trim().toLowerCase();
+  list.innerHTML = '';
+
+  const addItem = (label, id, color, extraClass) => {
+    const el = document.createElement('div');
+    el.className = 'tp-item' + (popupSelectedTaskId === id ? ' selected' : '') + (extraClass ? ' ' + extraClass : '');
+    el.innerHTML = color
+      ? `<div class="tp-dot" style="background:${color}"></div><span class="tp-name"></span>`
+      : `<span class="tp-name tp-new"></span>`;
+    el.querySelector('.tp-name').textContent = label;
+    el.onclick = () => { popupSelectedTaskId = id; onPopupTaskChange(); renderTaskPicker(); };
+    list.appendChild(el);
+  };
+  const addGroup = (name) => {
+    const g = document.createElement('div'); g.className = 'tp-group'; g.textContent = name; list.appendChild(g);
+  };
+
+  addItem('+ Nueva tarea', '__new__', null);
+
+  const tasks = (currentState.tasks || []).filter(t => !q || t.name.toLowerCase().includes(q));
+  const groups = currentState.groups || [];
+
+  const actives = tasks.filter(t => !t.archived);
+  if (actives.length) { addGroup('Tareas activas'); actives.forEach(t => addItem(t.name, t.id, t.color)); }
+
+  groups.forEach(g => {
+    const inGroup = tasks.filter(t => t.archived && t.groupId === g.id);
+    // Si buscas por el nombre de la sección, mostramos todas sus tareas.
+    const byGroupName = q && g.name.toLowerCase().includes(q)
+      ? (currentState.tasks || []).filter(t => t.archived && t.groupId === g.id) : [];
+    const items = inGroup.length ? inGroup : byGroupName;
+    if (!items.length) return;
+    addGroup(g.name);
+    items.forEach(t => addItem(t.name, t.id, t.color));
+  });
+
+  const orphans = tasks.filter(t => t.archived && !groups.some(g => g.id === t.groupId));
+  if (orphans.length) { addGroup('Sin sección'); orphans.forEach(t => addItem(t.name, t.id, t.color)); }
+
+  if (list.children.length === 1) {
+    const empty = document.createElement('div');
+    empty.className = 'tp-empty'; empty.textContent = 'Sin resultados. Puedes crear una tarea nueva.';
+    list.appendChild(empty);
+  }
+  onPopupTaskChange();
+}
+
 function openEditPopup(task, entryIndex, entry) {
   popupMode = 'edit';
   popupCtx = { task, entryIndex, date: startOfDay(new Date(entry.start)) };
   document.getElementById('popupTitle').textContent = task.name;
   document.getElementById('popupDeleteBtn').style.display = '';
 
-  document.getElementById('popupTaskSelect').style.display = 'none';
+  document.getElementById('popupTaskPicker').style.display = 'none';
   document.getElementById('popupNewTaskFields').style.display = 'none';
 
   const s = new Date(entry.start);
@@ -748,7 +821,7 @@ function openEditPopup(task, entryIndex, entry) {
 }
 
 function onPopupTaskChange() {
-  const isNew = document.getElementById('popupTaskSelect').value === '__new__';
+  const isNew = popupSelectedTaskId === '__new__';
   document.getElementById('popupNewTaskFields').style.display = isNew ? 'flex' : 'none';
   const manualColors = currentState.settings && currentState.settings.colorMode === 'manual';
   document.getElementById('popupColorSection').style.display = manualColors ? '' : 'none';
@@ -787,14 +860,12 @@ function savePopup() {
   if (endMs !== null && endMs <= startMs) { alert('La hora de fin debe ser posterior al inicio'); return; }
 
   if (popupMode === 'create') {
-    const select = document.getElementById('popupTaskSelect');
-    const isNew = select.value === '__new__';
-    if (isNew) {
+    if (popupSelectedTaskId === '__new__' || !popupSelectedTaskId) {
       const name = document.getElementById('popupNewTaskName').value.trim();
       if (!name) { alert('Ponle un nombre a la tarea'); return; }
       ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:null, newTaskName:name, newTaskColor:popupColor, startMs, endMs } });
     } else {
-      ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:select.value, startMs, endMs } });
+      ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:popupSelectedTaskId, startMs, endMs } });
     }
   } else if (popupMode === 'edit') {
     ipcRenderer.send('action', { type:'edit-entry', payload:{ taskId:popupCtx.task.id, entryIndex:popupCtx.entryIndex, startMs, endMs } });
