@@ -1,4 +1,4 @@
 {
-  "version": "1.2.13",
-  "notes": "Al arrastrar el borde inferior de una entrada del calendario ya no se movía sola la hora de inicio. El selector de tarea al crear una entrada ahora es un panel con buscador y secciones plegables, como el de Guardadas. Y todas las ventanas tienen un asa arriba en el centro para moverlas cómodamente."
+  "version": "1.2.14",
+  "notes": "El asa para mover la ventana ya funciona también en el calendario. Y al crear una entrada, el selector de tarea es ahora un panel más ancho y ordenado: buscador, secciones plegables con contador y, al buscar, se indica a qué sección pertenece cada tarea."
 }

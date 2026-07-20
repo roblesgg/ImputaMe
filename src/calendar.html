@@ -7,14 +7,17 @@
   html, body { width:100%;height:100%; }
   body { border-radius:var(--radius);overflow:hidden; }
 
-  .cal-app { width:100%;height:100%;display:flex;flex-direction:column;position:relative;-webkit-app-region:no-drag; }
+  /* padding-top: deja una franja limpia arriba para el asa de arrastre. En las demás
+     ventanas el asa cae sobre el padding vacío del contenedor y funciona; aquí caía
+     encima de la barra de título y el solape de zonas drag/no-drag la anulaba. */
+  .cal-app { width:100%;height:100%;display:flex;flex-direction:column;position:relative;padding-top:22px;-webkit-app-region:no-drag; }
 
   /* Barra de título arrastrable: permite mover la ventana desde CUALQUIER punto
      de esta franja superior, no solo desde el texto. Lo marcamos explícitamente
      (y también la fila de navegación de semana) para que toda la parte superior
      de la ventana sirva para arrastrar. */
   .cal-titlebar {
-    flex-shrink:0;height:54px;display:flex;align-items:center;gap:10px;
+    flex-shrink:0;height:42px;display:flex;align-items:center;gap:10px;
     padding:0 16px;border-bottom:1px solid var(--border);
   }
   /* El contenedor es no-drag; el arrastre va SOLO en el título (izquierda) y en la fila
@@ -166,11 +169,22 @@
     color:var(--text);font-family:inherit;font-size:14px;padding:8px 9px;outline:none;color-scheme:dark;
   }
 
+  /* Popup más ancho al crear (hay que elegir tarea entre muchas) */
+  .entry-popup.wide { width:480px; }
+
   /* Selector de tarea con buscador y secciones (popup de nueva entrada) */
-  #popupTaskPicker { display:flex;flex-direction:column;gap:8px; }
+  #popupTaskPicker { display:flex;flex-direction:column;gap:8px;min-height:0; }
+  .tp-label { font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
+  .tp-search-wrap { position:relative;display:flex;align-items:center; }
+  .tp-search-wrap svg { position:absolute;left:10px;color:var(--text2);pointer-events:none; }
+  #popupTaskSearch { padding-left:32px !important; }
   .task-picker {
-    max-height:230px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);
+    height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);
     background:var(--bg2);padding:4px;-webkit-app-region:no-drag;
+  }
+  .tp-section-chip {
+    font-size:10px;color:var(--text2);background:var(--bg3);border-radius:5px;
+    padding:2px 6px;flex-shrink:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
   /* Cabecera de sección plegable, como en el panel de Guardadas */
   .tp-group {
@@ -277,7 +291,11 @@
     <div class="entry-popup-title" id="popupTitle">Nueva entrada</div>
 
     <div id="popupTaskPicker">
-      <input type="text" id="popupTaskSearch" placeholder="Buscar tarea o sección..." oninput="renderTaskPicker()">
+      <div class="tp-label">Tarea</div>
+      <div class="tp-search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="text" id="popupTaskSearch" placeholder="Buscar tarea o sección..." oninput="renderTaskPicker()">
+      </div>
       <div class="task-picker" id="popupTaskList"></div>
     </div>
 
@@ -748,6 +766,7 @@ function openCreatePopup(date, startHour, endHour) {
   document.getElementById('popupTitle').textContent = 'Nueva entrada';
   document.getElementById('popupDeleteBtn').style.display = 'none';
 
+  document.getElementById('entryPopup').classList.add('wide');   // más ancho para elegir tarea
   document.getElementById('popupTaskPicker').style.display = '';
   document.getElementById('popupTaskSearch').value = '';
   const first = (currentState.tasks || []).find(t => !t.archived) || (currentState.tasks || [])[0];
@@ -767,7 +786,7 @@ function renderTaskPicker() {
   const q = document.getElementById('popupTaskSearch').value.trim().toLowerCase();
   list.innerHTML = '';
 
-  const addItem = (label, id, color) => {
+  const addItem = (label, id, color, sectionName) => {
     const el = document.createElement('div');
     el.className = 'tp-item' + (popupSelectedTaskId === id ? ' selected' : '');
     el.innerHTML = color
@@ -775,6 +794,12 @@ function renderTaskPicker() {
       : `<span class="tp-name tp-new"></span>`;
     el.querySelector('.tp-name').textContent = label;
     el.title = label;
+    // Al buscar mostramos a qué sección pertenece cada resultado.
+    if (q && sectionName) {
+      const chip = document.createElement('span');
+      chip.className = 'tp-section-chip'; chip.textContent = sectionName;
+      el.appendChild(chip);
+    }
     el.onclick = () => { popupSelectedTaskId = id; onPopupTaskChange(); renderTaskPicker(); };
     list.appendChild(el);
   };
@@ -809,7 +834,7 @@ function renderTaskPicker() {
     };
     list.appendChild(head);
 
-    if (!collapsed) items.forEach(t => addItem(t.name, t.id, t.color));
+    if (!collapsed) items.forEach(t => addItem(t.name, t.id, t.color, sec.name));
   });
 
   if (!anyShown) {
@@ -826,6 +851,7 @@ function openEditPopup(task, entryIndex, entry) {
   document.getElementById('popupTitle').textContent = task.name;
   document.getElementById('popupDeleteBtn').style.display = '';
 
+  document.getElementById('entryPopup').classList.remove('wide');
   document.getElementById('popupTaskPicker').style.display = 'none';
   document.getElementById('popupNewTaskFields').style.display = 'none';
 
