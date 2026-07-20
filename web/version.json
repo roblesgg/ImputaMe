@@ -1,4 +1,4 @@
 {
-  "version": "1.2.14",
-  "notes": "El asa para mover la ventana ya funciona también en el calendario. Y al crear una entrada, el selector de tarea es ahora un panel más ancho y ordenado: buscador, secciones plegables con contador y, al buscar, se indica a qué sección pertenece cada tarea."
+  "version": "1.2.15",
+  "notes": "Arreglada el asa para mover la ventana en el calendario: la zona arrastrable quedaba desplazada respecto a la barrita que se ve, porque Chromium ignora los transform de CSS al calcular esas zonas. Ahora se centra sin transform y el asa es más grande."
 }

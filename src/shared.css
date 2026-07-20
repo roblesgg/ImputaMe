@@ -35,9 +35,14 @@ body {
    arriba. Va en el centro para no estorbar a la X (arriba a la derecha), y es la zona
    arrastrable ahora que el resto del contenido es no-drag (si hubiera zona de arrastre
    detrás de los botones, estos solo responderían a medias). */
+/* OJO: nada de `transform` aquí. Chromium calcula la zona arrastrable
+   (-webkit-app-region) con la caja SIN transformar, así que centrar con
+   `left:50% + translateX(-50%)` dejaba la zona real desplazada media anchura a la
+   derecha de la barrita visible: se veía centrada pero no se podía agarrar.
+   Se centra con left/right + margin auto, que sí mueve la caja de verdad. */
 .win-drag {
-  position: fixed; top: 6px; left: 50%; transform: translateX(-50%);
-  width: 78px; height: 16px;
+  position: fixed; top: 6px; left: 0; right: 0; margin: 0 auto;
+  width: 110px; height: 18px;
   display: flex; align-items: center; justify-content: center;
   -webkit-app-region: drag; cursor: grab; z-index: 60;
 }
@@ -222,11 +227,14 @@ select option { background: #1c1c2a; color: var(--text); }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
 
 /* Animate in */
+/* Sin `forwards` y terminando en `transform: none`: así, al acabar la animación, el
+   contenedor NO se queda con un transform aplicado. Un ancestro transformado altera el
+   cálculo de las zonas -webkit-app-region (y el posicionamiento fixed) de sus hijos. */
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(12px) scale(.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 1; transform: none; }
 }
-.animate-in { animation: slideIn .22s ease forwards; }
+.animate-in { animation: slideIn .22s ease; }
 
 /* Fila "¿ya llevas tiempo? / o desde qué hora" (usada por main.html y groups.html) */
 .back-row { display:flex;align-items:center;gap:8px;-webkit-app-region:no-drag; }
