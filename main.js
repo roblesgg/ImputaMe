@@ -2,6 +2,20 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog } =
 const path = require('path');
 const fs = require('fs');
 
+// Instancia única: sin esto, cada vez que se relanzaba la app (acceso directo, inicio con
+// Windows, doble clic...) mientras ya había una corriendo, se abría un PROCESO NUEVO entero
+// -con su propio icono de bandeja y su propio panel- en vez de traer al frente el que ya
+// estaba abierto. De ahí que a veces aparecieran dos paneles a la vez.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  return;
+}
+app.on('second-instance', () => {
+  // Alguien ha vuelto a lanzar la app mientras ya estaba corriendo: solo traemos el
+  // panel al frente, no dejamos que se abra un proceso duplicado.
+  openMain();
+});
+
 const APP_ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
 const TASK_COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
 
