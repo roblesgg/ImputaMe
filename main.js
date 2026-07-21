@@ -269,15 +269,21 @@ function restoreAndStartTask(taskId, backMinutes) {
   openMain();
 }
 
-function editEntry(taskId, entryIndex, startMs, endMs) {
+function editEntry(taskId, entryIndex, startMs, endMs, note) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task || !task.entries[entryIndex]) return;
   const e = task.entries[entryIndex];
   // Solo se aplica lo que llega. Al redimensionar se envía ÚNICAMENTE el borde que se
   // arrastra: si se mandaban los dos, el borde no tocado se pisaba con un valor viejo
-  // (el calendario no se reconstruye con el ratón encima) y "se movía solo".
+  // (el calendario no se reconstruye con el ratón encima) y "se movía solo". Igual con
+  // la nota: es propia de ESTA entrada (no de la tarea), así que no toca el nombre ni
+  // el resto de veces que se ha hecho la misma tarea.
   if (startMs !== undefined && startMs !== null) e.start = startMs;
   if (endMs !== undefined) e.end = endMs;
+  if (note !== undefined) {
+    const n = (note || '').trim().slice(0, 500);
+    if (n) e.note = n; else delete e.note;
+  }
   saveData(); broadcastState();
 }
 
@@ -289,7 +295,7 @@ function deleteEntry(taskId, entryIndex) {
   saveData(); broadcastState();
 }
 
-function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs) {
+function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs, note) {
   let task = state.tasks.find(t => t.id === taskId);
   if (!task && newTaskName) {
     const id = Date.now().toString();
@@ -298,7 +304,10 @@ function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs) {
     state.tasks.push(task);
   }
   if (!task || startMs == null) return;
-  task.entries.push({ start: startMs, end: endMs || null });
+  const entry = { start: startMs, end: endMs || null };
+  const n = (note || '').trim().slice(0, 500);
+  if (n) entry.note = n;
+  task.entries.push(entry);
   saveData(); broadcastState();
 }
 
@@ -359,25 +368,90 @@ function applyTranslucencyAll() {
   [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin].forEach(w => applyTranslucency(w));
 }
 
+function debounce(fn, ms) {
+  let t = null;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// La pantalla "de referencia" para abrir/posicionar ventanas nuevas: la que tenga el
+// panel principal en ese momento (si no existe todavía, la principal del sistema).
+function getReferenceDisplay() {
+  if (mainWin && !mainWin.isDestroyed()) {
+    try { return screen.getDisplayMatching(mainWin.getBounds()); } catch {}
+  }
+  return screen.getPrimaryDisplay();
+}
+
+// Recalcula los límites min/max de una ventana según la pantalla en la que esté AHORA
+// (guardados como "medidas de diseño" en win.__sizeSpec, sin recortar), y si con el
+// nuevo límite ya no cabe, la encoge para que quede dentro del área de trabajo.
+function adaptWindowToItsDisplay(win) {
+  if (!win || win.isDestroyed() || !win.__sizeSpec) return;
+  const { minWidth, minHeight, maxWidth, maxHeight } = win.__sizeSpec;
+  let disp;
+  try { disp = screen.getDisplayMatching(win.getBounds()); } catch { return; }
+  const work = disp.workArea;
+  const cappedMaxW = Math.max(minWidth, Math.min(maxWidth, work.width));
+  const cappedMaxH = Math.max(minHeight, Math.min(maxHeight, work.height));
+  try { win.setMaximumSize(cappedMaxW, cappedMaxH); } catch {}
+  try { win.setMinimumSize(Math.min(minWidth, cappedMaxW), Math.min(minHeight, cappedMaxH)); } catch {}
+  const b = win.getBounds();
+  const newW = Math.min(b.width, cappedMaxW);
+  const newH = Math.min(b.height, cappedMaxH);
+  if (newW !== b.width || newH !== b.height) {
+    const x = Math.min(Math.max(b.x, work.x), work.x + work.width - newW);
+    const y = Math.min(Math.max(b.y, work.y), work.y + work.height - newH);
+    try { win.setBounds({ x, y, width: newW, height: newH }); } catch {}
+  }
+}
+
+// w/h son el tamaño "ideal" de arranque; minWidth/minHeight/maxWidth/maxHeight en opts
+// son las medidas DE DISEÑO (sin recortar a ninguna pantalla en concreto): makeWindow las
+// ajusta ya a la pantalla de referencia al crearla, y las reajusta sola si la ventana se
+// mueve a otra pantalla (ver adaptWindowToItsDisplay, enganchado al evento 'move').
 function makeWindow(file, w, h, opts = {}) {
+  const { minWidth, minHeight, maxWidth, maxHeight, x, y, center, ...restOpts } = opts;
+  const disp = getReferenceDisplay();
+  const work = disp.workArea;
+
+  const designMinW = minWidth || 0;
+  const designMinH = minHeight || 0;
+  const designMaxW = maxWidth || 100000;
+  const designMaxH = maxHeight || 100000;
+  const cappedMaxW = Math.max(designMinW, Math.min(designMaxW, work.width));
+  const cappedMaxH = Math.max(designMinH, Math.min(designMaxH, work.height));
+  const initW = Math.max(Math.min(designMinW, cappedMaxW), Math.min(w, cappedMaxW));
+  const initH = Math.max(Math.min(designMinH, cappedMaxH), Math.min(h, cappedMaxH));
+
+  let posX = x, posY = y;
+  if (posX == null && posY == null && center !== false) {
+    posX = work.x + Math.round((work.width - initW) / 2);
+    posY = work.y + Math.round((work.height - initH) / 2);
+  }
+
   const win = new BrowserWindow({
-    width: w, height: h,
+    width: initW, height: initH,
+    x: posX, y: posY,
+    minWidth: Math.min(designMinW, cappedMaxW), minHeight: Math.min(designMinH, cappedMaxH),
+    maxWidth: cappedMaxW, maxHeight: cappedMaxH,
     frame: false, transparent: true, hasShadow: false,
     resizable: true, roundedCorners: true,
     icon: APP_ICON_PATH,
-    ...opts,
+    ...restOpts,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
+  win.__sizeSpec = { minWidth: designMinW, minHeight: designMinH, maxWidth: designMaxW, maxHeight: designMaxH };
+  win.on('move', debounce(() => adaptWindowToItsDisplay(win), 200));
   win.loadFile(path.join(__dirname, 'src', file));
   applyTranslucency(win);
   return win;
 }
 
 function createWidgetWindow() {
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const work = getReferenceDisplay().workArea;
   const W = 320, H = 172;
   widgetWin = makeWindow('widget.html', W, H, {
-    x: width - W - 20, y: height - H - 20,
+    x: work.x + work.width - W - 20, y: work.y + work.height - H - 20,
     alwaysOnTop: true, skipTaskbar: true,
     show: false,          // no mostrar al crear: mostramos sin activar (ver showInactive)
     minWidth: 280, minHeight: 140,
@@ -390,11 +464,9 @@ function createWidgetWindow() {
 
 function openMain() {
   if (mainWin && !mainWin.isDestroyed()) { mainWin.show(); mainWin.focus(); sendStateToWindow(mainWin); return; }
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   mainWin = makeWindow('main.html', 560, 660, {
-    center: true,
     minWidth: 380, minHeight: 480,
-    maxWidth: Math.min(900, width), maxHeight: Math.min(1000, height),
+    maxWidth: 900, maxHeight: 1000,
   });
   mainWin.once('ready-to-show', () => { mainWin.show(); sendStateToWindow(mainWin); });
   mainWin.on('closed', () => { mainWin = null; });
@@ -438,10 +510,9 @@ function showSplashThenMain() {
 
 function openCalendar() {
   if (calendarWin && !calendarWin.isDestroyed()) { calendarWin.show(); calendarWin.focus(); sendStateToWindow(calendarWin); return; }
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  calendarWin = makeWindow('calendar.html', Math.min(1280, width), 760, {
+  calendarWin = makeWindow('calendar.html', 1280, 760, {
     minWidth: 760, minHeight: 520,
-    maxWidth: Math.min(1600, width), maxHeight: Math.min(1000, height),
+    maxWidth: 1600, maxHeight: 1000,
   });
   calendarWin.once('ready-to-show', () => { calendarWin.show(); sendStateToWindow(calendarWin); });
   calendarWin.on('closed', () => { calendarWin = null; });
@@ -459,10 +530,9 @@ function openSettings() {
 
 function openGroups() {
   if (groupsWin && !groupsWin.isDestroyed()) { groupsWin.show(); groupsWin.focus(); sendStateToWindow(groupsWin); return; }
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   groupsWin = makeWindow('groups.html', 420, 620, {
     minWidth: 340, minHeight: 420,
-    maxWidth: Math.min(700, width), maxHeight: Math.min(1000, height),
+    maxWidth: 700, maxHeight: 1000,
   });
   groupsWin.once('ready-to-show', () => { groupsWin.show(); sendStateToWindow(groupsWin); });
   groupsWin.on('closed', () => { groupsWin = null; });
@@ -470,7 +540,7 @@ function openGroups() {
 
 function openSync() {
   if (syncWin && !syncWin.isDestroyed()) { syncWin.show(); syncWin.focus(); return; }
-  syncWin = makeWindow('sync.html', 400, 520, { center: true, minWidth: 360, minHeight: 460, maxWidth: 520, maxHeight: 680 });
+  syncWin = makeWindow('sync.html', 400, 520, { minWidth: 360, minHeight: 460, maxWidth: 520, maxHeight: 680 });
   syncWin.once('ready-to-show', () => { syncWin.show(); syncWin.webContents.send('sync-status', syncStatus); });
   syncWin.on('closed', () => { syncWin = null; });
 }
@@ -481,7 +551,7 @@ function openSync() {
 function openUpdateWindow() {
   if (updateWin && !updateWin.isDestroyed()) { updateWin.show(); updateWin.focus(); return; }
   updateWin = makeWindow('update.html', 400, 320, {
-    center: true, alwaysOnTop: true, resizable: false,
+    alwaysOnTop: true, resizable: false,
     minWidth: 360, minHeight: 280, maxWidth: 460, maxHeight: 380,
   });
   updateWin.once('ready-to-show', () => {
@@ -541,10 +611,10 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'delete-group':  deleteGroup(payload.groupId); break;
     case 'move-task-to-group': moveTaskToGroup(payload.taskId, payload.groupId); break;
     case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes); break;
-    case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs); break;
+    case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
     case 'add-calendar-entry':
-      addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs);
+      addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note);
       break;
     case 'save-settings':
       settings = { ...settings, ...payload };
@@ -591,7 +661,15 @@ ipcMain.on('win-drag', (event, phase) => {
   } else if (phase === 'move' && winDragState && winDragState.win === win) {
     const p = screen.getCursorScreenPoint();
     const { cursor, bounds } = winDragState;
-    win.setPosition(bounds.x + (p.x - cursor.x), bounds.y + (p.y - cursor.y));
+    // Fijamos también el ancho/alto en cada movimiento (no solo x/y): al cruzar a una
+    // pantalla con distinta escala (DPI), Windows reescala la ventana sola, y si no se
+    // reafirma aquí el tamaño original se va agrandando sin parar mientras se arrastra.
+    win.setBounds({
+      x: bounds.x + (p.x - cursor.x),
+      y: bounds.y + (p.y - cursor.y),
+      width: bounds.width,
+      height: bounds.height,
+    });
   } else if (phase === 'end') {
     winDragState = null;
   }

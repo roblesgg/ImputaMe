@@ -118,6 +118,7 @@
     font-weight:600;overflow:hidden;white-space:normal;overflow-wrap:anywhere;
   }
   .task-block .tb-time { display:flex;align-items:baseline;gap:6px;opacity:.85;font-size:11px; }
+  .task-block .tb-note-icon { flex-shrink:0;align-self:center; }
   .task-block .tb-time-range { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0; }
   .task-block .tb-time-dur { flex-shrink:0;margin-left:auto;font-weight:700; }
   .task-block.ghost { opacity:.55;background:var(--accent2)!important;pointer-events:none; }
@@ -311,6 +312,8 @@
       <span style="color:var(--text2);font-size:12px">→</span>
       <input type="time" id="popupEnd" placeholder="en curso">
     </div>
+
+    <textarea id="popupNote" placeholder="Nota para esta vez (opcional): no cambia el nombre de la tarea, solo queda aquí." maxlength="500" rows="2"></textarea>
 
     <div class="entry-popup-actions">
       <button class="btn-danger" id="popupDeleteBtn" style="display:none" onclick="deletePopupEntry()">Eliminar</button>
@@ -611,9 +614,12 @@ function renderDayEntries(col, date) {
       block.style.height = blockH + 'px';
       block.style.background = task.color;
       block.style.color = contrastTextColor(task.color);
-      block.title = task.name;
+      block.title = entry.note ? `${task.name}\nNota: ${entry.note}` : task.name;
       const durMs = (entry.end || Date.now()) - entry.start;
-      block.innerHTML = `<div class="tb-name">${task.name}</div><div class="tb-time"><span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span><span class="tb-time-dur">${formatDur(durMs)}</span></div>`;
+      const noteIcon = entry.note
+        ? `<svg class="tb-note-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H9l-5 5z"/></svg>`
+        : '';
+      block.innerHTML = `<div class="tb-name">${task.name}</div><div class="tb-time">${noteIcon}<span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span><span class="tb-time-dur">${formatDur(durMs)}</span></div>`;
       block.onclick = (ev) => {
         ev.stopPropagation();
         // Tras redimensionar no abrimos el popup, pero solo por un instante. Antes un
@@ -775,6 +781,7 @@ function openCreatePopup(date, startHour, endHour) {
 
   document.getElementById('popupStart').value = hourToHHMM(startHour);
   document.getElementById('popupEnd').value = hourToHHMM(endHour);
+  document.getElementById('popupNote').value = '';
 
   buildPopupColorPicker();
   showPopup();
@@ -863,6 +870,7 @@ function openEditPopup(task, entryIndex, entry) {
   } else {
     document.getElementById('popupEnd').value = '';
   }
+  document.getElementById('popupNote').value = entry.note || '';
   showPopup();
 }
 
@@ -904,17 +912,18 @@ function savePopup() {
   const startMs = day.getTime() + hhmmToHour(startVal)*3600000;
   const endMs = endVal ? day.getTime() + hhmmToHour(endVal)*3600000 : null;
   if (endMs !== null && endMs <= startMs) { alert('La hora de fin debe ser posterior al inicio'); return; }
+  const note = document.getElementById('popupNote').value.trim();
 
   if (popupMode === 'create') {
     if (popupSelectedTaskId === '__new__' || !popupSelectedTaskId) {
       const name = document.getElementById('popupNewTaskName').value.trim();
       if (!name) { alert('Ponle un nombre a la tarea'); return; }
-      ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:null, newTaskName:name, newTaskColor:popupColor, startMs, endMs } });
+      ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:null, newTaskName:name, newTaskColor:popupColor, startMs, endMs, note } });
     } else {
-      ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:popupSelectedTaskId, startMs, endMs } });
+      ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:popupSelectedTaskId, startMs, endMs, note } });
     }
   } else if (popupMode === 'edit') {
-    ipcRenderer.send('action', { type:'edit-entry', payload:{ taskId:popupCtx.task.id, entryIndex:popupCtx.entryIndex, startMs, endMs } });
+    ipcRenderer.send('action', { type:'edit-entry', payload:{ taskId:popupCtx.task.id, entryIndex:popupCtx.entryIndex, startMs, endMs, note } });
   }
   closePopup();
 }

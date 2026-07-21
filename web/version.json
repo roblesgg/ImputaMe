@@ -1,4 +1,4 @@
 {
-  "version": "1.2.16",
-  "notes": "El asa para mover la ventana ahora funciona en todas, incluido el calendario: el arrastre se hace por JavaScript en vez de depender de las zonas arrastrables del sistema, que en esa ventana nunca llegaron a funcionar. Además el asa es más grande y visible."
+  "version": "1.2.17",
+  "notes": "Arreglado el ensanchamiento sin control de la ventana al arrastrarla entre pantallas con distinta resolución/escala. Las ventanas nuevas se abren ahora en la pantalla donde está el panel principal, y su tamaño se adapta si las mueves a otra pantalla. Además, cada entrada del calendario puede llevar una nota propia (solo para esa vez, sin tocar el nombre de la tarea ni el resto del historial)."
 }
