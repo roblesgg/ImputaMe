@@ -1,4 +1,4 @@
 {
-  "version": "1.2.22",
-  "notes": "Arreglado: al alargar una entrada antigua hasta ahora, si no era la última de la tarea el panel se quedaba mirando otra entrada y parecía que la nota se borraba. El aviso de confirmación al alargar ya no es el diálogo genérico de Windows, sino uno con el estilo de la app. Y los botones de pausar/reiniciar/reanudar del popup del calendario tienen ahora icono y color propio."
+  "version": "1.2.23",
+  "notes": "El aviso de actualización ya no depende solo del temporizador (antes cada 4h): ahora también se comprueba cada vez que vuelves al panel principal (con un mínimo de 10 minutos entre comprobaciones automáticas para no saturar), y el temporizador de fondo pasa de 4 horas a 1."
 }

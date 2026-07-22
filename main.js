@@ -532,6 +532,7 @@ function createWidgetWindow() {
 }
 
 function openMain() {
+  checkForUpdatesIfStale();   // aprovecha que el usuario vuelve a la app para refrescar, sin esperar al temporizador
   if (mainWin && !mainWin.isDestroyed()) { mainWin.show(); mainWin.focus(); sendStateToWindow(mainWin); return; }
   mainWin = makeWindow('main.html', 560, 660, {
     minWidth: 380, minHeight: 480,
@@ -888,6 +889,18 @@ function startTick() {
 // No necesita ninguna ventana de la app (funciona aunque el panel esté cerrado).
 let autoUpdater = null;
 let manualCheck = false;   // true cuando el usuario pulsa "Buscar actualizaciones…"
+let lastAutoCheckAt = 0;
+const AUTO_CHECK_THROTTLE_MS = 10 * 60 * 1000;   // como mucho una comprobación automática cada 10 min
+
+// Comprueba actualizaciones si ha pasado un rato desde la última vez (se llama al
+// volver al panel): así, si estaba abierta de fondo cuando salió una versión nueva,
+// no hay que esperar al temporizador de 1h ni acordarse de pulsar "Buscar
+// actualizaciones" a mano — basta con volver a la app.
+function checkForUpdatesIfStale() {
+  if (!autoUpdater) return;
+  if (Date.now() - lastAutoCheckAt < AUTO_CHECK_THROTTLE_MS) return;
+  checkForUpdates(false);
+}
 
 function setupAutoUpdate() {
   if (!app.isPackaged) return;          // en desarrollo no existe app-update.yml
@@ -929,7 +942,7 @@ function setupAutoUpdate() {
 
   checkForUpdates(false);                              // al arrancar
   setTimeout(() => checkForUpdates(false), 15000);     // reintento por si la red aún no estaba lista (p.ej. arranque con Windows)
-  setInterval(() => checkForUpdates(false), 4 * 60 * 60 * 1000);  // y cada 4 horas mientras esté abierta
+  setInterval(() => checkForUpdates(false), 60 * 60 * 1000);  // y cada hora mientras esté abierta
 }
 
 function checkForUpdates(manual) {
@@ -937,6 +950,7 @@ function checkForUpdates(manual) {
     if (manual) { openUpdateWindow(); sendUpdateState({ phase: 'unavailable' }); }
     return;
   }
+  lastAutoCheckAt = Date.now();
   manualCheck = manual;
   if (manual) { openUpdateWindow(); sendUpdateState({ phase: 'checking' }); }
   autoUpdater.checkForUpdates().catch((err) => {
