@@ -116,7 +116,7 @@
       <div class="total-label">Total hoy</div>
       <div class="total-time" id="totalTime">0m 00s</div>
     </div>
-    <div style="display:flex;gap:8px;-webkit-app-region:no-drag">
+    <div id="navButtons" style="display:flex;gap:8px;-webkit-app-region:no-drag">
       <button class="btn-ghost" onclick="openCalendar()" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
         Calendario
@@ -210,7 +210,14 @@ function fmt(secs) {
   return `${m}m ${String(s).padStart(2,'0')}s`;
 }
 
-ipcRenderer.on('state', (_, state) => { currentState = state; render(state); });
+let tutorialActive = false;
+ipcRenderer.on('state', (_, state) => {
+  currentState = state; render(state);
+  if (!tutorialActive) {
+    const seen = (state.settings && state.settings.tutorialSeenSteps) || [];
+    tutorialActive = startTutorialIfNeeded('main', seen, () => { tutorialActive = false; });
+  }
+});
 ipcRenderer.send('action', { type: 'get-state' });
 
 const SVG_SAVE = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;

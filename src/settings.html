@@ -144,6 +144,12 @@
     <span class="hint">Si lo activas, la app arranca sola al iniciar sesión en Windows y se queda en la bandeja del sistema. Desactivado por defecto.</span>
   </div>
 
+  <div class="field">
+    <label class="check-row" style="cursor:default"><span>Tutorial guiado</span></label>
+    <button class="btn-ghost" style="align-self:flex-start" onclick="startTutorial()">Iniciar tutorial</button>
+    <span class="hint">Vuelve a ver, paso a paso, para qué sirve cada cosa del panel principal y del calendario.</span>
+  </div>
+
   <div class="field account-field">
     <label>Cuenta y sincronización</label>
     <div class="account-status" id="accountStatus">Trabajando en local (sin cuenta)</div>
@@ -228,6 +234,10 @@ function save() {
   } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
+function startTutorial() {
+  ipcRenderer.send('action', { type:'reset-tutorial' });
+  cancel();
+}
 
 // ---------- Cuenta / sincronización ----------
 function openSync() { ipcRenderer.send('action', { type:'open-sync' }); }

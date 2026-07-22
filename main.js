@@ -55,6 +55,7 @@ let settings = {
   colorMode: 'auto', // 'auto' | 'manual'
   openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
   bgOpacity: 50,       // 0 = muy translúcida (se ve más el blur), 100 = muy opaca. Blur siempre puesto.
+  tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
 };
 
 function nextAutoColor() {
@@ -657,6 +658,19 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'set-bg-opacity':
       settings.bgOpacity = Math.max(0, Math.min(100, Number(payload.value)));
       saveSettings(); applyTranslucencyAll();
+      break;
+    case 'mark-tutorial-seen': {
+      const ids = Array.isArray(payload && payload.ids) ? payload.ids : [];
+      const seen = new Set(settings.tutorialSeenSteps || []);
+      ids.forEach(id => seen.add(id));
+      settings.tutorialSeenSteps = [...seen];
+      saveSettings(); broadcastState();
+      break;
+    }
+    case 'reset-tutorial':
+      settings.tutorialSeenSteps = [];
+      saveSettings(); broadcastState();
+      openMain();
       break;
     case 'open-main':     openMain(); break;
     case 'open-calendar': openCalendar(); break;

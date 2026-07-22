@@ -274,6 +274,45 @@ select option { background: #1c1c2a; color: var(--text); }
 .entry-popup input:focus, .entry-popup textarea:focus { border-color:var(--accent); }
 .entry-popup-actions { display:flex;align-items:center;gap:8px;margin-top:2px; }
 
+/* ── Tutorial guiado (coachmarks) ─────────────────────────────────────────── */
+/* Backdrop transparente que solo bloquea clics; el oscurecido real lo da el
+   box-shadow gigante del spotlight (así el recorte alrededor del elemento
+   señalado queda perfecto sea cual sea su forma). */
+.tut-backdrop {
+  position: fixed; inset: 0; z-index: 9997; background: transparent;
+  -webkit-app-region: no-drag;
+}
+.tut-spotlight {
+  position: fixed; z-index: 9998; border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(8,8,14,.62);
+  pointer-events: none;
+  transition: left .22s cubic-bezier(.4,0,.2,1), top .22s cubic-bezier(.4,0,.2,1),
+              width .22s cubic-bezier(.4,0,.2,1), height .22s cubic-bezier(.4,0,.2,1);
+}
+.tut-card {
+  position: fixed; z-index: 9999; background: #1c1c2a;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.55);
+  -webkit-app-region: no-drag;
+  transition: left .22s cubic-bezier(.4,0,.2,1), top .22s cubic-bezier(.4,0,.2,1);
+  animation: slideIn .18s ease;
+}
+.tut-card-title { font-size: 14.5px; font-weight: 700; }
+.tut-card-text { font-size: 13px; color: var(--text2); line-height: 1.45; }
+.tut-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+.tut-skip {
+  background: transparent; color: var(--text2); font-size: 12px; padding: 4px 2px;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.tut-skip:hover { color: var(--text); }
+.tut-card-nav { display: flex; align-items: center; gap: 8px; }
+.tut-progress { font-size: 11.5px; color: var(--text2); font-variant-numeric: tabular-nums; margin-right: 2px; }
+.tut-btn-ghost { background: var(--bg2); color: var(--text); padding: 7px 12px; border: 1px solid var(--border); font-size: 12.5px; }
+.tut-btn-ghost:hover { background: var(--bg3); }
+.tut-btn-primary { background: var(--accent2); color: #fff; padding: 7px 14px; font-weight: 600; font-size: 12.5px; }
+.tut-btn-primary:hover { background: #4f52d0; }
+
 /* Color picker row */
 .colors-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
 .color-row {

@@ -1,4 +1,4 @@
 {
-  "version": "1.2.18",
-  "notes": "Arreglados los tirones al arrastrar la ventana entre pantallas. Ahora puedes renombrar una tarea desde el propio calendario (al editar una entrada) y ponerle una nota a la tarea que está corriendo desde el panel principal, que se ve en el calendario y se borra sola al pausar. Los campos de nombre y nota del calendario se ajustan solos al tamaño del texto."
+  "version": "1.2.19",
+  "notes": "Nuevo: tutorial guiado (\"siguiente / siguiente / omitir\") que explica para qué sirve cada parte del panel principal y del calendario. Se muestra solo una vez y, en cada actualización futura, solo enseña lo nuevo que se haya añadido. Puedes volver a verlo cuando quieras desde Ajustes → Iniciar tutorial."
 }

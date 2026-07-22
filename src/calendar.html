@@ -415,6 +415,7 @@ function timeRangeLabel(startMs, endMsOrNull) {
 
 const today0 = startOfDay(new Date());
 
+let tutorialActive = false;
 ipcRenderer.on('state', (_, state) => {
   currentState = state;
   let firstLoad = false;
@@ -427,6 +428,10 @@ ipcRenderer.on('state', (_, state) => {
   }
   renderAll();
   if (firstLoad) scrollToNow();
+  if (!tutorialActive) {
+    const seen = (state.settings && state.settings.tutorialSeenSteps) || [];
+    tutorialActive = startTutorialIfNeeded('calendar', seen, () => { tutorialActive = false; });
+  }
 });
 ipcRenderer.send('action', { type: 'get-state' });
 
