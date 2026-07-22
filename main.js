@@ -237,6 +237,12 @@ function resumeEntry(taskId, entryIndex) {
   if (entry.end == null) return;   // ya está en curso
   pauseActive();
   entry.end = null;
+  // El resto de la app (el propio pauseActive, la nota rápida del panel principal...)
+  // da por hecho que la entrada "en curso" es SIEMPRE la última del array. Si se
+  // reanuda una que no lo era, hay que moverla al final para no romper eso: si no,
+  // el panel mostraba/editaba la nota de otra entrada distinta (parecía que se borraba).
+  task.entries.splice(entryIndex, 1);
+  task.entries.push(entry);
   state.activeTaskId = taskId;
   saveData(); broadcastState(); resetReminderTimer();
 }

@@ -74,14 +74,34 @@
   @keyframes legendPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
   /* Controles rápidos dentro del popup de editar entrada (pausar / reiniciar con nota /
-     reanudar una entrada ya cerrada): ver #popupQuickActions más abajo. */
+     reanudar una entrada ya cerrada): ver #popupQuickActions más abajo. Botones tipo
+     "píldora" con icono y color según lo que hacen (rojo=parar, verde=arrancar,
+     morado=variantes con nota), a juego con el resto de acentos de color de la app. */
   .popup-quick-actions {
-    display:flex;flex-wrap:wrap;align-items:center;gap:6px;
-    background:var(--bg2);border:1px solid var(--border);border-radius:8px;
-    padding:9px 10px;-webkit-app-region:no-drag;
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+    background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+    padding:10px;-webkit-app-region:no-drag;
   }
   .popup-quick-actions:empty { display:none; }
-  .popup-quick-actions .pqa-label { width:100%;font-size:11px;color:var(--text2); }
+  .popup-quick-actions .pqa-label { width:100%;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em; }
+  .pqa-btn {
+    display:inline-flex;align-items:center;gap:6px;border-radius:20px;
+    padding:8px 14px;font-size:12.5px;font-weight:600;border:1px solid transparent;
+    cursor:pointer;-webkit-app-region:no-drag;transition:all .15s;
+  }
+  .pqa-btn svg { flex-shrink:0; }
+  .pqa-btn.pqa-danger { background:rgba(248,113,113,.15);color:var(--danger);border-color:rgba(248,113,113,.3); }
+  .pqa-btn.pqa-danger:hover { background:rgba(248,113,113,.28); }
+  .pqa-btn.pqa-success { background:rgba(52,211,153,.15);color:var(--success);border-color:rgba(52,211,153,.3); }
+  .pqa-btn.pqa-success:hover { background:rgba(52,211,153,.28); }
+  .pqa-btn.pqa-accent { background:rgba(99,102,241,.16);color:var(--accent);border-color:rgba(99,102,241,.32); }
+  .pqa-btn.pqa-accent:hover { background:rgba(99,102,241,.28); }
+
+  /* Popup de confirmación con el estilo de la app (en vez del confirm() nativo de Windows).
+     Va encima del popup de editar entrada, que se queda debajo (mismo z-index+1). */
+  .confirm-backdrop { z-index:51; }
+  .confirm-popup { width:340px;z-index:52; }
+  .confirm-popup-text { font-size:13px;color:var(--text2);line-height:1.45; }
 
   .day-totals { display:flex;flex-direction:column;gap:2px; }
   .day-total-time { font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
@@ -360,6 +380,18 @@
       <div style="flex:1"></div>
       <button class="btn-ghost" onclick="closePopup()">Cancelar</button>
       <button class="btn-primary" onclick="savePopup()">Guardar</button>
+    </div>
+  </div>
+
+  <!-- Popup de confirmación con el estilo de la app (sustituye a confirm() nativo) -->
+  <div class="popup-backdrop confirm-backdrop" id="confirmPopupBackdrop" style="display:none" onclick="closeConfirmPopup()"></div>
+  <div class="entry-popup confirm-popup" id="confirmPopup" style="display:none">
+    <div class="entry-popup-title" id="confirmPopupTitle">Confirmar</div>
+    <div class="confirm-popup-text" id="confirmPopupText"></div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeConfirmPopup()">Cancelar</button>
+      <button class="btn-primary" id="confirmPopupOkBtn">Confirmar</button>
     </div>
   </div>
 
@@ -959,6 +991,26 @@ function openEditPopup(task, entryIndex, entry) {
   autoGrowPopupFields();
 }
 
+// ---------- Popup de confirmación (con el estilo de la app, no confirm() nativo) ----------
+function showConfirmPopup(title, text, okLabel, onConfirm) {
+  document.getElementById('confirmPopupTitle').textContent = title;
+  document.getElementById('confirmPopupText').textContent = text;
+  const okBtn = document.getElementById('confirmPopupOkBtn');
+  okBtn.textContent = okLabel || 'Confirmar';
+  okBtn.onclick = () => { closeConfirmPopup(); onConfirm(); };
+  document.getElementById('confirmPopupBackdrop').style.display = 'block';
+  document.getElementById('confirmPopup').style.display = 'flex';
+}
+function closeConfirmPopup() {
+  document.getElementById('confirmPopupBackdrop').style.display = 'none';
+  document.getElementById('confirmPopup').style.display = 'none';
+}
+
+const PQA_ICON_PAUSE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg>`;
+const PQA_ICON_RESTART = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
+const PQA_ICON_PLAY = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3l15 9-15 9V3z"/></svg>`;
+const PQA_ICON_EXTEND = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+
 // Controles rápidos según de qué entrada se trate: si es la que está corriendo ahora
 // mismo, pausar o partirla con una nota distinta; si ya está cerrada y la tarea no
 // está en marcha, poder reanudarla (como una entrada nueva desde ahora, o alargando
@@ -969,19 +1021,20 @@ function renderPopupQuickActions(task, entryIndex, entry) {
   const isLiveEntry = entry.end == null;
   const taskIsActive = currentState && task.id === currentState.activeTaskId;
 
-  const mkBtn = (label, onClick, primary) => {
+  const mkBtn = (icon, label, colorClass, onClick) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = primary ? 'btn-primary' : 'btn-ghost';
-    b.style.cssText = 'font-size:12px;padding:7px 11px;';
-    b.textContent = label;
+    b.className = 'pqa-btn ' + colorClass;
+    b.innerHTML = icon + `<span>${label}</span>`;
     b.onclick = onClick;
     return b;
   };
 
   if (isLiveEntry && taskIsActive) {
-    wrap.appendChild(mkBtn('Pausar', () => { ipcRenderer.send('action', { type:'pause' }); closePopup(); }));
-    wrap.appendChild(mkBtn('Reiniciar con otra nota', () => {
+    wrap.appendChild(mkBtn(PQA_ICON_PAUSE, 'Pausar', 'pqa-danger', () => {
+      ipcRenderer.send('action', { type:'pause' }); closePopup();
+    }));
+    wrap.appendChild(mkBtn(PQA_ICON_RESTART, 'Reiniciar con otra nota', 'pqa-accent', () => {
       const note = prompt('Nota para la nueva sesión (opcional):', '');
       if (note !== null) { ipcRenderer.send('action', { type:'restart-task-with-note', payload:{ note } }); closePopup(); }
     }));
@@ -990,15 +1043,17 @@ function renderPopupQuickActions(task, entryIndex, entry) {
     label.className = 'pqa-label';
     label.textContent = 'Reanudar esta tarea:';
     wrap.appendChild(label);
-    wrap.appendChild(mkBtn('Nueva entrada desde ahora', () => {
+    wrap.appendChild(mkBtn(PQA_ICON_PLAY, 'Nueva entrada desde ahora', 'pqa-success', () => {
       ipcRenderer.send('action', { type:'switch-task', payload:{ taskId: task.id } });
       closePopup();
     }));
-    wrap.appendChild(mkBtn('Alargar esta hasta ahora', () => {
-      if (confirm('Esto alargará esta entrada (desde su hora de inicio original) hasta ahora mismo, en vez de crear una nueva. ¿Continuar?')) {
-        ipcRenderer.send('action', { type:'resume-entry', payload:{ taskId: task.id, entryIndex } });
-        closePopup();
-      }
+    wrap.appendChild(mkBtn(PQA_ICON_EXTEND, 'Alargar esta hasta ahora', 'pqa-accent', () => {
+      showConfirmPopup(
+        'Alargar entrada',
+        'Esto alargará esta entrada (desde su hora de inicio original) hasta ahora mismo, en vez de crear una nueva.',
+        'Alargar',
+        () => { ipcRenderer.send('action', { type:'resume-entry', payload:{ taskId: task.id, entryIndex } }); closePopup(); }
+      );
     }));
   }
   // Si la tarea está activa por OTRA entrada (esta que se edita es una antigua), no se
