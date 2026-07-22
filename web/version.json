@@ -1,4 +1,4 @@
 {
-  "version": "1.2.20",
-  "notes": "Nuevo: copia de seguridad (Ajustes → Exportar/Restaurar copia) que guarda tus tareas y grupos en un archivo, con detección de conflictos al restaurar. Botón \"Buscar actualizaciones\" en Ajustes, para comprobar si hay versión nueva sin cerrar y volver a abrir la app. En el calendario, cada tarea de la lista tiene ahora un botón de controles para pausar, cambiar a otra tarea o reiniciar la misma con una nota distinta."
+  "version": "1.2.21",
+  "notes": "El popup de editar una entrada del calendario ahora tiene controles rápidos: si la entrada está en marcha, puedes pausarla o reiniciarla con una nota distinta (parte el tiempo en dos); si ya ha terminado y la tarea no está activa, puedes reanudarla como una entrada nueva desde ahora, o alargar esa misma entrada hasta ahora."
 }

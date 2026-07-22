@@ -227,6 +227,20 @@ function restartActiveTaskWithNote(note) {
   saveData(); broadcastState(); resetReminderTimer();
 }
 
+// Reabre una entrada ya cerrada (le quita la hora de fin) para que siga sumando hasta
+// ahora, como si nunca se hubiera parado. Antes cierra lo que estuviera activo (si era
+// otra tarea), para que solo haya una entrada "en curso" a la vez.
+function resumeEntry(taskId, entryIndex) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task || !task.entries[entryIndex]) return;
+  const entry = task.entries[entryIndex];
+  if (entry.end == null) return;   // ya está en curso
+  pauseActive();
+  entry.end = null;
+  state.activeTaskId = taskId;
+  saveData(); broadcastState(); resetReminderTimer();
+}
+
 function createTask(name, color) {
   const id = Date.now().toString();
   const finalColor = settings.colorMode === 'manual' ? (color || nextAutoColor()) : nextAutoColor();
@@ -646,6 +660,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'pause':         pauseActive(); break;
     case 'switch-task':   switchTask(payload.taskId, payload.backMinutes); break;
     case 'restart-task-with-note': restartActiveTaskWithNote(payload && payload.note); break;
+    case 'resume-entry':  resumeEntry(payload.taskId, payload.entryIndex); break;
     case 'create-task': {
       const id = createTask(payload.name, payload.color);
       startTask(id, payload.backMinutes);

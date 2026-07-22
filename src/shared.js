@@ -56,7 +56,7 @@ const TUTORIAL_STEPS = [
     title:'Añadir tarea', text:'Crea una tarea nueva. En cuanto le des a play, empieza a contar el tiempo.' },
 
   { id:'cal-grid',       window:'calendar', version:'1.2.19', selector:'#gridScroll',
-    title:'La cuadrícula', text:'Arrastra sobre un hueco libre para crear una entrada a mano. Haz clic en un bloque existente para editarlo: puedes renombrar la tarea (todo su historial) o ponerle una nota (solo esa vez).' },
+    title:'La cuadrícula', text:'Arrastra sobre un hueco libre para crear una entrada a mano. Haz clic en un bloque existente para editarlo (renombrar la tarea, poner una nota) y, si está en marcha o ya ha terminado, para pausarla, reanudarla o reiniciarla con otra nota.' },
   { id:'cal-day',        window:'calendar', version:'1.2.19', selector:'#weekHeader',
     title:'Elegir día', text:'Haz clic en la cabecera de un día para seleccionarlo: se marca aquí y se resume en el panel de la izquierda.' },
   { id:'cal-summary',    window:'calendar', version:'1.2.19', selector:'.day-totals',
@@ -67,9 +67,6 @@ const TUTORIAL_STEPS = [
     title:'Mini calendario', text:'Para saltar rápido a otra semana o mes.' },
   { id:'cal-export',     window:'calendar', version:'1.2.19', selector:'.export-btn',
     title:'Exportar', text:'Descarga tus horas en un CSV listo para abrir en Excel, del rango que quieras.' },
-
-  { id:'cal-controls',   window:'calendar', version:'1.2.20', selector:'#legendList .legend-controls-btn',
-    title:'Controles de la tarea', text:'Pausa, cambia a otra tarea, o reinicia esta misma con una nota distinta (para partir el tiempo en dos), todo sin salir del calendario.' },
 ];
 
 function tutAllStepIds() { return TUTORIAL_STEPS.map(s => s.id); }
