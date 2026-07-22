@@ -1,4 +1,4 @@
 {
-  "version": "1.2.19",
-  "notes": "Nuevo: tutorial guiado (\"siguiente / siguiente / omitir\") que explica para qué sirve cada parte del panel principal y del calendario. Se muestra solo una vez y, en cada actualización futura, solo enseña lo nuevo que se haya añadido. Puedes volver a verlo cuando quieras desde Ajustes → Iniciar tutorial."
+  "version": "1.2.20",
+  "notes": "Nuevo: copia de seguridad (Ajustes → Exportar/Restaurar copia) que guarda tus tareas y grupos en un archivo, con detección de conflictos al restaurar. Botón \"Buscar actualizaciones\" en Ajustes, para comprobar si hay versión nueva sin cerrar y volver a abrir la app. En el calendario, cada tarea de la lista tiene ahora un botón de controles para pausar, cambiar a otra tarea o reiniciar la misma con una nota distinta."
 }

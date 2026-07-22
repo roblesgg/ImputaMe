@@ -211,6 +211,22 @@ function switchTask(taskId, backMinutes) {
   else startTask(taskId, backMinutes);
 }
 
+// Cierra la sesión en curso de la tarea activa (como al pausar) y arranca ENSEGUIDA
+// una nueva entrada para esa misma tarea, con una nota distinta. Sirve para partir
+// el tiempo en dos cuando cambias de lo que estás haciendo dentro de la misma tarea,
+// sin tener que pausar y volver a darle a play a mano.
+function restartActiveTaskWithNote(note) {
+  const task = getActiveTask();
+  if (!task) return;
+  const last = task.entries[task.entries.length - 1];
+  if (last && !last.end) { last.end = Date.now(); delete last.note; }
+  const entry = { start: Date.now(), end: null };
+  const n = (note || '').trim().slice(0, 500);
+  if (n) entry.note = n;
+  task.entries.push(entry);
+  saveData(); broadcastState(); resetReminderTimer();
+}
+
 function createTask(name, color) {
   const id = Date.now().toString();
   const finalColor = settings.colorMode === 'manual' ? (color || nextAutoColor()) : nextAutoColor();
@@ -553,9 +569,9 @@ function openCalendar() {
 
 function openSettings() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
-  settingsWin = makeWindow('settings.html', 380, 380, {
-    minWidth: 340, minHeight: 360,
-    maxWidth: 520, maxHeight: 560,
+  settingsWin = makeWindow('settings.html', 380, 620, {
+    minWidth: 340, minHeight: 400,
+    maxWidth: 520, maxHeight: 760,
   });
   settingsWin.once('ready-to-show', () => { settingsWin.show(); settingsWin.webContents.send('settings', settings); });
   settingsWin.on('closed', () => { settingsWin = null; });
@@ -629,6 +645,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'start-task':    startTask(payload.taskId, payload.backMinutes); break;
     case 'pause':         pauseActive(); break;
     case 'switch-task':   switchTask(payload.taskId, payload.backMinutes); break;
+    case 'restart-task-with-note': restartActiveTaskWithNote(payload && payload.note); break;
     case 'create-task': {
       const id = createTask(payload.name, payload.color);
       startTask(id, payload.backMinutes);
@@ -691,6 +708,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'update-download': if (autoUpdater) autoUpdater.downloadUpdate(); break;
     case 'update-install':  if (autoUpdater) setImmediate(() => autoUpdater.quitAndInstall()); break;
     case 'close-update':    if (updateWin && !updateWin.isDestroyed()) updateWin.close(); break;
+    case 'check-for-updates': checkForUpdates(true); break;   // botón "Buscar actualizaciones" de Ajustes
     case 'get-state':     event.reply('state', getSerializableState()); break;
   }
 });
@@ -743,6 +761,92 @@ ipcMain.handle('export-csv', async (_e, { content, defaultName }) => {
   } catch (e) {
     return { ok: false, error: String((e && e.message) || e) };
   }
+});
+
+// ── Copia de seguridad (export/import de tareas y grupos a un .json local) ────
+function deepEqual(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+ipcMain.handle('export-backup', async () => {
+  try {
+    const parent = settingsWin && !settingsWin.isDestroyed() ? settingsWin : (mainWin || undefined);
+    const baseDir = app.getPath('documents') || app.getPath('home') || app.getPath('desktop') || '';
+    const { canceled, filePath } = await dialog.showSaveDialog(parent, {
+      title: 'Exportar copia de seguridad',
+      defaultPath: path.join(baseDir, `imputa-backup-${new Date().toISOString().slice(0, 10)}.json`),
+      filters: [{ name: 'Copia de seguridad de imputa.me', extensions: ['json'] }],
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    const payload = { imputaBackup: true, exportedAt: new Date().toISOString(), tasks: state.tasks, groups: state.groups };
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+    return { ok: true, path: filePath };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+});
+
+// Guarda el backup ya leído entre 'import-backup' (que solo calcula qué hay que
+// decidir) y 'apply-import-backup' (que lo aplica), para no tener que mandar todo
+// el JSON de un lado a otro dos veces por IPC.
+let pendingImport = null;
+
+ipcMain.handle('import-backup', async () => {
+  try {
+    const parent = settingsWin && !settingsWin.isDestroyed() ? settingsWin : (mainWin || undefined);
+    const { canceled, filePaths } = await dialog.showOpenDialog(parent, {
+      title: 'Restaurar copia de seguridad',
+      filters: [{ name: 'Copia de seguridad de imputa.me', extensions: ['json'] }],
+      properties: ['openFile'],
+    });
+    if (canceled || !filePaths || !filePaths[0]) return { ok: false, canceled: true };
+    const raw = JSON.parse(fs.readFileSync(filePaths[0], 'utf8'));
+    if (!raw || !Array.isArray(raw.tasks) || !Array.isArray(raw.groups)) {
+      return { ok: false, error: 'El archivo no es una copia de seguridad válida de imputa.me.' };
+    }
+    // Compara cada tarea/grupo de la copia con lo que ya hay en local por id: si no
+    // existe es nuevo (se añade sin preguntar), si es idéntico se ignora en silencio,
+    // y si existe pero con datos distintos es un conflicto que hay que decidir.
+    const conflicts = [];
+    let newCount = 0, sameCount = 0;
+    const localTasksById = new Map(state.tasks.map(t => [t.id, t]));
+    const localGroupsById = new Map(state.groups.map(g => [g.id, g]));
+    raw.tasks.forEach(t => {
+      const local = localTasksById.get(t.id);
+      if (!local) newCount++;
+      else if (deepEqual(local, t)) sameCount++;
+      else conflicts.push({ kind: 'task', id: t.id, key: `task:${t.id}`, name: t.name, localName: local.name });
+    });
+    raw.groups.forEach(g => {
+      const local = localGroupsById.get(g.id);
+      if (!local) newCount++;
+      else if (deepEqual(local, g)) sameCount++;
+      else conflicts.push({ kind: 'group', id: g.id, key: `group:${g.id}`, name: g.name, localName: local.name });
+    });
+    pendingImport = raw;
+    return { ok: true, newCount, sameCount, conflicts };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+});
+
+ipcMain.handle('apply-import-backup', async (_e, payload) => {
+  if (!pendingImport) return { ok: false, error: 'No hay ninguna copia cargada.' };
+  const raw = pendingImport; pendingImport = null;
+  const res = (payload && payload.resolutions) || {};
+  pauseActive();   // evita que un reemplazo deje la tarea activa en un estado ambiguo
+  raw.groups.forEach(g => {
+    const idx = state.groups.findIndex(x => x.id === g.id);
+    if (idx === -1) { state.groups.push(g); return; }
+    if (deepEqual(state.groups[idx], g)) return;
+    if (res[`group:${g.id}`] === 'replace') state.groups[idx] = g;
+  });
+  raw.tasks.forEach(t => {
+    const idx = state.tasks.findIndex(x => x.id === t.id);
+    if (idx === -1) { state.tasks.push(t); return; }
+    if (deepEqual(state.tasks[idx], t)) return;
+    if (res[`task:${t.id}`] === 'replace') state.tasks[idx] = t;
+  });
+  saveData(); broadcastState();
+  return { ok: true };
 });
 
 // Login/logout de sincronización (respuestas asíncronas)

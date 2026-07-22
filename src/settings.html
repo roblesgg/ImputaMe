@@ -70,6 +70,16 @@
     box-shadow:0 2px 14px rgba(99,102,241,.65);
   }
   .slider-value { font-size:12.5px;color:var(--text2);min-width:30px;text-align:right;font-variant-numeric:tabular-nums; }
+  .btn-row { display:flex;gap:8px;-webkit-app-region:no-drag; }
+  .entry-popup.wide { width:440px; }
+  .conflict-row {
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+    padding:8px 10px;-webkit-app-region:no-drag;
+  }
+  .conflict-name { font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .conflict-choice { font-size:11.5px;padding:5px 9px; }
+  .conflict-choice.active-choice { border-color:var(--accent);color:var(--text);background:rgba(99,102,241,.22); }
   .slider-bubble {
     position:absolute;bottom:22px;left:50%;transform:translateX(-50%) scale(.6);
     background:var(--accent2);color:#fff;font-size:11px;font-weight:700;
@@ -150,6 +160,21 @@
     <span class="hint">Vuelve a ver, paso a paso, para qué sirve cada cosa del panel principal y del calendario.</span>
   </div>
 
+  <div class="field">
+    <label class="check-row" style="cursor:default"><span>Actualizaciones</span></label>
+    <button class="btn-ghost" style="align-self:flex-start" onclick="checkUpdates()">Buscar actualizaciones</button>
+    <span class="hint">Comprueba si hay una versión nueva sin tener que cerrar y volver a abrir la app.</span>
+  </div>
+
+  <div class="field">
+    <label class="check-row" style="cursor:default"><span>Copia de seguridad</span></label>
+    <div class="btn-row">
+      <button class="btn-ghost" onclick="exportBackup()">Exportar copia…</button>
+      <button class="btn-ghost" onclick="importBackup()">Restaurar copia…</button>
+    </div>
+    <span class="hint">Guarda tus tareas y grupos en un archivo, o restáuralos desde uno. Al restaurar, lo que sea idéntico se ignora solo y solo se te pregunta por lo que de verdad choque con lo que ya tienes.</span>
+  </div>
+
   <div class="field account-field">
     <label>Cuenta y sincronización</label>
     <div class="account-status" id="accountStatus">Trabajando en local (sin cuenta)</div>
@@ -160,6 +185,22 @@
   <div class="footer">
     <button class="btn-ghost" onclick="cancel()">Cancelar</button>
     <button class="btn-primary" onclick="save()">Guardar</button>
+  </div>
+
+  <div class="popup-backdrop" id="importPopupBackdrop" style="display:none" onclick="closeImportPopup()"></div>
+  <div class="entry-popup wide" id="importPopup" style="display:none">
+    <div class="entry-popup-title">Restaurar copia de seguridad</div>
+    <div class="hint" id="importSummary"></div>
+    <div id="importConflictsList" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto"></div>
+    <div class="btn-row" id="importBulkActions" style="display:none">
+      <button class="btn-ghost" style="font-size:11.5px;padding:5px 9px" onclick="setAllImportResolutions('omit')">Omitir todas</button>
+      <button class="btn-ghost" style="font-size:11.5px;padding:5px 9px" onclick="setAllImportResolutions('replace')">Reemplazar todas</button>
+    </div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeImportPopup()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmImport()">Importar</button>
+    </div>
   </div>
 </div>
 
@@ -237,6 +278,93 @@ function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
 function startTutorial() {
   ipcRenderer.send('action', { type:'reset-tutorial' });
   cancel();
+}
+function checkUpdates() { ipcRenderer.send('action', { type:'check-for-updates' }); }
+
+// ---------- Copia de seguridad ----------
+async function exportBackup() {
+  const r = await ipcRenderer.invoke('export-backup');
+  if (!r || r.canceled) return;
+  if (!r.ok) { alert('No se pudo exportar la copia: ' + (r.error || '')); return; }
+  alert('Copia guardada en:\n' + r.path);
+}
+
+let importConflicts = [];
+let importResolutions = {};
+
+async function importBackup() {
+  const r = await ipcRenderer.invoke('import-backup');
+  if (!r || r.canceled) return;
+  if (!r.ok) { alert('No se pudo leer la copia: ' + (r.error || '')); return; }
+  if (!r.conflicts.length) {
+    // Nada que decidir (todo nuevo o ya idéntico): se aplica directo, sin preguntar.
+    const res = await ipcRenderer.invoke('apply-import-backup', { resolutions: {} });
+    if (res.ok) alert(`Copia restaurada: ${r.newCount} nueva(s), ${r.sameCount} ya estaban igual.`);
+    else alert('No se pudo restaurar: ' + (res.error || ''));
+    return;
+  }
+  openImportPopup(r);
+}
+
+function openImportPopup(r) {
+  importConflicts = r.conflicts;
+  importResolutions = {};
+  importConflicts.forEach(c => { importResolutions[c.key] = 'omit'; });
+  document.getElementById('importSummary').textContent =
+    `${r.newCount} nueva(s) se añadirán, ${r.sameCount} ya estaban igual (se ignoran). Estas ${r.conflicts.length} tienen datos distintos a los que ya tienes — elige qué hacer con cada una:`;
+  renderImportConflicts();
+  document.getElementById('importPopupBackdrop').style.display = 'block';
+  document.getElementById('importPopup').style.display = 'flex';
+}
+
+function renderImportConflicts() {
+  const list = document.getElementById('importConflictsList');
+  list.innerHTML = '';
+  importConflicts.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'conflict-row';
+    const label = document.createElement('span');
+    label.className = 'conflict-name';
+    label.textContent = (c.kind === 'task' ? 'Tarea: ' : 'Grupo: ') + c.localName;
+    label.title = `En tu app: "${c.localName}" · En la copia: "${c.name}"`;
+    const btnWrap = document.createElement('div');
+    btnWrap.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+    const btnOmit = document.createElement('button');
+    btnOmit.className = 'btn-ghost conflict-choice';
+    btnOmit.textContent = 'Omitir';
+    const btnReplace = document.createElement('button');
+    btnReplace.className = 'btn-ghost conflict-choice';
+    btnReplace.textContent = 'Reemplazar';
+    const refresh = () => {
+      const cur = importResolutions[c.key];
+      btnOmit.classList.toggle('active-choice', cur === 'omit');
+      btnReplace.classList.toggle('active-choice', cur === 'replace');
+    };
+    btnOmit.onclick = () => { importResolutions[c.key] = 'omit'; refresh(); };
+    btnReplace.onclick = () => { importResolutions[c.key] = 'replace'; refresh(); };
+    refresh();
+    btnWrap.appendChild(btnOmit); btnWrap.appendChild(btnReplace);
+    row.appendChild(label); row.appendChild(btnWrap);
+    list.appendChild(row);
+  });
+  document.getElementById('importBulkActions').style.display = importConflicts.length ? 'flex' : 'none';
+}
+
+function setAllImportResolutions(v) {
+  importConflicts.forEach(c => { importResolutions[c.key] = v; });
+  renderImportConflicts();
+}
+
+function closeImportPopup() {
+  document.getElementById('importPopupBackdrop').style.display = 'none';
+  document.getElementById('importPopup').style.display = 'none';
+}
+
+async function confirmImport() {
+  const res = await ipcRenderer.invoke('apply-import-backup', { resolutions: importResolutions });
+  closeImportPopup();
+  if (res.ok) alert('Copia restaurada.');
+  else alert('No se pudo restaurar: ' + (res.error || ''));
 }
 
 // ---------- Cuenta / sincronización ----------

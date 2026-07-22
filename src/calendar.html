@@ -67,8 +67,32 @@
   .legend-item { display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:13.5px;cursor:pointer;border-radius:6px;-webkit-app-region:no-drag; }
   .legend-item:hover { background:var(--bg3); }
   .legend-item.hidden-task { opacity:.4; }
+  .legend-item.active-task { background:rgba(52,211,153,.10); }
   .legend-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
   .legend-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .legend-live-dot { width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;animation:legendPulse 1.4s ease-in-out infinite; }
+  @keyframes legendPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* Botón "···" de controles de cada tarea (pausar / cambiar / reiniciar con nota).
+     Con stopPropagation en su onclick para no disparar también el toggle de
+     mostrar/ocultar del legend-item (igual que los iconos del panel principal). */
+  .legend-controls-btn {
+    margin-left:auto;flex-shrink:0;background:transparent;border:none;color:var(--text2);
+    width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    -webkit-app-region:no-drag;
+  }
+  .legend-controls-btn:hover { background:var(--bg3);color:var(--text); }
+
+  .task-controls-menu {
+    position:fixed;z-index:9500;background:#1c1c2a;border:1px solid var(--border);border-radius:8px;
+    padding:4px;display:flex;flex-direction:column;gap:2px;box-shadow:0 12px 30px rgba(0,0,0,.5);
+    min-width:190px;-webkit-app-region:no-drag;
+  }
+  .task-controls-item {
+    background:transparent;border:none;color:var(--text);font-size:12.5px;text-align:left;
+    padding:8px 10px;border-radius:6px;cursor:pointer;-webkit-app-region:no-drag;
+  }
+  .task-controls-item:hover { background:var(--bg3); }
 
   .day-totals { display:flex;flex-direction:column;gap:2px; }
   .day-total-time { font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
@@ -555,15 +579,64 @@ function renderLegend() {
     return;
   }
   currentState.tasks.forEach(t => {
+    const isActive = t.id === currentState.activeTaskId;
     const item = document.createElement('div');
-    item.className = 'legend-item' + (hiddenTaskIds.has(t.id)?' hidden-task':'');
-    item.innerHTML = `<div class="legend-dot" style="background:${t.color}"></div><span class="legend-name">${t.name}</span>`;
+    item.className = 'legend-item' + (hiddenTaskIds.has(t.id)?' hidden-task':'') + (isActive?' active-task':'');
+    item.innerHTML = `
+      <div class="legend-dot" style="background:${t.color}"></div>
+      <span class="legend-name">${t.name}</span>
+      ${isActive ? '<span class="legend-live-dot" title="En marcha"></span>' : ''}
+      <button class="legend-controls-btn" title="Controles de la tarea" onclick="event.stopPropagation();openTaskControls('${t.id}', this)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      </button>`;
     item.onclick = () => {
       if (hiddenTaskIds.has(t.id)) hiddenTaskIds.delete(t.id); else hiddenTaskIds.add(t.id);
       renderLegend(); renderWeek();
     };
     list.appendChild(item);
   });
+}
+
+// Menú de controles de una tarea (pausar / cambiar a esta / reiniciar con otra nota),
+// para poder gestionar qué está corriendo sin tener que ir al panel principal.
+let taskControlsMenuEl = null;
+function closeTaskControlsMenu() {
+  if (taskControlsMenuEl) { taskControlsMenuEl.remove(); taskControlsMenuEl = null; }
+  document.removeEventListener('click', closeTaskControlsMenu);
+}
+function openTaskControls(taskId, btnEl) {
+  closeTaskControlsMenu();
+  const task = currentState && currentState.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const isActive = task.id === currentState.activeTaskId;
+
+  const opts = [];
+  if (isActive) {
+    opts.push({ label: 'Pausar', action: () => ipcRenderer.send('action', { type:'pause' }) });
+    opts.push({ label: 'Reiniciar con otra nota', action: () => {
+      const note = prompt('Nota para la nueva sesión (opcional):', '');
+      if (note !== null) ipcRenderer.send('action', { type:'restart-task-with-note', payload:{ note } });
+    } });
+  } else {
+    opts.push({ label: currentState.activeTaskId ? 'Cambiar a esta tarea' : 'Iniciar esta tarea',
+      action: () => ipcRenderer.send('action', { type:'switch-task', payload:{ taskId } }) });
+  }
+
+  const menu = document.createElement('div');
+  menu.className = 'task-controls-menu';
+  const rect = btnEl.getBoundingClientRect();
+  menu.style.left = Math.min(rect.left, window.innerWidth - 200) + 'px';
+  menu.style.top = (rect.bottom + 4) + 'px';
+  opts.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'task-controls-item';
+    b.textContent = o.label;
+    b.onclick = (e) => { e.stopPropagation(); o.action(); closeTaskControlsMenu(); };
+    menu.appendChild(b);
+  });
+  document.body.appendChild(menu);
+  taskControlsMenuEl = menu;
+  setTimeout(() => document.addEventListener('click', closeTaskControlsMenu), 0);
 }
 
 // ---------- Week grid ----------

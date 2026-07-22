@@ -67,6 +67,9 @@ const TUTORIAL_STEPS = [
     title:'Mini calendario', text:'Para saltar rápido a otra semana o mes.' },
   { id:'cal-export',     window:'calendar', version:'1.2.19', selector:'.export-btn',
     title:'Exportar', text:'Descarga tus horas en un CSV listo para abrir en Excel, del rango que quieras.' },
+
+  { id:'cal-controls',   window:'calendar', version:'1.2.20', selector:'#legendList .legend-controls-btn',
+    title:'Controles de la tarea', text:'Pausa, cambia a otra tarea, o reinicia esta misma con una nota distinta (para partir el tiempo en dos), todo sin salir del calendario.' },
 ];
 
 function tutAllStepIds() { return TUTORIAL_STEPS.map(s => s.id); }
