@@ -181,9 +181,27 @@ function pauseActive() {
   const task = getActiveTask();
   if (task) {
     const last = task.entries[task.entries.length - 1];
-    if (last && !last.end) last.end = Date.now();
+    if (last && !last.end) {
+      last.end = Date.now();
+      // La nota de "lo que estoy haciendo ahora" es de la sesión que se acaba de parar:
+      // al pausar se borra, porque se supone que la próxima vez será otra cosa distinta.
+      delete last.note;
+    }
   }
   state.activeTaskId = null;
+  saveData(); broadcastState();
+}
+
+// Nota rápida sobre la tarea que está corriendo AHORA MISMO (desde el panel principal),
+// para poder anotar sin querer que "formación" de hoy es en concreto un vídeo de sales.
+// Se guarda en la propia entrada en curso, así que ya se ve reflejada en el calendario.
+function setActiveEntryNote(note) {
+  const task = getActiveTask();
+  if (!task) return;
+  const last = task.entries[task.entries.length - 1];
+  if (!last || last.end) return;
+  const n = (note || '').trim().slice(0, 500);
+  if (n) last.note = n; else delete last.note;
   saveData(); broadcastState();
 }
 
@@ -619,6 +637,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'delete-task':   deleteTask(payload.taskId); break;
     case 'edit-task-color': editTaskColor(payload.taskId, payload.color); break;
     case 'rename-task':   renameTask(payload.taskId, payload.name); break;
+    case 'set-active-note': setActiveEntryNote(payload.note); break;
     case 'archive-task':  archiveTask(payload.taskId, payload.groupId, payload.groupName); break;
     case 'create-group':  createGroup(payload.name); break;
     case 'rename-group':  renameGroup(payload.groupId, payload.name); break;
@@ -675,15 +694,19 @@ ipcMain.on('win-drag', (event, phase) => {
   } else if (phase === 'move' && winDragState && winDragState.win === win) {
     const p = screen.getCursorScreenPoint();
     const { cursor, bounds } = winDragState;
-    // Fijamos también el ancho/alto en cada movimiento (no solo x/y): al cruzar a una
-    // pantalla con distinta escala (DPI), Windows reescala la ventana sola, y si no se
-    // reafirma aquí el tamaño original se va agrandando sin parar mientras se arrastra.
-    win.setBounds({
-      x: bounds.x + (p.x - cursor.x),
-      y: bounds.y + (p.y - cursor.y),
-      width: bounds.width,
-      height: bounds.height,
-    });
+    const x = bounds.x + (p.x - cursor.x);
+    const y = bounds.y + (p.y - cursor.y);
+    // Solo tocamos el ancho/alto cuando de verdad se ha desviado del original (al cruzar
+    // a una pantalla con distinta escala/DPI, Windows reescala la ventana sola). Antes se
+    // reafirmaba el tamaño en CADA movimiento incluso sin hacer falta, y ese setBounds de
+    // más (compitiendo con el reescalado del sistema) es lo que se veía como pequeños
+    // saltos/tirones mientras se arrastraba. Así solo se corrige cuando hay algo que corregir.
+    const current = win.getBounds();
+    if (current.width !== bounds.width || current.height !== bounds.height) {
+      win.setBounds({ x, y, width: bounds.width, height: bounds.height });
+    } else {
+      win.setPosition(x, y);
+    }
   } else if (phase === 'end') {
     winDragState = null;
   }

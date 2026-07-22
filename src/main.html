@@ -67,6 +67,13 @@
   .playing-badge .dot { width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse2 1.4s ease-in-out infinite; }
   @keyframes pulse2 { 0%,100%{opacity:1}50%{opacity:.3} }
 
+  /* Nota rápida de la tarea en curso: solo visible mientras hay una activa. Se guarda en
+     la entrada que está corriendo y se ve reflejada en el calendario; al pausar se borra
+     sola (la siguiente vez que se retome la tarea se supone que será otra cosa). */
+  .active-note-row { display:none;align-items:center;gap:8px;-webkit-app-region:no-drag; }
+  .active-note-row svg { flex-shrink:0;color:var(--text2); }
+  .active-note-row input { flex:1; }
+
   /* Barra roja de actualización (solo visible si hay una versión nueva) */
   .update-bar {
     display:none;align-items:center;justify-content:center;gap:8px;width:100%;
@@ -122,6 +129,11 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </div>
+  </div>
+
+  <div class="active-note-row" id="activeNoteRow">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H9l-5 5z"/></svg>
+    <input type="text" id="activeNoteInput" placeholder="Nota para esta sesión (se ve en el calendario, se borra al pausar)..." maxlength="500">
   </div>
 
   <button class="update-bar" id="updateBtn" onclick="openUpdate()">
@@ -187,6 +199,7 @@ let currentState = null;
 let ticker = null;
 let colorPopupTaskId = null;
 let archivePopupTaskId = null;
+let lastNoteTaskId = null;
 
 const SVG_PLAY = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M3 2l7 4-7 4V2z"/></svg>`;
 const SVG_PAUSE = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg>`;
@@ -325,6 +338,22 @@ function render(state) {
   if (active) { badge.style.display='inline-flex'; document.getElementById('activeName').textContent=active.name; }
   else badge.style.display='none';
 
+  const noteRow = document.getElementById('activeNoteRow');
+  const noteInput = document.getElementById('activeNoteInput');
+  if (active) {
+    noteRow.style.display = 'flex';
+    // Solo rellenamos el campo cuando CAMBIA la tarea activa, no en cada refresco (el
+    // estado llega cada segundo): si no, le borraríamos al usuario lo que está escribiendo.
+    if (active.id !== lastNoteTaskId) {
+      lastNoteTaskId = active.id;
+      const lastEntry = active.entries[active.entries.length - 1];
+      noteInput.value = (lastEntry && lastEntry.note) || '';
+    }
+  } else {
+    noteRow.style.display = 'none';
+    lastNoteTaskId = null;
+  }
+
   const list = document.getElementById('tasksList');
   if (!visibleTasks.length) {
     list.innerHTML='<div class="empty-state">Sin tareas. Crea una abajo ↓</div>';
@@ -357,6 +386,15 @@ ticker = setInterval(() => {
   const t = currentState.tasks.find(t => t.id === currentState.activeTaskId);
   if (t) { t.todaySecs++; currentState.todayTotal++; render(currentState); }
 }, 1000);
+
+let activeNoteDebounce = null;
+document.getElementById('activeNoteInput').addEventListener('input', () => {
+  clearTimeout(activeNoteDebounce);
+  const note = document.getElementById('activeNoteInput').value;
+  activeNoteDebounce = setTimeout(() => {
+    ipcRenderer.send('action', { type:'set-active-note', payload:{ note } });
+  }, 500);
+});
 
 function switchTask(taskId) {
   const backMinutes = computeBackMinutes('startBackMin', 'startBackTime');
