@@ -1,4 +1,4 @@
 {
-  "version": "1.2.24",
-  "notes": "Borrar una tarea ya no borra su rastro del calendario: desaparece del panel, de Guardadas y de los selectores, pero sus entradas siguen viéndose (marcadas como \"eliminada\") porque el calendario es un registro de lo que ha pasado. Y ahora se pueden estirar también las entradas muy cortas del calendario (antes, por debajo de cierto alto, no aparecían los tiradores)."
+  "version": "1.2.25",
+  "notes": "El calendario ahora es un registro fijo también para los nombres: cada entrada guarda el nombre que tenía la tarea en ese momento. Renombrar una tarea desde el panel solo afecta de ahí en adelante, sin cambiar el calendario ya hecho. Y desde el popup de una entrada puedes corregir el nombre de esa entrada suelta, sin tocar la tarea ni el resto de su historial. La exportación a CSV respeta también esos nombres."
 }

@@ -47,7 +47,7 @@ const TUTORIAL_STEPS = [
   { id:'main-playpause', window:'main', version:'1.2.19', selector:'#tasksList .task-pill-actions .icon-btn:last-child',
     title:'Iniciar / pausar', text:'Play o pausa el cronómetro de esta tarea. Solo puede haber una activa a la vez: al iniciar otra, esta se pausa sola.' },
   { id:'main-rename',    window:'main', version:'1.2.19', selector:'#tasksList .task-name',
-    title:'Renombrar', text:'Doble clic sobre el nombre para renombrar la tarea. Afecta a todo su historial (a diferencia de la nota, que es solo de una sesión).' },
+    title:'Renombrar', text:'Doble clic sobre el nombre para renombrarla de aquí en adelante. El calendario ya hecho conserva el nombre que tenía en cada momento (cada entrada guarda el suyo).' },
   { id:'main-color',     window:'main', version:'1.2.19', selector:'#tasksList .task-dot',
     title:'Color', text:'Haz clic en el punto de color para cambiarlo.' },
   { id:'main-save',      window:'main', version:'1.2.19', selector:'#tasksList .icon-btn[title="Guardar en un grupo"]',
@@ -56,7 +56,7 @@ const TUTORIAL_STEPS = [
     title:'Añadir tarea', text:'Crea una tarea nueva. En cuanto le des a play, empieza a contar el tiempo.' },
 
   { id:'cal-grid',       window:'calendar', version:'1.2.19', selector:'#gridScroll',
-    title:'La cuadrícula', text:'Arrastra sobre un hueco libre para crear una entrada a mano. Haz clic en un bloque existente para editarlo (renombrar la tarea, poner una nota) y, si está en marcha o ya ha terminado, para pausarla, reanudarla o reiniciarla con otra nota.' },
+    title:'La cuadrícula', text:'Arrastra sobre un hueco libre para crear una entrada a mano. Haz clic en un bloque para editarlo (su nombre y nota, solo de esa entrada) y, si está en marcha o ya ha terminado, para pausarla, reanudarla o reiniciarla con otra nota.' },
   { id:'cal-day',        window:'calendar', version:'1.2.19', selector:'#weekHeader',
     title:'Elegir día', text:'Haz clic en la cabecera de un día para seleccionarlo: se marca aquí y se resume en el panel de la izquierda.' },
   { id:'cal-summary',    window:'calendar', version:'1.2.19', selector:'.day-totals',

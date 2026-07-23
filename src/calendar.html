@@ -709,7 +709,11 @@ function renderDayEntries(col, date) {
       block.style.height = blockH + 'px';
       block.style.background = task.color;
       block.style.color = contrastTextColor(task.color);
-      block.title = entry.note ? `${task.name}\nNota: ${entry.note}` : task.name;
+      // El nombre que se ve es el que tenía la tarea CUANDO SE HIZO esta entrada
+      // (entry.nameAtTime), no el actual: si luego renombras la tarea, el calendario
+      // ya hecho no cambia solo.
+      const entryName = entry.nameAtTime || task.name;
+      block.title = entry.note ? `${entryName}\nNota: ${entry.note}` : entryName;
       const durMs = (entry.end || Date.now()) - entry.start;
       const noteIcon = entry.note
         ? `<svg class="tb-note-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H9l-5 5z"/></svg>`
@@ -719,7 +723,7 @@ function renderDayEntries(col, date) {
       const notePreview = (entry.note && blockH >= 56)
         ? `<div class="tb-note-preview">${noteIcon}<span>${entry.note}</span></div>`
         : '';
-      block.innerHTML = `<div class="tb-name">${task.name}</div><div class="tb-time">${notePreview ? '' : noteIcon}<span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span><span class="tb-time-dur">${formatDur(durMs)}</span></div>${notePreview}`;
+      block.innerHTML = `<div class="tb-name">${entryName}</div><div class="tb-time">${notePreview ? '' : noteIcon}<span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span><span class="tb-time-dur">${formatDur(durMs)}</span></div>${notePreview}`;
       block.onclick = (ev) => {
         ev.stopPropagation();
         // Tras redimensionar no abrimos el popup, pero solo por un instante. Antes un
@@ -976,19 +980,21 @@ document.getElementById('popupNote').addEventListener('input', (e) => autoGrowTe
 function openEditPopup(task, entryIndex, entry) {
   popupMode = 'edit';
   popupCtx = { task, entryIndex, date: startOfDay(new Date(entry.start)) };
-  // El nombre se puede editar aquí mismo: renombra la tarea entera (todo su historial),
-  // a diferencia de la nota de abajo, que es solo de esta entrada. Si la tarea está
-  // borrada no se puede renombrar (ni "revivirla" con los controles rápidos): se deja
-  // el nombre como título fijo, tal cual quedó registrado.
+  const entryName = entry.nameAtTime || task.name;
+  // El nombre que se edita aquí es el de ESTA entrada (como la nota): corrige cómo
+  // quedó registrada, sin tocar la tarea ni el resto de su historial. Para cambiar
+  // el nombre de la tarea de cara al futuro, se hace desde el panel principal (doble
+  // clic). Si la tarea está borrada, tampoco se puede editar (ni "revivirla" con los
+  // controles rápidos): se deja el nombre como título fijo, tal cual quedó registrado.
   const nameInput = document.getElementById('popupTaskNameEdit');
   if (task.deleted) {
-    document.getElementById('popupTitle').textContent = task.name + ' (eliminada)';
+    document.getElementById('popupTitle').textContent = entryName + ' (eliminada)';
     document.getElementById('popupTitle').style.display = '';
     nameInput.style.display = 'none';
   } else {
     document.getElementById('popupTitle').style.display = 'none';
     nameInput.style.display = '';
-    nameInput.value = task.name;
+    nameInput.value = entryName;
   }
   document.getElementById('popupDeleteBtn').style.display = '';
 
@@ -1134,13 +1140,11 @@ function savePopup() {
       ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:popupSelectedTaskId, startMs, endMs, note } });
     }
   } else if (popupMode === 'edit') {
-    ipcRenderer.send('action', { type:'edit-entry', payload:{ taskId:popupCtx.task.id, entryIndex:popupCtx.entryIndex, startMs, endMs, note } });
-    if (!popupCtx.task.deleted) {
-      const newName = document.getElementById('popupTaskNameEdit').value.trim();
-      if (newName && newName !== popupCtx.task.name) {
-        ipcRenderer.send('action', { type:'rename-task', payload:{ taskId:popupCtx.task.id, name:newName } });
-      }
-    }
+    // El nombre que se manda aquí es solo de ESTA entrada (entry.nameAtTime): no
+    // renombra la tarea ni afecta a otras veces que se haya hecho. El de la tarea
+    // en sí se cambia desde el panel principal (doble clic).
+    const name = popupCtx.task.deleted ? undefined : document.getElementById('popupTaskNameEdit').value.trim();
+    ipcRenderer.send('action', { type:'edit-entry', payload:{ taskId:popupCtx.task.id, entryIndex:popupCtx.entryIndex, startMs, endMs, note, name } });
   }
   closePopup();
 }
@@ -1206,8 +1210,10 @@ function updateExportHint() {
 function buildCSV(fromMs, toMsExcl) {
   const rows = ['Fecha,Tarea,Segundos,Horas'];
   const map = {};
+  const names = {};   // nombre a mostrar por cada agrupación (el nameAtTime de la entrada)
   currentState.tasks.forEach(task => {
     task.entries.forEach(entry => {
+      const entryName = entry.nameAtTime || task.name;
       let cur = startOfDay(new Date(entry.start));
       const end = startOfDay(new Date(entry.end || Date.now()));
       while (cur <= end) {
@@ -1216,8 +1222,11 @@ function buildCSV(fromMs, toMsExcl) {
           const from = Math.max(entry.start, dayStart), to = Math.min(entry.end || Date.now(), dayEnd);
           const secs = Math.max(0, Math.floor((to - from) / 1000));
           if (secs > 0) {
-            const key = dateKey(cur) + '|' + task.id;
+            // Se agrupa por día + nombre registrado (no por id de tarea): así, si la tarea
+            // se renombró, cada nombre sale en su propia fila, como se ve en el calendario.
+            const key = dateKey(cur) + '|' + entryName;
             map[key] = (map[key] || 0) + secs;
+            names[key] = entryName;
           }
         }
         cur = addDays(cur, 1);
@@ -1225,9 +1234,8 @@ function buildCSV(fromMs, toMsExcl) {
     });
   });
   Object.entries(map).sort().forEach(([key, secs]) => {
-    const [day, taskId] = key.split('|');
-    const task = currentState.tasks.find(t => t.id === taskId);
-    const name = (task ? task.name : taskId).replace(/"/g, '""');
+    const day = key.split('|')[0];
+    const name = (names[key] || '').replace(/"/g, '""');
     rows.push(`${day},"${name}",${secs},${(secs/3600).toFixed(2)}`);
   });
   return rows.join('\n');

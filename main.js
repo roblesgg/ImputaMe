@@ -71,6 +71,11 @@ function loadData() {
     if (t.archived === undefined) t.archived = false;
     if (t.groupId === undefined) t.groupId = null;
     if (t.deleted === undefined) t.deleted = false;
+    // Migración: las entradas de antes de esto no tenían "foto" del nombre de la
+    // tarea en ese momento (el calendario leía el nombre actual, en vivo). Se les
+    // pone el nombre que tiene ahora mismo como punto de partida; a partir de aquí
+    // cada entrada nueva guarda el suyo propio y ya no cambia si renombras la tarea.
+    t.entries.forEach(e => { if (e.nameAtTime === undefined) e.nameAtTime = t.name; });
   });
   try {
     if (fs.existsSync(SETTINGS_FILE)) settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) };
@@ -175,7 +180,10 @@ function startTask(taskId, backMinutes) {
   if (!task) return;
   state.activeTaskId = taskId;
   const start = backMinutes ? Date.now() - backMinutes * 60000 : Date.now();
-  task.entries.push({ start, end: null });
+  // nameAtTime: "foto" del nombre de la tarea al crear la entrada. El calendario es
+  // un registro de lo que pasó, así que si luego renombras la tarea esta entrada no
+  // cambia con ella (solo las que se creen después, con el nombre nuevo).
+  task.entries.push({ start, end: null, nameAtTime: task.name });
   saveData(); broadcastState(); resetReminderTimer();
 }
 
@@ -221,7 +229,7 @@ function restartActiveTaskWithNote(note) {
   if (!task) return;
   const last = task.entries[task.entries.length - 1];
   if (last && !last.end) { last.end = Date.now(); delete last.note; }
-  const entry = { start: Date.now(), end: null };
+  const entry = { start: Date.now(), end: null, nameAtTime: task.name };
   const n = (note || '').trim().slice(0, 500);
   if (n) entry.note = n;
   task.entries.push(entry);
@@ -275,6 +283,10 @@ function editTaskColor(taskId, color) {
   saveData(); broadcastState();
 }
 
+// Solo cambia el nombre "en vivo" de la tarea: las entradas ya creadas guardan su
+// propio nameAtTime y no se tocan (el calendario es un registro fijo). Afecta a las
+// entradas que se creen A PARTIR DE AHORA. Para corregir una entrada ya existente,
+// se edita su nombre desde el propio popup del calendario (solo cambia esa).
 function renameTask(taskId, name) {
   const task = state.tasks.find(t => t.id === taskId);
   const n = (name || '').trim();
@@ -345,20 +357,25 @@ function restoreAndStartTask(taskId, backMinutes) {
   openMain();
 }
 
-function editEntry(taskId, entryIndex, startMs, endMs, note) {
+function editEntry(taskId, entryIndex, startMs, endMs, note, name) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task || !task.entries[entryIndex]) return;
   const e = task.entries[entryIndex];
   // Solo se aplica lo que llega. Al redimensionar se envía ÚNICAMENTE el borde que se
   // arrastra: si se mandaban los dos, el borde no tocado se pisaba con un valor viejo
   // (el calendario no se reconstruye con el ratón encima) y "se movía solo". Igual con
-  // la nota: es propia de ESTA entrada (no de la tarea), así que no toca el nombre ni
-  // el resto de veces que se ha hecho la misma tarea.
+  // la nota: es propia de ESTA entrada, así que no toca el resto de veces que se ha
+  // hecho la misma tarea. El nombre (nameAtTime) también es solo de esta entrada: no
+  // renombra la tarea ni cambia otras entradas (para eso, doble clic en el panel).
   if (startMs !== undefined && startMs !== null) e.start = startMs;
   if (endMs !== undefined) e.end = endMs;
   if (note !== undefined) {
     const n = (note || '').trim().slice(0, 500);
     if (n) e.note = n; else delete e.note;
+  }
+  if (name !== undefined) {
+    const nm = (name || '').trim().slice(0, 120);
+    if (nm) e.nameAtTime = nm;
   }
   saveData(); broadcastState();
 }
@@ -380,7 +397,7 @@ function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs, not
     state.tasks.push(task);
   }
   if (!task || startMs == null) return;
-  const entry = { start: startMs, end: endMs || null };
+  const entry = { start: startMs, end: endMs || null, nameAtTime: task.name };
   const n = (note || '').trim().slice(0, 500);
   if (n) entry.note = n;
   task.entries.push(entry);
@@ -691,7 +708,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'delete-group':  deleteGroup(payload.groupId); break;
     case 'move-task-to-group': moveTaskToGroup(payload.taskId, payload.groupId); break;
     case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes); break;
-    case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note); break;
+    case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note, payload.name); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
     case 'add-calendar-entry':
       addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note);
