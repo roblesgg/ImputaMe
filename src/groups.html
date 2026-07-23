@@ -151,7 +151,7 @@ function renderGroups() {
 
   const query = document.getElementById('searchInput').value.trim().toLowerCase();
   const groups = currentState.groups || [];
-  const archivedTasks = currentState.tasks.filter(t => t.archived);
+  const archivedTasks = currentState.tasks.filter(t => t.archived && !t.deleted);
 
   if (!groups.length) {
     list.innerHTML = '<div class="empty-state">Todavía no tienes secciones.<br>Crea una con "+ Sección" y guarda tareas en ella desde el panel principal, o arrastra tareas entre secciones aquí.</div>';

@@ -327,7 +327,7 @@ function updateRowContent(row, t, state) {
 }
 
 function render(state) {
-  const visibleTasks = state.tasks.filter(t => !t.archived);
+  const visibleTasks = state.tasks.filter(t => !t.archived && !t.deleted);
   const active = state.tasks.find(t => t.id === state.activeTaskId);
   document.getElementById('totalTime').textContent = fmt(state.todayTotal);
   document.getElementById('subtitle').textContent = active ? `▶ ${active.name}` : `${visibleTasks.length} tarea(s)`;

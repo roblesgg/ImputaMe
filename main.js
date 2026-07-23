@@ -70,6 +70,7 @@ function loadData() {
   state.tasks.forEach(t => {
     if (t.archived === undefined) t.archived = false;
     if (t.groupId === undefined) t.groupId = null;
+    if (t.deleted === undefined) t.deleted = false;
   });
   try {
     if (fs.existsSync(SETTINGS_FILE)) settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) };
@@ -145,7 +146,7 @@ function updateTrayTitle() {
 
 function buildTrayMenu() {
   const active = getActiveTask();
-  const taskItems = state.tasks.filter(t => !t.archived).map(t => ({
+  const taskItems = state.tasks.filter(t => !t.archived && !t.deleted).map(t => ({
     label: `${t.id === state.activeTaskId ? '▶ ' : '    '}${t.name}  (${formatDuration(todaySecondsForTask(t))})`,
     click: () => switchTask(t.id),
   }));
@@ -255,9 +256,15 @@ function createTask(name, color) {
   return id;
 }
 
+// Borrado "suave": la tarea desaparece del panel, de Guardadas y de los selectores,
+// pero sus entradas SIGUEN en el calendario (con su nombre, nota y horas de siempre),
+// porque el calendario es un registro de lo que de verdad ha pasado, no una vista en
+// vivo de las tareas actuales.
 function deleteTask(taskId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
   if (state.activeTaskId === taskId) pauseActive();
-  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  task.deleted = true;
   saveData(); broadcastState();
 }
 

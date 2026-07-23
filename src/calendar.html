@@ -70,6 +70,7 @@
   .legend-item.active-task { background:rgba(52,211,153,.10); }
   .legend-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
   .legend-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .legend-deleted-tag { font-size:10.5px;color:var(--text2);font-style:italic; }
   .legend-live-dot { width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;animation:legendPulse 1.4s ease-in-out infinite; }
   @keyframes legendPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
@@ -191,6 +192,11 @@
   }
   .tb-handle-top { top:1px; }
   .tb-handle-bottom { bottom:1px; }
+  /* En entradas cortas los dos tiradores no caben a 12px sin comerse el bloque entero
+     (y con él, el clic para abrir el popup): en esos casos se usan más finos, dejando
+     siempre una franja central pulsable. */
+  .tb-handle.compact { height:7px; }
+  .tb-handle.compact::after { height:5px; }
   .task-block:hover .tb-handle { opacity:1; }
   .tb-handle:active { cursor:grabbing; }
   .tb-handle.resizing { opacity:1;cursor:grabbing; }
@@ -605,9 +611,12 @@ function renderLegend() {
     const isActive = t.id === currentState.activeTaskId;
     const item = document.createElement('div');
     item.className = 'legend-item' + (hiddenTaskIds.has(t.id)?' hidden-task':'') + (isActive?' active-task':'');
+    // Las tareas borradas siguen aquí (se puede mostrar/ocultar su rastro en el
+    // calendario, como cualquier otra), solo se marcan para que se sepa que ya no
+    // existen como tarea activa.
     item.innerHTML = `
       <div class="legend-dot" style="background:${t.color}"></div>
-      <span class="legend-name">${t.name}</span>
+      <span class="legend-name">${t.name}${t.deleted ? ' <span class="legend-deleted-tag">(eliminada)</span>' : ''}</span>
       ${isActive ? '<span class="legend-live-dot" title="En marcha"></span>' : ''}`;
     item.onclick = () => {
       if (hiddenTaskIds.has(t.id)) hiddenTaskIds.delete(t.id); else hiddenTaskIds.add(t.id);
@@ -720,23 +729,23 @@ function renderDayEntries(col, date) {
         openEditPopup(task, idx, entry);
       };
 
-      // Los tiradores solo si el bloque es lo bastante alto: en entradas cortas los dos
-      // tiradores (12px cada uno) cubrían el bloque entero y se comían el clic, así que
-      // no se podía abrir la entrada ni eliminarla.
+      // Los tiradores siempre se pueden usar, incluso en entradas cortas: por debajo de
+      // 40px se usa la variante "compact" (más fina), que deja hueco de sobra para que
+      // el centro del bloque siga pudiéndose pulsar para abrir el popup.
       const handleOutline = contrastTextColor(task.color);
-      const roomForHandles = blockH >= 40;
-      if (roomForHandles && from === s) {
+      const compactHandles = blockH < 40;
+      if (from === s) {
         const topHandle = document.createElement('div');
-        topHandle.className = 'tb-handle tb-handle-top' + (entry.end == null ? ' running' : '');
+        topHandle.className = 'tb-handle tb-handle-top' + (entry.end == null ? ' running' : '') + (compactHandles ? ' compact' : '');
         topHandle.style.setProperty('--handle-outline', handleOutline);
         attachResizeHandle(topHandle, 'start', task, idx, entry, block, col);
         block.appendChild(topHandle);
       }
       // El tirador inferior ajusta la hora de fin; solo si la entrada ya tiene fin
       // (no está en curso) y este segmento contiene realmente ese fin.
-      if (roomForHandles && entry.end != null && to === e) {
+      if (entry.end != null && to === e) {
         const bottomHandle = document.createElement('div');
-        bottomHandle.className = 'tb-handle tb-handle-bottom';
+        bottomHandle.className = 'tb-handle tb-handle-bottom' + (compactHandles ? ' compact' : '');
         bottomHandle.style.setProperty('--handle-outline', handleOutline);
         attachResizeHandle(bottomHandle, 'end', task, idx, entry, block, col);
         block.appendChild(bottomHandle);
@@ -869,7 +878,7 @@ function openCreatePopup(date, startHour, endHour) {
   document.getElementById('popupQuickActions').innerHTML = '';   // solo aplica a entradas ya existentes
   document.getElementById('popupTaskPicker').style.display = '';
   document.getElementById('popupTaskSearch').value = '';
-  const first = (currentState.tasks || []).find(t => !t.archived) || (currentState.tasks || [])[0];
+  const first = (currentState.tasks || []).find(t => !t.archived && !t.deleted) || (currentState.tasks || []).find(t => !t.deleted);
   popupSelectedTaskId = first ? first.id : '__new__';
   renderTaskPicker();
 
@@ -908,7 +917,9 @@ function renderTaskPicker() {
 
   addItem('+ Nueva tarea', '__new__', null);
 
-  const tasks = currentState.tasks || [];
+  // Las tareas borradas no se pueden elegir para una entrada nueva (siguen en el
+  // calendario como registro, pero ya no son "tareas" activas de verdad).
+  const tasks = (currentState.tasks || []).filter(t => !t.deleted);
   const groups = currentState.groups || [];
   const orphans = tasks.filter(t => t.archived && !groups.some(g => g.id === t.groupId));
 
@@ -966,11 +977,19 @@ function openEditPopup(task, entryIndex, entry) {
   popupMode = 'edit';
   popupCtx = { task, entryIndex, date: startOfDay(new Date(entry.start)) };
   // El nombre se puede editar aquí mismo: renombra la tarea entera (todo su historial),
-  // a diferencia de la nota de abajo, que es solo de esta entrada.
-  document.getElementById('popupTitle').style.display = 'none';
+  // a diferencia de la nota de abajo, que es solo de esta entrada. Si la tarea está
+  // borrada no se puede renombrar (ni "revivirla" con los controles rápidos): se deja
+  // el nombre como título fijo, tal cual quedó registrado.
   const nameInput = document.getElementById('popupTaskNameEdit');
-  nameInput.style.display = '';
-  nameInput.value = task.name;
+  if (task.deleted) {
+    document.getElementById('popupTitle').textContent = task.name + ' (eliminada)';
+    document.getElementById('popupTitle').style.display = '';
+    nameInput.style.display = 'none';
+  } else {
+    document.getElementById('popupTitle').style.display = 'none';
+    nameInput.style.display = '';
+    nameInput.value = task.name;
+  }
   document.getElementById('popupDeleteBtn').style.display = '';
 
   document.getElementById('entryPopup').classList.remove('wide');
@@ -1018,6 +1037,7 @@ const PQA_ICON_EXTEND = `<svg width="13" height="13" viewBox="0 0 24 24" fill="n
 function renderPopupQuickActions(task, entryIndex, entry) {
   const wrap = document.getElementById('popupQuickActions');
   wrap.innerHTML = '';
+  if (task.deleted) return;   // no se puede "revivir" una tarea borrada desde el calendario
   const isLiveEntry = entry.end == null;
   const taskIsActive = currentState && task.id === currentState.activeTaskId;
 
@@ -1115,9 +1135,11 @@ function savePopup() {
     }
   } else if (popupMode === 'edit') {
     ipcRenderer.send('action', { type:'edit-entry', payload:{ taskId:popupCtx.task.id, entryIndex:popupCtx.entryIndex, startMs, endMs, note } });
-    const newName = document.getElementById('popupTaskNameEdit').value.trim();
-    if (newName && newName !== popupCtx.task.name) {
-      ipcRenderer.send('action', { type:'rename-task', payload:{ taskId:popupCtx.task.id, name:newName } });
+    if (!popupCtx.task.deleted) {
+      const newName = document.getElementById('popupTaskNameEdit').value.trim();
+      if (newName && newName !== popupCtx.task.name) {
+        ipcRenderer.send('action', { type:'rename-task', payload:{ taskId:popupCtx.task.id, name:newName } });
+      }
     }
   }
   closePopup();

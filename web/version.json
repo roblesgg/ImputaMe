@@ -1,4 +1,4 @@
 {
-  "version": "1.2.23",
-  "notes": "El aviso de actualización ya no depende solo del temporizador (antes cada 4h): ahora también se comprueba cada vez que vuelves al panel principal (con un mínimo de 10 minutos entre comprobaciones automáticas para no saturar), y el temporizador de fondo pasa de 4 horas a 1."
+  "version": "1.2.24",
+  "notes": "Borrar una tarea ya no borra su rastro del calendario: desaparece del panel, de Guardadas y de los selectores, pero sus entradas siguen viéndose (marcadas como \"eliminada\") porque el calendario es un registro de lo que ha pasado. Y ahora se pueden estirar también las entradas muy cortas del calendario (antes, por debajo de cierto alto, no aparecían los tiradores)."
 }
