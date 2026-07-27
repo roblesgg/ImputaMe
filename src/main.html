@@ -253,7 +253,7 @@ function buildRow(t, state) {
   del.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
   del.style.cssText = 'padding:7px 9px;';
   del.onclick = () => {
-    if (confirm(`¿Eliminar "${t.name}"?`))
+    if (confirm(`¿Eliminar "${t.name}"?\nIrá a la papelera (en Guardadas): podrás restaurarla durante 30 días.`))
       ipcRenderer.send('action', { type:'delete-task', payload:{ taskId:t.id } });
   };
   const nameEl = pill.querySelector('.task-name');
@@ -403,7 +403,18 @@ document.getElementById('activeNoteInput').addEventListener('input', () => {
   }, 500);
 });
 
+// Envía la nota pendiente YA (sin esperar al debounce). Se llama justo antes de
+// pausar/cambiar de tarea: si no, una nota escrita en el último medio segundo se
+// perdía, porque al llegar el guardado la entrada ya se había cerrado.
+function flushActiveNote() {
+  if (activeNoteDebounce) { clearTimeout(activeNoteDebounce); activeNoteDebounce = null; }
+  if (!currentState || !currentState.activeTaskId) return;
+  const note = document.getElementById('activeNoteInput').value;
+  ipcRenderer.send('action', { type:'set-active-note', payload:{ note } });
+}
+
 function switchTask(taskId) {
+  flushActiveNote();   // no perder lo que se acabe de escribir en la nota al pausar/cambiar
   const backMinutes = computeBackMinutes('startBackMin', 'startBackTime');
   ipcRenderer.send('action', { type:'switch-task', payload:{ taskId, backMinutes: backMinutes || undefined } });
   document.getElementById('startBackMin').value = '';

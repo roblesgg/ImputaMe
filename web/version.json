@@ -1,4 +1,4 @@
 {
-  "version": "1.2.25",
-  "notes": "El calendario ahora es un registro fijo también para los nombres: cada entrada guarda el nombre que tenía la tarea en ese momento. Renombrar una tarea desde el panel solo afecta de ahí en adelante, sin cambiar el calendario ya hecho. Y desde el popup de una entrada puedes corregir el nombre de esa entrada suelta, sin tocar la tarea ni el resto de su historial. La exportación a CSV respeta también esos nombres."
+  "version": "1.2.26",
+  "notes": "Arreglado: las notas ya no se borran solas al pausar una tarea (se quedan con su sesión, como parte del registro del calendario), y ya no se pierde una nota escrita justo antes de pausar. Nueva papelera en Guardadas: las tareas borradas se pueden restaurar durante 30 días; pasado ese plazo se quitan de la papelera, pero si aparecen en el calendario de algún día puedes restaurarlas desde ahí. Arreglado el scroll de la pestaña Guardadas cuando hay muchas secciones y tareas."
 }

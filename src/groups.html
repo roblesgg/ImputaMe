@@ -10,9 +10,18 @@
      cerrar (arriba a la derecha, no-drag) se pulsa entera. Un botón no-drag con una
      zona drag detrás solo responde en parte. */
   .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:14px;position:relative;min-height:0;-webkit-app-region:no-drag; }
-  .app-title { font-size:16px;font-weight:700;-webkit-app-region:drag;align-self:flex-start; }
+  /* El título y la fila de búsqueda no se encogen: así el hueco restante es SIEMPRE
+     para la lista, que es la que hace scroll (antes, con muchas secciones, la lista se
+     estiraba y empujaba fuera de la ventana en vez de desplazarse). */
+  .app-title { font-size:16px;font-weight:700;-webkit-app-region:drag;align-self:flex-start;flex-shrink:0; }
+  .groups-topbar { flex-shrink:0; }
 
-  .groups-list { flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px; }
+  .groups-list { flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:6px; }
+  /* Scrollbar algo más visible que el de 4px por defecto, para que se note que hay más
+     contenido y se pueda agarrar. */
+  .groups-list::-webkit-scrollbar { width:8px; }
+  .groups-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.18);border-radius:4px; }
+  .groups-list::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.3); }
 
   .group-card { border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);overflow:hidden;transition:outline .1s,background .1s; }
   .group-card.drop-target { outline:2px dashed var(--accent);outline-offset:-2px;background:rgba(99,102,241,.10); }
@@ -52,6 +61,25 @@
 
   .group-empty-hint { font-size:11.5px;color:var(--text2);text-align:center;padding:8px 6px;font-style:italic; }
   .empty-state { text-align:center;color:var(--text2);font-size:13px;padding:34px 12px;line-height:1.5; }
+
+  /* Papelera: sección aparte al final de la lista, con las tareas borradas que aún se
+     pueden restaurar. Tono rojizo para distinguirla de las secciones normales. */
+  .trash-card { border:1px solid rgba(248,113,113,.28);border-radius:var(--radius-sm);background:rgba(248,113,113,.06);overflow:hidden;flex-shrink:0; }
+  .trash-header { display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;-webkit-app-region:no-drag; }
+  .trash-header:hover { background:rgba(248,113,113,.10); }
+  .trash-title { flex:1;font-size:13.5px;font-weight:600;color:var(--danger); }
+  .trash-tasks { display:flex;flex-direction:column;padding:2px 8px 8px;gap:2px; }
+  .trash-card.collapsed .trash-tasks { display:none; }
+  .trash-card.collapsed .group-chevron { transform:rotate(-90deg); }
+  .trash-row { display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;-webkit-app-region:no-drag; }
+  .trash-row:hover { background:rgba(255,255,255,0.05); }
+  .trash-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0;opacity:.6; }
+  .trash-name { flex:1;font-size:13px;min-width:0;white-space:normal;overflow-wrap:anywhere; }
+  .trash-when { font-size:10.5px;color:var(--text2);flex-shrink:0; }
+  .trash-btn { background:transparent;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 8px;border-radius:6px;flex-shrink:0;-webkit-app-region:no-drag; }
+  .trash-btn.restore:hover { background:rgba(52,211,153,.18);color:var(--success);border-color:rgba(52,211,153,.3); }
+  .trash-btn.forever:hover { background:rgba(248,113,113,.2);color:var(--danger);border-color:rgba(248,113,113,.3); }
+  .trash-hint { font-size:11px;color:var(--text2);padding:2px 8px 8px;font-style:italic; }
 </style>
 </head>
 <body>
@@ -70,7 +98,7 @@
     Guardadas
   </div>
 
-  <div style="display:flex;gap:8px;-webkit-app-region:no-drag">
+  <div class="groups-topbar" style="display:flex;gap:8px;-webkit-app-region:no-drag">
     <input type="text" id="searchInput" placeholder="Buscar tarea guardada..." oninput="renderGroups()" style="flex:1">
     <button class="btn-ghost" onclick="openSectionPopup('create')" style="white-space:nowrap;display:flex;align-items:center;gap:6px" title="Crear una sección nueva">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10v4M10 12h4"/></svg>
@@ -154,7 +182,11 @@ function renderGroups() {
   const archivedTasks = currentState.tasks.filter(t => t.archived && !t.deleted);
 
   if (!groups.length) {
-    list.innerHTML = '<div class="empty-state">Todavía no tienes secciones.<br>Crea una con "+ Sección" y guarda tareas en ella desde el panel principal, o arrastra tareas entre secciones aquí.</div>';
+    const hint = document.createElement('div');
+    hint.className = 'empty-state';
+    hint.innerHTML = 'Todavía no tienes secciones.<br>Crea una con "+ Sección" y guarda tareas en ella desde el panel principal, o arrastra tareas entre secciones aquí.';
+    list.appendChild(hint);
+    renderTrash(list);   // la papelera se ve aunque no haya secciones
     return;
   }
 
@@ -245,8 +277,75 @@ function renderGroups() {
   });
 
   if (!anyVisible) {
-    list.innerHTML = '<div class="empty-state">Sin resultados para esa búsqueda.</div>';
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Sin resultados para esa búsqueda.';
+    list.appendChild(empty);
   }
+
+  renderTrash(list);
+}
+
+let trashCollapsed = true;   // la papelera arranca plegada (no estorba el uso normal)
+
+// Sección "Papelera" al final de la lista: tareas borradas que aún se pueden restaurar
+// (dentro del plazo). No se filtra por la búsqueda de arriba, para no esconderla sin querer.
+function renderTrash(list) {
+  const trashed = (currentState.tasks || []).filter(t => t.inTrash);
+  if (!trashed.length) return;
+  // Más recientes primero.
+  trashed.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+  const retention = currentState.trashRetentionDays || 30;
+
+  const card = document.createElement('div');
+  card.className = 'trash-card' + (trashCollapsed ? ' collapsed' : '');
+
+  const header = document.createElement('div');
+  header.className = 'trash-header';
+  header.innerHTML = `
+    <svg class="group-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+    <span class="trash-title">Papelera</span>
+    <span class="group-count">${trashed.length}</span>`;
+  header.onclick = () => { trashCollapsed = !trashCollapsed; renderGroups(); };
+  card.appendChild(header);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'trash-tasks';
+
+  const hint = document.createElement('div');
+  hint.className = 'trash-hint';
+  hint.textContent = `Se restauran al panel principal. Pasados ${retention} días se quitan de aquí (pero podrás restaurarlas desde el calendario).`;
+  wrap.appendChild(hint);
+
+  trashed.forEach(t => {
+    const daysLeft = Math.max(0, retention - Math.floor((Date.now() - (t.deletedAt || Date.now())) / 86400000));
+    const row = document.createElement('div');
+    row.className = 'trash-row';
+    row.innerHTML = `
+      <div class="trash-dot" style="background:${t.color}"></div>
+      <span class="trash-name">${t.name}</span>
+      <span class="trash-when">${daysLeft}d</span>`;
+    const restore = document.createElement('button');
+    restore.className = 'trash-btn restore';
+    restore.textContent = 'Restaurar';
+    restore.title = 'Devolver la tarea al panel principal';
+    restore.onclick = () => ipcRenderer.send('action', { type: 'restore-task', payload: { taskId: t.id } });
+    const forever = document.createElement('button');
+    forever.className = 'trash-btn forever';
+    forever.textContent = 'Eliminar';
+    forever.title = 'Quitarla de la papelera (su historial seguirá en el calendario)';
+    forever.onclick = () => {
+      if (confirm(`¿Eliminar "${t.name}" de la papelera?\nSeguirá apareciendo en el calendario de los días en que la usaste, y desde ahí podrás restaurarla.`))
+        ipcRenderer.send('action', { type: 'purge-task', payload: { taskId: t.id } });
+    };
+    row.appendChild(restore);
+    row.appendChild(forever);
+    wrap.appendChild(row);
+  });
+
+  card.appendChild(wrap);
+  list.appendChild(card);
 }
 
 // ---------- Popup nueva tarea / empezar guardada ----------

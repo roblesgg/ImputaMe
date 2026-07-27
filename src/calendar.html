@@ -1035,6 +1035,7 @@ const PQA_ICON_PAUSE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="cu
 const PQA_ICON_RESTART = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
 const PQA_ICON_PLAY = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3l15 9-15 9V3z"/></svg>`;
 const PQA_ICON_EXTEND = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+const PQA_ICON_UNDO = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>`;
 
 // Controles rápidos según de qué entrada se trate: si es la que está corriendo ahora
 // mismo, pausar o partirla con una nota distinta; si ya está cerrada y la tarea no
@@ -1043,9 +1044,6 @@ const PQA_ICON_EXTEND = `<svg width="13" height="13" viewBox="0 0 24 24" fill="n
 function renderPopupQuickActions(task, entryIndex, entry) {
   const wrap = document.getElementById('popupQuickActions');
   wrap.innerHTML = '';
-  if (task.deleted) return;   // no se puede "revivir" una tarea borrada desde el calendario
-  const isLiveEntry = entry.end == null;
-  const taskIsActive = currentState && task.id === currentState.activeTaskId;
 
   const mkBtn = (icon, label, colorClass, onClick) => {
     const b = document.createElement('button');
@@ -1055,6 +1053,23 @@ function renderPopupQuickActions(task, entryIndex, entry) {
     b.onclick = onClick;
     return b;
   };
+
+  // Tarea borrada: desde aquí se puede restaurar (vuelve al panel principal). Es el
+  // "restaurar desde el calendario" para cuando ya caducó en la papelera.
+  if (task.deleted) {
+    const label = document.createElement('span');
+    label.className = 'pqa-label';
+    label.textContent = 'Esta tarea está eliminada:';
+    wrap.appendChild(label);
+    wrap.appendChild(mkBtn(PQA_ICON_UNDO, 'Restaurar tarea', 'pqa-success', () => {
+      ipcRenderer.send('action', { type:'restore-task', payload:{ taskId: task.id } });
+      closePopup();
+    }));
+    return;
+  }
+
+  const isLiveEntry = entry.end == null;
+  const taskIsActive = currentState && task.id === currentState.activeTaskId;
 
   if (isLiveEntry && taskIsActive) {
     wrap.appendChild(mkBtn(PQA_ICON_PAUSE, 'Pausar', 'pqa-danger', () => {

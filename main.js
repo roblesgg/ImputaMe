@@ -18,6 +18,14 @@ app.on('second-instance', () => {
 
 const APP_ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
 const TASK_COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
+const TRASH_RETENTION_DAYS = 30;   // cuánto tiempo se puede restaurar una tarea desde la papelera
+const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+// ¿Está esta tarea ahora mismo en la papelera? (borrada, no eliminada del todo y aún
+// dentro del plazo de restauración).
+function isInTrash(t) {
+  return t.deleted && !t.purged && t.deletedAt && (Date.now() - t.deletedAt < TRASH_RETENTION_MS);
+}
 
 let DATA_FILE;
 let SETTINGS_FILE;
@@ -193,9 +201,10 @@ function pauseActive() {
     const last = task.entries[task.entries.length - 1];
     if (last && !last.end) {
       last.end = Date.now();
-      // La nota de "lo que estoy haciendo ahora" es de la sesión que se acaba de parar:
-      // al pausar se borra, porque se supone que la próxima vez será otra cosa distinta.
-      delete last.note;
+      // La nota se QUEDA con la entrada: es parte del registro de lo que hiciste en esa
+      // sesión (se ve en el calendario). Al retomar la tarea se crea una entrada nueva
+      // sin nota, así que el campo del panel vuelve a estar en blanco solo, sin tener
+      // que borrar la de antes (que antes se perdía al pausar).
     }
   }
   state.activeTaskId = null;
@@ -228,7 +237,7 @@ function restartActiveTaskWithNote(note) {
   const task = getActiveTask();
   if (!task) return;
   const last = task.entries[task.entries.length - 1];
-  if (last && !last.end) { last.end = Date.now(); delete last.note; }
+  if (last && !last.end) { last.end = Date.now(); }   // la nota de esa sesión se conserva en su entrada
   const entry = { start: Date.now(), end: null, nameAtTime: task.name };
   const n = (note || '').trim().slice(0, 500);
   if (n) entry.note = n;
@@ -273,6 +282,32 @@ function deleteTask(taskId) {
   if (!task) return;
   if (state.activeTaskId === taskId) pauseActive();
   task.deleted = true;
+  task.deletedAt = Date.now();   // para la papelera (se puede restaurar durante TRASH_RETENTION_DAYS)
+  task.purged = false;
+  saveData(); broadcastState();
+}
+
+// Devuelve la tarea a la vida: reaparece en el panel principal (sin sección). Vale
+// tanto desde la papelera como desde el calendario (aunque ya haya caducado en la
+// papelera), porque sus entradas nunca se han ido.
+function restoreTask(taskId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task.deleted = false;
+  task.archived = false;
+  task.groupId = null;
+  delete task.deletedAt;
+  delete task.purged;
+  saveData(); broadcastState();
+}
+
+// "Eliminar definitivamente" desde la papelera: la saca de la lista de la papelera,
+// pero sus entradas SIGUEN en el calendario (el calendario es un registro permanente),
+// así que todavía se puede restaurar desde allí si hiciera falta.
+function purgeTask(taskId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task.purged = true;
   saveData(); broadcastState();
 }
 
@@ -667,12 +702,14 @@ function getSerializableState() {
       ...t,
       todaySecs: todaySecondsForTask(t),
       totalSecs: totalSecondsForTask(t),
+      inTrash: isInTrash(t),   // para la sección "Papelera" de Guardadas
     })),
     groups: state.groups,
     activeTaskId: state.activeTaskId,
     todayTotal: totalTodaySeconds(),
     settings,
     updateAvailable: updateInfo,
+    trashRetentionDays: TRASH_RETENTION_DAYS,
   };
 }
 
@@ -699,6 +736,8 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     }
     case 'delete-task':   deleteTask(payload.taskId); break;
+    case 'restore-task':  restoreTask(payload.taskId); break;
+    case 'purge-task':    purgeTask(payload.taskId); break;
     case 'edit-task-color': editTaskColor(payload.taskId, payload.color); break;
     case 'rename-task':   renameTask(payload.taskId, payload.name); break;
     case 'set-active-note': setActiveEntryNote(payload.note); break;
