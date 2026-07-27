@@ -64,6 +64,10 @@
   .a-top .dock-bar.near, .a-bottom .dock-bar.near { transform:translateX(-50%) scaleY(1.6); }
 
   .expanded .dock-bar { opacity:0; pointer-events:none; }   /* desplegado estorba */
+  /* ...salvo mientras se está ajustando la barrita desde Ajustes: ahí hay que verla
+     para saber cómo va quedando, aunque el panel esté abierto encima. */
+  .dock-root.expanded.preview-bar .dock-bar { opacity:var(--bar-opacity); pointer-events:auto; }
+  .preview-bar .dock-bar { box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 2px 10px rgba(0,0,0,.35); }
 
   /* ── Tirador para redimensionar el panel ─────────────────── */
   .dock-resize { position:absolute; z-index:5; }
@@ -262,6 +266,16 @@ document.addEventListener('mouseup', () => {
   if (vertical) { if (currentView === 'calendar') cfg.calendarWidth = size; else cfg.panelWidth = size; }
   else cfg.panelHeight = size;
   ipcRenderer.send('action', { type:'set-dock-config', payload });
+});
+
+// Mientras se mueven los deslizadores de la barrita en Ajustes, se enseña aunque el
+// panel esté desplegado (si no, no habría forma de ver lo que estás cambiando). Se
+// apaga sola al dejar de tocar.
+let barPreviewTimer = null;
+ipcRenderer.on('dock-bar-preview', () => {
+  root.classList.add('preview-bar');
+  clearTimeout(barPreviewTimer);
+  barPreviewTimer = setTimeout(() => root.classList.remove('preview-bar'), 1500);
 });
 
 ipcRenderer.on('dock-navigate', (_, view) => navTo(view));

@@ -11,9 +11,9 @@ if (!app.requestSingleInstanceLock()) {
   return;
 }
 app.on('second-instance', () => {
-  // Alguien ha vuelto a lanzar la app mientras ya estaba corriendo: solo traemos el
-  // panel al frente, no dejamos que se abra un proceso duplicado.
-  openMain();
+  // Alguien ha vuelto a lanzar la app mientras ya estaba corriendo: solo la traemos al
+  // frente (por donde se quedó), no dejamos que se abra un proceso duplicado.
+  openLastView();
 });
 
 const APP_ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
@@ -94,7 +94,8 @@ let settings = {
   dockBarColor: '#ffffff',
   dockPanelWidth: 460,  // ancho del panel en las vistas normales (anclajes laterales)
   dockPanelHeight: 460, // alto del panel cuando se ancla arriba/abajo
-  dockCalendarWidth: 900, // el calendario se abre más ancho (y se puede estirar)
+  dockCalendarWidth: 1180, // el calendario se abre bastante más ancho (y se puede estirar)
+  lastView: 'panel',    // última vista abierta: la app vuelve a abrirse por donde la dejaste
 };
 
 function nextAutoColor() {
@@ -558,6 +559,13 @@ function broadcastTheme() {
     .forEach(w => sendToAllFrames(w, 'theme', vars));
 }
 
+// Guardado diferido de ajustes: los deslizadores de la barra flotante disparan cambios
+// decenas de veces por segundo y no hace falta escribir el archivo en cada uno.
+const saveSettingsSoon = (() => {
+  let t = null;
+  return () => { clearTimeout(t); t = setTimeout(saveSettings, 400); };
+})();
+
 function debounce(fn, ms) {
   let t = null;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
@@ -685,7 +693,7 @@ function dockConfig() {
     barColor: settings.dockBarColor || '#ffffff',
     panelWidth: Math.max(320, Math.min(1600, Number(settings.dockPanelWidth) || 460)),
     panelHeight: Math.max(260, Math.min(1200, Number(settings.dockPanelHeight) || 460)),
-    calendarWidth: Math.max(420, Math.min(1900, Number(settings.dockCalendarWidth) || 900)),
+    calendarWidth: Math.max(420, Math.min(1900, Number(settings.dockCalendarWidth) || 1180)),
   };
 }
 
@@ -748,8 +756,26 @@ function positionDock() {
   sendDockConfig();
 }
 
+// Recuerda por dónde andaba el usuario para volver a abrir ahí (ver openLastView).
+// Ajustes no cuenta: no es una "pestaña" a la que tenga sentido volver al arrancar.
+function rememberView(view) {
+  if (view === 'settings' || settings.lastView === view) return;
+  settings.lastView = view;
+  saveSettingsSoon();
+}
+
+// Abre la app por donde se quedó la última vez (panel, calendario o guardadas).
+function openLastView() {
+  const v = settings.lastView;
+  if (settings.dockMode) { dockNavigate(v && v !== 'settings' ? v : 'panel'); return; }
+  if (v === 'calendar') openCalendar();
+  else if (v === 'groups') openGroups();
+  else openMain();
+}
+
 // Enseña una vista dentro del dock (en vez de abrir una ventana suelta).
 function dockNavigate(view) {
+  rememberView(view);
   if (!dockWin || dockWin.isDestroyed()) createDock();
   const send = () => { try { dockWin.webContents.send('dock-navigate', view); } catch {} };
   if (dockWin.webContents.isLoading()) dockWin.webContents.once('did-finish-load', send);
@@ -774,6 +800,7 @@ function applyDockMode(wasDock) {
 function openMain() {
   checkForUpdatesIfStale();   // aprovecha que el usuario vuelve a la app para refrescar, sin esperar al temporizador
   if (settings.dockMode) { dockNavigate('panel'); return; }
+  rememberView('panel');
   if (mainWin && !mainWin.isDestroyed()) { mainWin.show(); mainWin.focus(); sendStateToWindow(mainWin); return; }
   mainWin = makeWindow('main.html', 560, 660, {
     minWidth: 380, minHeight: 480,
@@ -810,8 +837,9 @@ function showSplashThenMain() {
     setTimeout(() => { if (splash && !splash.isDestroyed()) splash.close(); }, 340);
   };
   setTimeout(() => {
-    openMain();
-    if (mainWin && !mainWin.isDestroyed()) mainWin.once('show', closeSplash);
+    openLastView();
+    const first = mainWin || calendarWin || groupsWin;
+    if (first && !first.isDestroyed()) first.once('show', closeSplash);
     else closeSplash();
     // Cierre de seguridad: pase lo que pase (si 'show' no llega, la ventana tarda,
     // etc.) el splash nunca se queda enganchado.
@@ -821,6 +849,7 @@ function showSplashThenMain() {
 
 function openCalendar() {
   if (settings.dockMode) { dockNavigate('calendar'); return; }
+  rememberView('calendar');
   if (calendarWin && !calendarWin.isDestroyed()) { calendarWin.show(); calendarWin.focus(); sendStateToWindow(calendarWin); return; }
   calendarWin = makeWindow('calendar.html', 1280, 760, {
     minWidth: 760, minHeight: 520,
@@ -843,6 +872,7 @@ function openSettings() {
 
 function openGroups() {
   if (settings.dockMode) { dockNavigate('groups'); return; }
+  rememberView('groups');
   if (groupsWin && !groupsWin.isDestroyed()) { groupsWin.show(); groupsWin.focus(); sendStateToWindow(groupsWin); return; }
   groupsWin = makeWindow('groups.html', 420, 620, {
     minWidth: 340, minHeight: 420,
@@ -1002,11 +1032,17 @@ ipcMain.on('action', (event, { type, payload }) => {
       if (dockWin && !dockWin.isDestroyed()) { try { dockWin.focus(); } catch {} }
       break;
     // Vista previa en vivo mientras se toquetea la barra en Ajustes (sin darle a Guardar).
-    case 'set-dock-config':
-      settings = { ...settings, ...(payload || {}) };
-      saveSettings();
+    case 'set-dock-config': {
+      const { preview, ...vals } = payload || {};
+      settings = { ...settings, ...vals };
+      saveSettingsSoon();   // los deslizadores disparan esto muchas veces por segundo
       if (settings.dockMode) { createDock(); positionDock(); }
+      // Con el panel abierto la barrita se oculta; al ajustarla hay que verla.
+      if (preview && dockWin && !dockWin.isDestroyed()) {
+        try { dockWin.webContents.send('dock-bar-preview'); } catch {}
+      }
       break;
+    }
     // El interruptor de "modo barra flotante" se aplica al momento (no al Guardar), y
     // deja el dock en Ajustes para poder seguir configurándolo sin perder de vista nada.
     case 'set-dock-mode': {
@@ -1305,7 +1341,7 @@ app.whenReady().then(() => {
   tray = new Tray(trayIcon);
   tray.setToolTip('imputa.me');
   tray.setContextMenu(buildTrayMenu());
-  tray.on('click', () => openMain());
+  tray.on('click', () => openLastView());
 
   startTick();
   resetReminderTimer();
@@ -1317,4 +1353,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', e => e.preventDefault());
-app.on('before-quit', () => { pauseActive(); saveData(); });
+// saveSettings() explícito: saveSettingsSoon puede tener un guardado pendiente (p. ej.
+// la última vista abierta) que se perdería si la app se cierra antes de que salte.
+app.on('before-quit', () => { pauseActive(); saveData(); saveSettings(); });

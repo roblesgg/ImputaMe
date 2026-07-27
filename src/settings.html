@@ -465,6 +465,9 @@ function previewDock() {
     dockBarPos: parseInt(document.getElementById('dockBarPos').value),
     dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 90,
     dockDisplayId: sel ? Number(sel) : null,
+    // Hace que la barrita se vea aunque el panel esté abierto, para poder ir viendo
+    // el cambio mientras se arrastra el deslizador.
+    preview: true,
   } });
 }
 
