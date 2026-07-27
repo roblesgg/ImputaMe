@@ -1,4 +1,4 @@
 {
-  "version": "1.2.27",
-  "notes": "Nuevo (opcional): modo barra flotante. Actívalo en Ajustes → \"Modo barra flotante (dock)\" y elige en qué pantalla anclarla. Aparece una barra discreta pegada al borde derecho; al pulsarla se despliega el panel con una animación, y Calendario, Guardadas y Ajustes se abren dentro de la misma barra (transformándose) en lugar de en ventanas nuevas. Si no lo activas, la app funciona exactamente igual que antes."
+  "version": "1.2.28",
+  "notes": "Modo barra flotante (dock) rehecho: se quita el recuadro gris (era el material acrílico rellenando la ventana) y las animaciones ya no van a tirones porque el desplegado es puro CSS en vez de redimensionar la ventana. Ahora la barra plegada es solo una franja fina en el borde derecho y el resto deja pasar los clics al escritorio. Añadido un interruptor \"Modo barra flotante (dock)\" en el menú de la bandeja del sistema, para poder activarlo o desactivarlo desde ahí."
 }

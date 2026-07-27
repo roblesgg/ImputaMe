@@ -180,9 +180,20 @@ function buildTrayMenu() {
     { label: `Sincronizar (móvil)${syncStatus.loggedIn ? ' ✓' : ''}…`, click: () => openSync() },
     { label: 'Pausar', click: () => pauseActive(), enabled: !!active },
     { type: 'separator' },
+    // Interruptor de escape: permite salir del modo dock desde la bandeja aunque su
+    // interfaz no se viera bien, sin depender de abrir Ajustes dentro del propio dock.
+    { label: 'Modo barra flotante (dock)', type: 'checkbox', checked: !!settings.dockMode, click: () => toggleDockMode() },
     { label: 'Buscar actualizaciones…', click: () => checkForUpdates(true) },
     { label: 'Salir', click: () => { saveData(); app.quit(); } },
   ]);
+}
+
+function toggleDockMode() {
+  const wasDock = !!settings.dockMode;
+  settings.dockMode = !wasDock;
+  saveSettings();
+  applyDockMode(wasDock);
+  updateTrayTitle();
 }
 
 // ── Acciones ─────────────────────────────────────────────────────────────────
@@ -497,7 +508,8 @@ function applyTranslucency(win) {
 }
 
 function applyTranslucencyAll() {
-  [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin, dockWin].forEach(w => applyTranslucency(w));
+  // El dock NO lleva acrílico (ver createDock): se excluye a propósito.
+  [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin].forEach(w => applyTranslucency(w));
 }
 
 function debounce(fn, ms) {
@@ -595,9 +607,13 @@ function createWidgetWindow() {
 }
 
 // ── Modo dock (barra flotante lateral) ────────────────────────────────────────
-const DOCK_BAR_W = 12;      // ancho de la barrita cuando está plegada
-const DOCK_PANEL_W = 440;   // ancho del panel desplegado
-const DOCK_COLLAPSED_H = 150;
+// La ventana tiene tamaño FIJO (el del panel desplegado) y NO se redimensiona: el
+// plegar/desplegar es puramente CSS dentro del renderer (fluido), y la parte transparente
+// deja pasar los clics al escritorio con setIgnoreMouseEvents (el renderer decide cuándo,
+// según si el ratón está sobre algo interactivo). Sin material acrílico: acrílico rellena
+// toda la ventana de gris aunque el DOM sea transparente (era el "recuadro gris raro").
+const DOCK_BAR_W = 14;      // ancho de la barrita visible cuando está plegada
+const DOCK_PANEL_W = 440;   // ancho del panel desplegado (= ancho fijo de la ventana)
 
 function dockDisplay() {
   const displays = screen.getAllDisplays();
@@ -608,12 +624,12 @@ function dockDisplay() {
   return getReferenceDisplay();
 }
 
-// Bounds pegados al borde derecho de la pantalla elegida, centrados en vertical. Se
-// mantiene el mismo centro entre plegado y desplegado para que "crezca" desde el borde.
-function computeDockBounds(expanded) {
+// Bounds fijos: pegado al borde derecho de la pantalla elegida, alto = casi todo el área
+// de trabajo, centrado en vertical. Siempre el mismo tamaño (plegado o desplegado).
+function computeDockBounds() {
   const work = dockDisplay().workArea;
-  const width = expanded ? DOCK_PANEL_W : DOCK_BAR_W;
-  const height = expanded ? Math.min(720, work.height - 40) : DOCK_COLLAPSED_H;
+  const width = DOCK_PANEL_W;
+  const height = Math.min(760, work.height - 24);
   const x = work.x + work.width - width;
   const y = work.y + Math.round((work.height - height) / 2);
   return { x, y, width, height };
@@ -621,20 +637,19 @@ function computeDockBounds(expanded) {
 
 function createDock() {
   if (dockWin && !dockWin.isDestroyed()) return;
-  const b = computeDockBounds(false);
   dockWin = new BrowserWindow({
-    ...b,
-    frame: false, transparent: true, hasShadow: false,
-    // resizable:true a propósito: en Windows setBounds puede quedar "clavado" al tamaño
-    // inicial si la ventana es no-redimensionable, y necesitamos crecer/encoger el dock.
-    resizable: true, movable: false, skipTaskbar: true, alwaysOnTop: true,
-    roundedCorners: false, minWidth: DOCK_BAR_W, minHeight: 80,
+    ...computeDockBounds(),
+    frame: false, transparent: true, hasShadow: false, backgroundColor: '#00000000',
+    resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
+    roundedCorners: false, focusable: true,
     icon: APP_ICON_PATH,
     webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true },
   });
   dockExpanded = false;
+  // Sin acrílico ni insertCSS de --bg: la ventana es transparente de verdad; el panel del
+  // dock pinta su propio fondo. Arranca dejando pasar los clics (solo la barra captura).
+  try { dockWin.setIgnoreMouseEvents(true, { forward: true }); } catch {}
   dockWin.loadFile(path.join(__dirname, 'src', 'dock.html'));
-  applyTranslucency(dockWin);
   dockWin.once('ready-to-show', () => { if (dockWin && !dockWin.isDestroyed()) dockWin.showInactive(); });
   dockWin.on('closed', () => { dockWin = null; dockExpanded = false; });
 }
@@ -644,12 +659,10 @@ function destroyDock() {
   dockWin = null; dockExpanded = false;
 }
 
-// Aplica el tamaño plegado/desplegado y avisa al renderer para que anime el deslizado.
-function setDockBounds(expanded) {
+// Reposiciona el dock (p. ej. si cambia la pantalla elegida en Ajustes).
+function positionDock() {
   if (!dockWin || dockWin.isDestroyed()) return;
-  dockExpanded = expanded;
-  try { dockWin.setBounds(computeDockBounds(expanded)); } catch {}
-  try { dockWin.webContents.send('dock-bounds-set', { expanded }); } catch {}
+  try { dockWin.setBounds(computeDockBounds()); } catch {}
 }
 
 // Enseña una vista dentro del dock (en vez de abrir una ventana suelta).
@@ -668,7 +681,7 @@ function applyDockMode(wasDock) {
     [mainWin, calendarWin, groupsWin, settingsWin].forEach(w => { try { if (w && !w.isDestroyed()) w.hide(); } catch {} });
     createDock();
     if (!wasDock) dockNavigate('panel');
-    else if (dockWin && !dockWin.isDestroyed()) setDockBounds(dockExpanded);   // reajusta a la pantalla elegida
+    else positionDock();   // reajusta a la pantalla elegida
   } else if (wasDock) {
     destroyDock();
     openMain();
@@ -883,7 +896,14 @@ ipcMain.on('action', (event, { type, payload }) => {
       if (settings.dockMode && dockWin && !dockWin.isDestroyed()) dockWin.webContents.send('dock-collapse');
       else if (mainWin && !mainWin.isDestroyed()) mainWin.hide();
       break;
-    case 'dock-set-bounds': setDockBounds(!!(payload && payload.expanded)); break;
+    case 'dock-set-ignore-mouse':
+      if (dockWin && !dockWin.isDestroyed()) {
+        try { dockWin.setIgnoreMouseEvents(!!(payload && payload.ignore), { forward: true }); } catch {}
+      }
+      break;
+    case 'dock-focus':
+      if (dockWin && !dockWin.isDestroyed()) { try { dockWin.focus(); } catch {} }
+      break;
     case 'get-settings':  event.reply('settings', settings); break;
     case 'min-main':      if (mainWin && !mainWin.isDestroyed()) mainWin.minimize(); break;
     case 'close-calendar':

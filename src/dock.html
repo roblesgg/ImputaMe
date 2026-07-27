@@ -4,73 +4,61 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="shared.css">
 <style>
-  html, body { width:100%; height:100%; background:transparent; overflow:hidden; -webkit-app-region:no-drag; }
-
-  /* La ventana ocupa SOLO lo visible (barra fina plegada, panel desplegada): así nunca
-     hay una capa transparente a pantalla completa que se coma clics. El deslizado lo
-     hace el CSS dentro de la ventana ya redimensionada. */
+  /* Ventana de tamaño FIJO y transparente de verdad (sin acrílico). El plegar/desplegar
+     es solo CSS (fluido); la parte transparente deja pasar los clics al escritorio
+     mediante setIgnoreMouseEvents, que el script activa/desactiva según dónde esté el
+     ratón. Así no hay "recuadro gris" ni tirones por redimensionar la ventana. */
+  html, body { width:100%; height:100%; background:transparent !important; overflow:hidden; margin:0; }
+  body { -webkit-app-region:no-drag; }
 
   .dock-root { width:100%; height:100%; display:flex; }
 
-  /* ---- Barra (grip) siempre pegada al borde derecho ---- */
-  .dock-bar {
-    width:12px; flex-shrink:0; height:100%;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; -webkit-app-region:no-drag;
-    background:linear-gradient(180deg, rgba(99,102,241,.9), rgba(129,140,248,.9));
-    border-radius:8px 0 0 8px;
-    box-shadow:-2px 0 10px rgba(0,0,0,.35);
-    transition:width .15s ease, background .15s ease;
-  }
-  .dock-bar:hover { width:14px; }
-  .dock-bar::after {
-    content:''; width:4px; height:34px; border-radius:3px; background:rgba(255,255,255,.65);
-  }
-  /* Cuando está desplegado, el grip se integra en el borde del panel (menos protagonista). */
-  .dock-root.expanded .dock-bar { background:rgba(255,255,255,.10); border-radius:0; }
-  .dock-root.expanded .dock-bar::after { height:44px; background:rgba(255,255,255,.35); }
-
-  /* ---- Panel: a la izquierda de la barra, se desliza desde la derecha ---- */
+  /* Panel: ocupa todo menos la barra; se desliza desde la derecha. Fondo propio (no
+     acrílico de ventana) con un blur CSS para el efecto cristal. */
   .dock-panel {
     flex:1; height:100%; min-width:0;
     display:flex; flex-direction:column;
-    background:var(--bg);
-    border-radius:14px 0 0 14px;
+    background:rgba(22,22,32,.92);
+    backdrop-filter:blur(28px) saturate(160%);
+    -webkit-backdrop-filter:blur(28px) saturate(160%);
+    border-radius:16px 0 0 16px;
     border:1px solid var(--border); border-right:none;
+    box-shadow:-8px 0 30px rgba(0,0,0,.45);
     overflow:hidden;
-    transform:translateX(100%); opacity:0;
-    transition:transform .26s cubic-bezier(.4,0,.2,1), opacity .2s ease;
+    transform:translateX(105%);
+    transition:transform .28s cubic-bezier(.32,.72,0,1);
   }
-  .dock-root.expanded .dock-panel { transform:translateX(0); opacity:1; }
+  .dock-root.expanded .dock-panel { transform:translateX(0); }
 
-  /* Barra de navegación superior del panel */
-  .dock-nav {
-    flex-shrink:0; display:flex; align-items:center; gap:4px;
-    padding:8px 10px; border-bottom:1px solid var(--border);
+  /* Barra (grip) siempre visible pegada al borde derecho. */
+  .dock-bar {
+    width:14px; flex-shrink:0; height:100%;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    background:linear-gradient(180deg, rgba(99,102,241,.92), rgba(129,140,248,.92));
+    border-radius:8px 0 0 8px;
+    box-shadow:-3px 0 14px rgba(0,0,0,.4);
+    transition:width .14s ease, background .18s ease, box-shadow .18s ease;
   }
+  .dock-bar:hover { width:16px; }
+  .dock-bar::after { content:''; width:4px; height:38px; border-radius:3px; background:rgba(255,255,255,.7); transition:height .18s ease; }
+  .dock-root.expanded .dock-bar { background:rgba(255,255,255,.08); box-shadow:none; border-radius:0; }
+  .dock-root.expanded .dock-bar::after { height:52px; background:rgba(255,255,255,.3); }
+
+  /* Nav superior */
+  .dock-nav { flex-shrink:0; display:flex; align-items:center; gap:2px; padding:9px 8px; border-bottom:1px solid var(--border); }
   .dock-nav-btn {
     flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
     background:transparent; border:none; color:var(--text2); cursor:pointer;
-    padding:7px 4px; border-radius:9px; font-size:10.5px; -webkit-app-region:no-drag;
-    transition:all .13s;
+    padding:8px 3px; border-radius:10px; font-size:10.5px; transition:all .13s;
   }
-  .dock-nav-btn svg { width:17px; height:17px; }
+  .dock-nav-btn svg { width:18px; height:18px; }
   .dock-nav-btn:hover { background:var(--bg3); color:var(--text); }
   .dock-nav-btn.active { background:rgba(99,102,241,.18); color:var(--accent); }
-
-  .dock-collapse {
-    background:transparent; border:none; color:var(--text2); cursor:pointer;
-    width:30px; height:30px; border-radius:8px; flex-shrink:0; -webkit-app-region:no-drag;
-    display:flex; align-items:center; justify-content:center;
-  }
+  .dock-collapse { background:transparent; border:none; color:var(--text2); cursor:pointer; width:30px; height:30px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
   .dock-collapse:hover { background:var(--bg3); color:var(--text); }
 
-  /* Zona del iframe: crossfade al cambiar de vista */
   .dock-content { flex:1; min-height:0; position:relative; }
-  .dock-content iframe {
-    position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent;
-    opacity:1; transition:opacity .16s ease;
-  }
+  .dock-content iframe { position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent; opacity:1; transition:opacity .16s ease; }
   .dock-content.switching iframe { opacity:0; }
 </style>
 </head>
@@ -102,7 +90,7 @@
       <iframe id="dockFrame" src="main.html?embed=1"></iframe>
     </div>
   </div>
-  <div class="dock-bar" id="dockBar" onclick="onBarClick()" title="imputa.me — clic para desplegar/esconder"></div>
+  <div class="dock-bar" id="dockBar" title="imputa.me — clic para desplegar/esconder"></div>
 </div>
 
 <script>
@@ -110,74 +98,62 @@ const { ipcRenderer } = require('electron');
 const root = document.getElementById('dockRoot');
 const frame = document.getElementById('dockFrame');
 const content = document.getElementById('dockContent');
+const bar = document.getElementById('dockBar');
 
-const VIEW_SRC = {
-  panel:    'main.html?embed=1',
-  calendar: 'calendar.html?embed=1',
-  groups:   'groups.html?embed=1',
-  settings: 'settings.html?embed=1',
-};
+const VIEW_SRC = { panel:'main.html?embed=1', calendar:'calendar.html?embed=1', groups:'groups.html?embed=1', settings:'settings.html?embed=1' };
 let currentView = 'panel';
 let expanded = false;
-let animating = false;
+
+// ---- Click-through: deja pasar los clics al escritorio salvo cuando el ratón está
+// sobre algo interactivo (la barra si está plegado, o todo el panel si está desplegado).
+let lastIgnore = null;
+function setIgnore(ig) {
+  if (ig === lastIgnore) return;
+  lastIgnore = ig;
+  ipcRenderer.send('action', { type:'dock-set-ignore-mouse', payload:{ ignore: ig } });
+}
+document.addEventListener('mousemove', (e) => {
+  if (expanded) { setIgnore(false); return; }
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  setIgnore(!(el && el.closest('.dock-bar')));
+});
+setIgnore(true);   // arranca plegado: solo la barra captura
 
 function setActiveNav(view) {
-  document.querySelectorAll('.dock-nav-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.dock-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
 }
+
+function expand() {
+  if (expanded) return;
+  expanded = true;
+  root.classList.add('expanded');
+  setIgnore(false);
+  ipcRenderer.send('action', { type:'dock-focus' });
+}
+function collapse() {
+  if (!expanded) return;
+  expanded = false;
+  root.classList.remove('expanded');
+  setIgnore(true);   // el mousemove lo corrige a false si el ratón sigue sobre la barra
+}
+bar.addEventListener('click', () => { expanded ? collapse() : expand(); });
 
 function navTo(view) {
   if (!VIEW_SRC[view]) return;
-  if (view === currentView) { if (!expanded) expand(); return; }
+  if (!expanded) expand();
+  if (view === currentView) return;
   currentView = view;
   setActiveNav(view);
-  // Crossfade: se desvanece, se cambia el src y al cargar se vuelve a mostrar.
   content.classList.add('switching');
-  const swap = () => {
+  setTimeout(() => {
     frame.src = VIEW_SRC[view];
     frame.addEventListener('load', () => content.classList.remove('switching'), { once: true });
-  };
-  setTimeout(swap, 130);
-  if (!expanded) expand();
+  }, 130);
 }
 
-function onBarClick() { expanded ? collapse() : expand(); }
-
-// Desplegar: primero la ventana crece (main), y cuando confirma, el panel se desliza.
-function expand() {
-  if (expanded || animating) return;
-  animating = true;
-  ipcRenderer.send('dock-set-bounds', { expanded: true });
-}
-ipcRenderer.on('dock-bounds-set', (_, { expanded: exp }) => {
-  if (exp) {
-    // La ventana ya es grande: dejamos que pinte y deslizamos el panel dentro.
-    requestAnimationFrame(() => { root.classList.add('expanded'); expanded = true; animating = false; });
-  }
-});
-
-// Esconder: primero el panel se desliza fuera; al terminar, la ventana encoge.
-function collapse() {
-  if (!expanded || animating) return;
-  animating = true;
-  root.classList.remove('expanded');
-  const panel = document.querySelector('.dock-panel');
-  let done = false;
-  const finish = () => {
-    if (done) return; done = true;
-    expanded = false;
-    ipcRenderer.send('dock-set-bounds', { expanded: false });
-    animating = false;
-  };
-  panel.addEventListener('transitionend', (e) => { if (e.propertyName === 'transform') finish(); }, { once: true });
-  setTimeout(finish, 400);   // por si el transitionend no llega
-}
-
-// El proceso principal puede pedir que se muestre una vista concreta (p. ej. al pulsar
-// "Calendario" dentro del panel, o desde la bandeja): navega y se despliega.
 ipcRenderer.on('dock-navigate', (_, view) => navTo(view));
 ipcRenderer.on('dock-collapse', () => collapse());
-ipcRenderer.on('dock-toggle', () => onBarClick());
+ipcRenderer.on('dock-toggle', () => { expanded ? collapse() : expand(); });
 </script>
 </body>
 </html>
