@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="shared.css">
+<style>
+  html, body { width:100%; height:100%; background:transparent; overflow:hidden; -webkit-app-region:no-drag; }
+
+  /* La ventana ocupa SOLO lo visible (barra fina plegada, panel desplegada): así nunca
+     hay una capa transparente a pantalla completa que se coma clics. El deslizado lo
+     hace el CSS dentro de la ventana ya redimensionada. */
+
+  .dock-root { width:100%; height:100%; display:flex; }
+
+  /* ---- Barra (grip) siempre pegada al borde derecho ---- */
+  .dock-bar {
+    width:12px; flex-shrink:0; height:100%;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; -webkit-app-region:no-drag;
+    background:linear-gradient(180deg, rgba(99,102,241,.9), rgba(129,140,248,.9));
+    border-radius:8px 0 0 8px;
+    box-shadow:-2px 0 10px rgba(0,0,0,.35);
+    transition:width .15s ease, background .15s ease;
+  }
+  .dock-bar:hover { width:14px; }
+  .dock-bar::after {
+    content:''; width:4px; height:34px; border-radius:3px; background:rgba(255,255,255,.65);
+  }
+  /* Cuando está desplegado, el grip se integra en el borde del panel (menos protagonista). */
+  .dock-root.expanded .dock-bar { background:rgba(255,255,255,.10); border-radius:0; }
+  .dock-root.expanded .dock-bar::after { height:44px; background:rgba(255,255,255,.35); }
+
+  /* ---- Panel: a la izquierda de la barra, se desliza desde la derecha ---- */
+  .dock-panel {
+    flex:1; height:100%; min-width:0;
+    display:flex; flex-direction:column;
+    background:var(--bg);
+    border-radius:14px 0 0 14px;
+    border:1px solid var(--border); border-right:none;
+    overflow:hidden;
+    transform:translateX(100%); opacity:0;
+    transition:transform .26s cubic-bezier(.4,0,.2,1), opacity .2s ease;
+  }
+  .dock-root.expanded .dock-panel { transform:translateX(0); opacity:1; }
+
+  /* Barra de navegación superior del panel */
+  .dock-nav {
+    flex-shrink:0; display:flex; align-items:center; gap:4px;
+    padding:8px 10px; border-bottom:1px solid var(--border);
+  }
+  .dock-nav-btn {
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:transparent; border:none; color:var(--text2); cursor:pointer;
+    padding:7px 4px; border-radius:9px; font-size:10.5px; -webkit-app-region:no-drag;
+    transition:all .13s;
+  }
+  .dock-nav-btn svg { width:17px; height:17px; }
+  .dock-nav-btn:hover { background:var(--bg3); color:var(--text); }
+  .dock-nav-btn.active { background:rgba(99,102,241,.18); color:var(--accent); }
+
+  .dock-collapse {
+    background:transparent; border:none; color:var(--text2); cursor:pointer;
+    width:30px; height:30px; border-radius:8px; flex-shrink:0; -webkit-app-region:no-drag;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .dock-collapse:hover { background:var(--bg3); color:var(--text); }
+
+  /* Zona del iframe: crossfade al cambiar de vista */
+  .dock-content { flex:1; min-height:0; position:relative; }
+  .dock-content iframe {
+    position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent;
+    opacity:1; transition:opacity .16s ease;
+  }
+  .dock-content.switching iframe { opacity:0; }
+</style>
+</head>
+<body>
+<div class="dock-root" id="dockRoot">
+  <div class="dock-panel">
+    <div class="dock-nav">
+      <button class="dock-nav-btn active" data-view="panel" onclick="navTo('panel')" title="Panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
+        Panel
+      </button>
+      <button class="dock-nav-btn" data-view="calendar" onclick="navTo('calendar')" title="Calendario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Calendario
+      </button>
+      <button class="dock-nav-btn" data-view="groups" onclick="navTo('groups')" title="Guardadas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Guardadas
+      </button>
+      <button class="dock-nav-btn" data-view="settings" onclick="navTo('settings')" title="Ajustes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Ajustes
+      </button>
+      <button class="dock-collapse" onclick="collapse()" title="Esconder">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="dock-content" id="dockContent">
+      <iframe id="dockFrame" src="main.html?embed=1"></iframe>
+    </div>
+  </div>
+  <div class="dock-bar" id="dockBar" onclick="onBarClick()" title="imputa.me — clic para desplegar/esconder"></div>
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+const root = document.getElementById('dockRoot');
+const frame = document.getElementById('dockFrame');
+const content = document.getElementById('dockContent');
+
+const VIEW_SRC = {
+  panel:    'main.html?embed=1',
+  calendar: 'calendar.html?embed=1',
+  groups:   'groups.html?embed=1',
+  settings: 'settings.html?embed=1',
+};
+let currentView = 'panel';
+let expanded = false;
+let animating = false;
+
+function setActiveNav(view) {
+  document.querySelectorAll('.dock-nav-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === view));
+}
+
+function navTo(view) {
+  if (!VIEW_SRC[view]) return;
+  if (view === currentView) { if (!expanded) expand(); return; }
+  currentView = view;
+  setActiveNav(view);
+  // Crossfade: se desvanece, se cambia el src y al cargar se vuelve a mostrar.
+  content.classList.add('switching');
+  const swap = () => {
+    frame.src = VIEW_SRC[view];
+    frame.addEventListener('load', () => content.classList.remove('switching'), { once: true });
+  };
+  setTimeout(swap, 130);
+  if (!expanded) expand();
+}
+
+function onBarClick() { expanded ? collapse() : expand(); }
+
+// Desplegar: primero la ventana crece (main), y cuando confirma, el panel se desliza.
+function expand() {
+  if (expanded || animating) return;
+  animating = true;
+  ipcRenderer.send('dock-set-bounds', { expanded: true });
+}
+ipcRenderer.on('dock-bounds-set', (_, { expanded: exp }) => {
+  if (exp) {
+    // La ventana ya es grande: dejamos que pinte y deslizamos el panel dentro.
+    requestAnimationFrame(() => { root.classList.add('expanded'); expanded = true; animating = false; });
+  }
+});
+
+// Esconder: primero el panel se desliza fuera; al terminar, la ventana encoge.
+function collapse() {
+  if (!expanded || animating) return;
+  animating = true;
+  root.classList.remove('expanded');
+  const panel = document.querySelector('.dock-panel');
+  let done = false;
+  const finish = () => {
+    if (done) return; done = true;
+    expanded = false;
+    ipcRenderer.send('dock-set-bounds', { expanded: false });
+    animating = false;
+  };
+  panel.addEventListener('transitionend', (e) => { if (e.propertyName === 'transform') finish(); }, { once: true });
+  setTimeout(finish, 400);   // por si el transitionend no llega
+}
+
+// El proceso principal puede pedir que se muestre una vista concreta (p. ej. al pulsar
+// "Calendario" dentro del panel, o desde la bandeja): navega y se despliega.
+ipcRenderer.on('dock-navigate', (_, view) => navTo(view));
+ipcRenderer.on('dock-collapse', () => collapse());
+ipcRenderer.on('dock-toggle', () => onBarClick());
+</script>
+</body>
+</html>

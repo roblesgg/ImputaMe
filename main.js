@@ -41,6 +41,8 @@ let reminderTimer = null;
 let tickTimer = null;
 let syncWin = null;
 let updateWin = null;
+let dockWin = null;              // barra flotante lateral (modo dock, opcional)
+let dockExpanded = false;
 let pendingUpdateState = null;   // último estado enviado a la ventana de actualización
 let updateInfo = null;           // { version } si hay una actualización disponible (para el botón del panel)
 let syncStatus = { loggedIn: false, email: null };
@@ -64,6 +66,8 @@ let settings = {
   openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
   bgOpacity: 50,       // 0 = muy translúcida (se ve más el blur), 100 = muy opaca. Blur siempre puesto.
   tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
+  dockMode: false,     // modo barra flotante lateral (en vez de ventanas sueltas)
+  dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
 };
 
 function nextAutoColor() {
@@ -493,7 +497,7 @@ function applyTranslucency(win) {
 }
 
 function applyTranslucencyAll() {
-  [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin].forEach(w => applyTranslucency(w));
+  [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin, dockWin].forEach(w => applyTranslucency(w));
 }
 
 function debounce(fn, ms) {
@@ -590,8 +594,90 @@ function createWidgetWindow() {
   widgetWin.once('ready-to-show', () => { widgetWin.showInactive(); sendStateToWindow(widgetWin); scheduleWidgetAutoHide(); });
 }
 
+// ── Modo dock (barra flotante lateral) ────────────────────────────────────────
+const DOCK_BAR_W = 12;      // ancho de la barrita cuando está plegada
+const DOCK_PANEL_W = 440;   // ancho del panel desplegado
+const DOCK_COLLAPSED_H = 150;
+
+function dockDisplay() {
+  const displays = screen.getAllDisplays();
+  if (settings.dockDisplayId != null) {
+    const d = displays.find(x => x.id === settings.dockDisplayId);
+    if (d) return d;
+  }
+  return getReferenceDisplay();
+}
+
+// Bounds pegados al borde derecho de la pantalla elegida, centrados en vertical. Se
+// mantiene el mismo centro entre plegado y desplegado para que "crezca" desde el borde.
+function computeDockBounds(expanded) {
+  const work = dockDisplay().workArea;
+  const width = expanded ? DOCK_PANEL_W : DOCK_BAR_W;
+  const height = expanded ? Math.min(720, work.height - 40) : DOCK_COLLAPSED_H;
+  const x = work.x + work.width - width;
+  const y = work.y + Math.round((work.height - height) / 2);
+  return { x, y, width, height };
+}
+
+function createDock() {
+  if (dockWin && !dockWin.isDestroyed()) return;
+  const b = computeDockBounds(false);
+  dockWin = new BrowserWindow({
+    ...b,
+    frame: false, transparent: true, hasShadow: false,
+    // resizable:true a propósito: en Windows setBounds puede quedar "clavado" al tamaño
+    // inicial si la ventana es no-redimensionable, y necesitamos crecer/encoger el dock.
+    resizable: true, movable: false, skipTaskbar: true, alwaysOnTop: true,
+    roundedCorners: false, minWidth: DOCK_BAR_W, minHeight: 80,
+    icon: APP_ICON_PATH,
+    webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true },
+  });
+  dockExpanded = false;
+  dockWin.loadFile(path.join(__dirname, 'src', 'dock.html'));
+  applyTranslucency(dockWin);
+  dockWin.once('ready-to-show', () => { if (dockWin && !dockWin.isDestroyed()) dockWin.showInactive(); });
+  dockWin.on('closed', () => { dockWin = null; dockExpanded = false; });
+}
+
+function destroyDock() {
+  if (dockWin && !dockWin.isDestroyed()) dockWin.close();
+  dockWin = null; dockExpanded = false;
+}
+
+// Aplica el tamaño plegado/desplegado y avisa al renderer para que anime el deslizado.
+function setDockBounds(expanded) {
+  if (!dockWin || dockWin.isDestroyed()) return;
+  dockExpanded = expanded;
+  try { dockWin.setBounds(computeDockBounds(expanded)); } catch {}
+  try { dockWin.webContents.send('dock-bounds-set', { expanded }); } catch {}
+}
+
+// Enseña una vista dentro del dock (en vez de abrir una ventana suelta).
+function dockNavigate(view) {
+  if (!dockWin || dockWin.isDestroyed()) createDock();
+  const send = () => { try { dockWin.webContents.send('dock-navigate', view); } catch {} };
+  if (dockWin.webContents.isLoading()) dockWin.webContents.once('did-finish-load', send);
+  else send();
+  try { dockWin.showInactive(); } catch {}
+}
+
+// Aplica el modo dock al cambiarlo en Ajustes (o al arrancar). wasDock = estado anterior.
+function applyDockMode(wasDock) {
+  if (settings.dockMode) {
+    // Al entrar en modo dock, escondemos las ventanas sueltas y creamos la barra.
+    [mainWin, calendarWin, groupsWin, settingsWin].forEach(w => { try { if (w && !w.isDestroyed()) w.hide(); } catch {} });
+    createDock();
+    if (!wasDock) dockNavigate('panel');
+    else if (dockWin && !dockWin.isDestroyed()) setDockBounds(dockExpanded);   // reajusta a la pantalla elegida
+  } else if (wasDock) {
+    destroyDock();
+    openMain();
+  }
+}
+
 function openMain() {
   checkForUpdatesIfStale();   // aprovecha que el usuario vuelve a la app para refrescar, sin esperar al temporizador
+  if (settings.dockMode) { dockNavigate('panel'); return; }
   if (mainWin && !mainWin.isDestroyed()) { mainWin.show(); mainWin.focus(); sendStateToWindow(mainWin); return; }
   mainWin = makeWindow('main.html', 560, 660, {
     minWidth: 380, minHeight: 480,
@@ -638,6 +724,7 @@ function showSplashThenMain() {
 }
 
 function openCalendar() {
+  if (settings.dockMode) { dockNavigate('calendar'); return; }
   if (calendarWin && !calendarWin.isDestroyed()) { calendarWin.show(); calendarWin.focus(); sendStateToWindow(calendarWin); return; }
   calendarWin = makeWindow('calendar.html', 1280, 760, {
     minWidth: 760, minHeight: 520,
@@ -648,6 +735,7 @@ function openCalendar() {
 }
 
 function openSettings() {
+  if (settings.dockMode) { dockNavigate('settings'); return; }
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
   settingsWin = makeWindow('settings.html', 380, 620, {
     minWidth: 340, minHeight: 400,
@@ -658,6 +746,7 @@ function openSettings() {
 }
 
 function openGroups() {
+  if (settings.dockMode) { dockNavigate('groups'); return; }
   if (groupsWin && !groupsWin.isDestroyed()) { groupsWin.show(); groupsWin.focus(); sendStateToWindow(groupsWin); return; }
   groupsWin = makeWindow('groups.html', 420, 620, {
     minWidth: 340, minHeight: 420,
@@ -719,7 +808,9 @@ function sendStateToWindow(win) {
 
 function broadcastState() {
   updateTrayTitle();
-  [widgetWin, mainWin, calendarWin, groupsWin].forEach(w => sendStateToWindow(w));
+  // dockWin comparte webContents con sus iframes: enviarle el estado llega a la vista
+  // embebida (panel/calendario/guardadas) que tenga cargada en ese momento.
+  [widgetWin, mainWin, calendarWin, groupsWin, dockWin].forEach(w => sendStateToWindow(w));
 }
 
 ipcMain.on('action', (event, { type, payload }) => {
@@ -752,11 +843,17 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'add-calendar-entry':
       addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note);
       break;
-    case 'save-settings':
+    case 'save-settings': {
+      const wasDock = settings.dockMode;
       settings = { ...settings, ...payload };
       saveSettings(); resetReminderTimer(); applyLoginItem(); applyTranslucencyAll();
-      if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
+      applyDockMode(wasDock);   // crea/destruye el dock si ha cambiado el modo
+      // En modo dock, Ajustes es un iframe: al guardar volvemos al panel. Fuera de él,
+      // se cierra la ventana de Ajustes como siempre.
+      if (settings.dockMode && wasDock) dockNavigate('panel');
+      else if (!settings.dockMode && settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
       break;
+    }
     case 'set-bg-opacity':
       settings.bgOpacity = Math.max(0, Math.min(100, Number(payload.value)));
       saveSettings(); applyTranslucencyAll();
@@ -782,11 +879,25 @@ ipcMain.on('action', (event, { type, payload }) => {
       if (widgetHideTimer) { clearTimeout(widgetHideTimer); widgetHideTimer = null; }
       if (widgetWin && !widgetWin.isDestroyed()) widgetWin.hide();
       break;
-    case 'close-main':    if (mainWin && !mainWin.isDestroyed()) mainWin.hide(); break;
+    case 'close-main':
+      if (settings.dockMode && dockWin && !dockWin.isDestroyed()) dockWin.webContents.send('dock-collapse');
+      else if (mainWin && !mainWin.isDestroyed()) mainWin.hide();
+      break;
+    case 'dock-set-bounds': setDockBounds(!!(payload && payload.expanded)); break;
+    case 'get-settings':  event.reply('settings', settings); break;
     case 'min-main':      if (mainWin && !mainWin.isDestroyed()) mainWin.minimize(); break;
-    case 'close-calendar': if (calendarWin && !calendarWin.isDestroyed()) calendarWin.hide(); break;
-    case 'close-settings': if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide(); break;
-    case 'close-groups':   if (groupsWin && !groupsWin.isDestroyed()) groupsWin.hide(); break;
+    case 'close-calendar':
+      if (settings.dockMode) dockNavigate('panel');
+      else if (calendarWin && !calendarWin.isDestroyed()) calendarWin.hide();
+      break;
+    case 'close-settings':
+      if (settings.dockMode) dockNavigate('panel');
+      else if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
+      break;
+    case 'close-groups':
+      if (settings.dockMode) dockNavigate('panel');
+      else if (groupsWin && !groupsWin.isDestroyed()) groupsWin.hide();
+      break;
     case 'open-sync':     openSync(); break;
     case 'close-sync':    if (syncWin && !syncWin.isDestroyed()) syncWin.hide(); break;
     case 'open-update-window': openUpdateWindow(); break;   // desde el botón rojo del panel

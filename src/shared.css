@@ -31,6 +31,16 @@ body {
 
 .no-drag { -webkit-app-region: no-drag; }
 
+/* Modo embebido (dentro del dock): sin controles de ventana ni asa de arrastre, y fondo
+   transparente para que se vea el del panel del dock (no doble capa translúcida). */
+body.embedded { background: transparent !important; }
+body.embedded .win-controls,
+body.embedded .win-drag,
+body.embedded .close-btn { display: none !important; }
+/* El calendario reserva arriba una franja para el asa de arrastre; embebido no hace
+   falta, así se aprovecha ese espacio. */
+body.embedded .cal-app { padding-top: 6px !important; }
+
 /* Asa para mover la ventana, estilo "home indicator" de iPhone: barrita centrada
    arriba. Va en el centro para no estorbar a la X (arriba a la derecha), y es la zona
    arrastrable ahora que el resto del contenido es no-drag (si hubiera zona de arrastre

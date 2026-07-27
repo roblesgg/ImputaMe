@@ -167,6 +167,15 @@
   </div>
 
   <div class="field">
+    <label class="check-row"><input type="checkbox" id="dockMode"><span>Modo barra flotante (dock)</span></label>
+    <span class="hint">En vez de ventanas sueltas, una barra discreta pegada al borde derecho de la pantalla: al pulsarla se despliega el panel, y Calendario/Guardadas/Ajustes se abren dentro de la misma barra en lugar de en ventanas nuevas.</span>
+    <div id="dockDisplayRow" style="display:none;flex-direction:column;gap:6px;margin-top:4px">
+      <label style="font-size:12px;color:var(--text2)">Pantalla donde anclar la barra</label>
+      <select id="dockDisplay"></select>
+    </div>
+  </div>
+
+  <div class="field">
     <label class="check-row" style="cursor:default"><span>Copia de seguridad</span></label>
     <div class="btn-row">
       <button class="btn-ghost" onclick="exportBackup()">Exportar copia…</button>
@@ -253,18 +262,43 @@ document.getElementById('bgOpacity').addEventListener('input', (e) => {
   ipcRenderer.send('action', { type: 'set-bg-opacity', payload: { value: parseInt(e.target.value) || 0 } });
 });
 
+// Rellena el desplegable de pantallas (para elegir dónde ancla el dock).
+function populateDisplays(selectedId) {
+  const sel = document.getElementById('dockDisplay');
+  sel.innerHTML = '';
+  let displays = [];
+  try { displays = require('electron').screen.getAllDisplays(); } catch {}
+  displays.forEach((d, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(d.id);
+    const primary = (d.bounds.x === 0 && d.bounds.y === 0) ? ' (principal)' : '';
+    opt.textContent = `Pantalla ${i + 1}${primary} — ${d.size.width}×${d.size.height}`;
+    sel.appendChild(opt);
+  });
+  if (selectedId != null) sel.value = String(selectedId);
+}
+function updateDockDisplayVisibility() {
+  document.getElementById('dockDisplayRow').style.display =
+    document.getElementById('dockMode').checked ? 'flex' : 'none';
+}
+document.getElementById('dockMode').addEventListener('change', updateDockDisplayVisibility);
+
 ipcRenderer.on('settings', (_, s) => {
   document.getElementById('reminderMinutes').value = s.reminderMinutes || 10;
   document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
   document.getElementById('openAtLogin').checked = !!s.openAtLogin;
   document.getElementById('bgOpacity').value = (s.bgOpacity == null ? 50 : s.bgOpacity);
+  document.getElementById('dockMode').checked = !!s.dockMode;
+  populateDisplays(s.dockDisplayId);
+  updateDockDisplayVisibility();
   autohideSeconds = Math.max(AUTOHIDE_MIN, Math.min(AUTOHIDE_MAX, s.widgetAutoHideSeconds || 10));
   renderAutohideSlider();
   updateAutohideVisibility();
 });
 function save() {
   const mins = parseInt(document.getElementById('reminderMinutes').value) || 10;
+  const dockDisplaySel = document.getElementById('dockDisplay').value;
   ipcRenderer.send('action', { type:'save-settings', payload:{
     reminderMinutes: Math.max(1, Math.min(120, mins)),
     widgetAutoHide: document.getElementById('widgetAutoHide').checked,
@@ -272,6 +306,8 @@ function save() {
     colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',
     openAtLogin: document.getElementById('openAtLogin').checked,
     bgOpacity: parseInt(document.getElementById('bgOpacity').value) || 0,
+    dockMode: document.getElementById('dockMode').checked,
+    dockDisplayId: dockDisplaySel ? Number(dockDisplaySel) : null,
   } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
@@ -388,6 +424,10 @@ async function refreshAccount() {
 ipcRenderer.on('sync-status', (_, s) => refreshAccount());
 window.addEventListener('focus', refreshAccount);
 refreshAccount();
+
+// Al abrirse como ventana, main.js empuja 'settings' tras ready-to-show; pero embebido
+// en el dock no lo hace, así que lo pedimos nosotros. Sirve en ambos casos.
+ipcRenderer.send('action', { type:'get-settings' });
 </script>
 </body>
 </html>

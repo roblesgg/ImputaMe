@@ -1,6 +1,13 @@
 // Utilidades compartidas por las distintas ventanas (cargar antes que el script propio de cada .html)
 const COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
 
+// Modo "embed": la página va dentro de un iframe del dock (barra flotante), no como
+// ventana propia. Se oculta el chrome de ventana (X, minimizar, asa de arrastre) porque
+// esos controles no tienen sentido embebidos. La navegación (Calendario, Ajustes...) se
+// sigue haciendo por IPC, y el proceso principal la redirige al propio dock.
+const IS_EMBEDDED = new URLSearchParams(location.search).get('embed') === '1';
+if (IS_EMBEDDED && document.body) document.body.classList.add('embedded');
+
 // Blanco o negro según la luminosidad del color de fondo, para que el texto
 // siempre se lea bien encima de cualquier color de tarea (incluidos los que
 // el usuario elija manualmente).

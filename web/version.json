@@ -1,4 +1,4 @@
 {
-  "version": "1.2.26",
-  "notes": "Arreglado: las notas ya no se borran solas al pausar una tarea (se quedan con su sesión, como parte del registro del calendario), y ya no se pierde una nota escrita justo antes de pausar. Nueva papelera en Guardadas: las tareas borradas se pueden restaurar durante 30 días; pasado ese plazo se quitan de la papelera, pero si aparecen en el calendario de algún día puedes restaurarlas desde ahí. Arreglado el scroll de la pestaña Guardadas cuando hay muchas secciones y tareas."
+  "version": "1.2.27",
+  "notes": "Nuevo (opcional): modo barra flotante. Actívalo en Ajustes → \"Modo barra flotante (dock)\" y elige en qué pantalla anclarla. Aparece una barra discreta pegada al borde derecho; al pulsarla se despliega el panel con una animación, y Calendario, Guardadas y Ajustes se abren dentro de la misma barra (transformándose) en lugar de en ventanas nuevas. Si no lo activas, la app funciona exactamente igual que antes."
 }
