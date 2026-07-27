@@ -7,6 +7,11 @@
   html, body { width:100%;height:100%; }
   body { border-radius:var(--radius);overflow:hidden; }
 
+  /* Alto de cada hora. Lo fija el JS con el valor real de ROW_H (ver más abajo); esto es
+     solo el valor por defecto hasta que lo haga. CSS y JS deben usar SIEMPRE el mismo,
+     porque si no las etiquetas de horas y la rejilla se desalinean de los bloques. */
+  :root { --row-h: 52px; }
+
   /* padding-top: deja una franja limpia arriba para el asa de arrastre. En las demás
      ventanas el asa cae sobre el padding vacío del contenedor y funciona; aquí caía
      encima de la barra de título y el solape de zonas drag/no-drag la anulaba. */
@@ -132,7 +137,7 @@
   .grid-scroll { flex:1;overflow-y:auto;overflow-x:hidden;padding:0 20px 16px;-webkit-app-region:no-drag; }
   .grid-body { display:flex;position:relative; }
   .hour-gutter { width:48px;flex-shrink:0;position:relative; }
-  .hour-cell { height:48px;position:relative; }
+  .hour-cell { height:var(--row-h);position:relative; }
   .hour-cell span { position:absolute;top:-7px;right:8px;font-size:11.5px;color:var(--text2); }
 
   /* Marca de la hora actual, solo en la franja de horas (no cruza los días) */
@@ -140,7 +145,7 @@
 
   .day-col {
     flex:1;position:relative;border-left:1px solid var(--border);
-    background-image: repeating-linear-gradient(to bottom, transparent, transparent 47px, var(--border) 47px, var(--border) 48px);
+    background-image: repeating-linear-gradient(to bottom, transparent, transparent calc(var(--row-h) - 1px), var(--border) calc(var(--row-h) - 1px), var(--border) var(--row-h));
     cursor:crosshair;-webkit-app-region:no-drag;
   }
   .day-col.today { background-color:rgba(99,102,241,.06); }
@@ -434,6 +439,9 @@ const { ipcRenderer, shell } = require('electron');
 // vertical: el panel es más estrecho, así que las tareas cortas quedaban minúsculas
 // (y para moverse por el día ya está el scroll).
 const ROW_H = IS_EMBEDDED ? 68 : 52;
+// El CSS (alto de cada celda de hora y las líneas de la rejilla) tiene que usar el mismo
+// valor que los cálculos de JS; si no, los bloques quedan desplazados respecto a las horas.
+document.documentElement.style.setProperty('--row-h', ROW_H + 'px');
 const DOW = ['L','M','X','J','V','S','D'];
 const DOW_LONG = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

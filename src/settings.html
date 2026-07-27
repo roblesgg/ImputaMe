@@ -11,8 +11,8 @@
     position:relative;min-height:0;overflow-y:auto;-webkit-app-region:no-drag;
   }
   .app::-webkit-scrollbar { width:8px; }
-  .app::-webkit-scrollbar-thumb { background:rgba(255,255,255,.16);border-radius:4px; }
-  .app::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,.28); }
+  .app::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--text) 22%, transparent);border-radius:4px; }
+  .app::-webkit-scrollbar-thumb:hover { background:color-mix(in srgb, var(--text) 38%, transparent); }
 
   .app-title {
     font-size:22px;font-weight:700;letter-spacing:-.02em;
@@ -53,8 +53,8 @@
     transition:background .3s ease, box-shadow .3s ease;
   }
   .switch input:checked ~ .switch-track {
-    background:linear-gradient(180deg, #7c7ff5, #4f46e5);
-    box-shadow:inset 0 2px 6px rgba(0,0,0,.32), 0 0 16px rgba(99,102,241,.55), inset 0 -1px 0 rgba(255,255,255,.22);
+    background:linear-gradient(180deg, var(--accent), var(--accent2));
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.32), 0 0 16px color-mix(in srgb, var(--accent2) 55%, transparent), inset 0 -1px 0 rgba(255,255,255,.22);
   }
   .switch-knob {
     position:absolute;top:3px;left:3px;width:25px;height:25px;border-radius:50%;
@@ -90,7 +90,7 @@
     flex:1;background:transparent;border:none;color:var(--text2);
     font-size:12.5px;font-weight:600;padding:8px 6px;border-radius:8px;cursor:pointer;transition:all .15s;
   }
-  .seg button.active { background:var(--accent2);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.4); }
+  .seg button.active { background:var(--accent2);color:#fff;box-shadow:0 2px 8px color-mix(in srgb, var(--accent2) 45%, transparent); }
 
   /* Paleta de colores de la barra */
   .swatches { display:flex;gap:9px;flex-wrap:wrap; }
@@ -99,7 +99,7 @@
     transition:transform .15s, border-color .15s;
   }
   .swatch:hover { transform:scale(1.12); }
-  .swatch.selected { border-color:#fff;transform:scale(1.12); }
+  .swatch.selected { border-color:var(--text);transform:scale(1.12); }
 
   .sub-label { font-size:11.5px;color:var(--text2);font-weight:600; }
 
@@ -147,7 +147,7 @@
     display:flex;gap:10px;-webkit-app-region:no-drag;flex-shrink:0;
     position:sticky;bottom:-22px;z-index:6;
     margin:auto -20px -22px;padding:14px 20px 20px;
-    background:rgba(15,15,23,.94);
+    background:color-mix(in srgb, var(--surface) 94%, transparent);
     backdrop-filter:blur(30px) saturate(150%);
     -webkit-backdrop-filter:blur(30px) saturate(150%);
     border-top:1px solid var(--border);
@@ -218,6 +218,13 @@
         </div>
         <div class="theme-grid" id="themeGrid"></div>
       </div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:12px">
+        <div class="row-text">
+          <span class="row-title">Color de acento</span>
+          <span class="row-desc">Botones y resaltados, independiente del fondo.</span>
+        </div>
+        <div class="swatches" id="accentSwatches"></div>
+      </div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:10px">
         <div class="row-text">
           <span class="row-title">Fondo</span>
@@ -279,8 +286,11 @@
         <span class="sub-label">Grosor · <span id="dockBarWidthLabel">7px</span></span>
         <input type="range" id="dockBarWidth" min="3" max="24" step="1" value="7">
 
-        <span class="sub-label">Opacidad al acercar el ratón · <span id="dockBarOpacityLabel">90%</span></span>
-        <input type="range" id="dockBarOpacity" min="10" max="100" step="1" value="90">
+        <span class="sub-label">Separación del borde · <span id="dockBarOffsetLabel">4px</span></span>
+        <input type="range" id="dockBarOffset" min="0" max="120" step="1" value="4">
+
+        <span class="sub-label">Opacidad en reposo · <span id="dockBarOpacityLabel">30%</span></span>
+        <input type="range" id="dockBarOpacity" min="5" max="100" step="1" value="30">
 
         <span class="sub-label">Pantalla</span>
         <select id="dockDisplay"></select>
@@ -372,15 +382,30 @@ const { ipcRenderer } = require('electron');
 const DOCK_COLORS = ['#ffffff','#cbd5e1','#94a3b8','#6366f1','#38bdf8','#34d399','#fbbf24','#fb7185','#a78bfa'];
 // Mismo orden y claves que THEMES en main.js (bg de muestra + acento).
 const THEME_LIST = [
-  { key:'indigo',  name:'Índigo',  bg:'#12121c', accent:'#818cf8' },
-  { key:'grafito', name:'Grafito', bg:'#101012', accent:'#a1a1aa' },
-  { key:'pizarra', name:'Pizarra', bg:'#181c24', accent:'#94a3b8' },
-  { key:'oceano',  name:'Océano',  bg:'#0c1622', accent:'#38bdf8' },
-  { key:'bosque',  name:'Bosque',  bg:'#0c1814', accent:'#34d399' },
-  { key:'vino',    name:'Vino',    bg:'#1c0e14', accent:'#fb7185' },
-  { key:'ambar',   name:'Ámbar',   bg:'#1c140a', accent:'#fbbf24' },
-  { key:'claro',   name:'Claro',   bg:'#f4f4f9', accent:'#4f46e5' },
+  { key:'indigo',  name:'Índigo',  bg:'#12121c' },
+  { key:'grafito', name:'Grafito', bg:'#101012' },
+  { key:'pizarra', name:'Pizarra', bg:'#181c24' },
+  { key:'oceano',  name:'Océano',  bg:'#0c1622' },
+  { key:'bosque',  name:'Bosque',  bg:'#0c1814' },
+  { key:'vino',    name:'Vino',    bg:'#1c0e14' },
+  { key:'ambar',   name:'Ámbar',   bg:'#1c140a' },
+  { key:'claro',   name:'Claro',   bg:'#f4f4f9' },
 ];
+// Mismas claves que ACCENTS en main.js. null = usar el que trae el tema.
+const ACCENT_LIST = [
+  { key:null,       name:'Del tema', color:null },
+  { key:'indigo',   color:'#6366f1' },
+  { key:'azul',     color:'#0284c7' },
+  { key:'turquesa', color:'#0d9488' },
+  { key:'verde',    color:'#059669' },
+  { key:'ambar',    color:'#d97706' },
+  { key:'naranja',  color:'#ea580c' },
+  { key:'rojo',     color:'#e11d48' },
+  { key:'rosa',     color:'#db2777' },
+  { key:'violeta',  color:'#7c3aed' },
+  { key:'gris',     color:'#71717a' },
+];
+let currentAccent = null;
 let dockAnchor = 'right';
 let dockColor = DOCK_COLORS[0];
 let currentTheme = 'indigo';
@@ -393,10 +418,6 @@ function buildThemeGrid() {
     chip.type = 'button';
     chip.className = 'theme-chip' + (t.key === currentTheme ? ' selected' : '');
     chip.innerHTML = `<span class="theme-dot" style="background:${t.bg}"></span><span class="theme-name">${t.name}</span>`;
-    // El puntito de acento va por CSS (::after), así que se le pasa el color inline.
-    chip.querySelector('.theme-dot').style.setProperty('--a', t.accent);
-    chip.querySelector('.theme-dot').insertAdjacentHTML('beforeend',
-      `<span style="position:absolute;right:5px;bottom:5px;width:42%;height:42%;border-radius:50%;background:${t.accent}"></span>`);
     chip.onclick = () => {
       currentTheme = t.key;
       grid.querySelectorAll('.theme-chip').forEach(c => c.classList.remove('selected'));
@@ -408,6 +429,25 @@ function buildThemeGrid() {
 }
 
 // ---------- Aviso: auto-ocultar ----------
+function buildAccentSwatches() {
+  const wrap = document.getElementById('accentSwatches');
+  wrap.innerHTML = '';
+  ACCENT_LIST.forEach(a => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (a.key === currentAccent ? ' selected' : '');
+    // "Del tema" se ve como un degradado neutro, para distinguirlo de un color concreto.
+    sw.style.background = a.color || 'linear-gradient(135deg, var(--text2), var(--bg3))';
+    sw.title = a.name || '';
+    sw.onclick = () => {
+      currentAccent = a.key;
+      wrap.querySelectorAll('.swatch').forEach(x => x.classList.remove('selected'));
+      sw.classList.add('selected');
+      ipcRenderer.send('action', { type:'set-theme', payload:{ accent: a.key } });   // en vivo
+    };
+    wrap.appendChild(sw);
+  });
+}
+
 function updateAutohideVisibility() {
   document.getElementById('autohideSliderWrap').classList.toggle('open', document.getElementById('widgetAutoHide').checked);
 }
@@ -463,7 +503,7 @@ function previewDock() {
     dockBarWidth: parseInt(document.getElementById('dockBarWidth').value) || 7,
     dockBarLength: parseInt(document.getElementById('dockBarLength').value) || 110,
     dockBarPos: parseInt(document.getElementById('dockBarPos').value),
-    dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 90,
+    dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 30,
     dockDisplayId: sel ? Number(sel) : null,
     // Hace que la barrita se vea aunque el panel esté abierto, para poder ir viendo
     // el cambio mientras se arrastra el deslizador.
@@ -510,7 +550,9 @@ ipcRenderer.on('settings', (_, s) => {
   updateAutohideVisibility();
 
   currentTheme = s.theme || 'indigo';
+  currentAccent = s.accent || null;
   buildThemeGrid();
+  buildAccentSwatches();
 
   document.getElementById('dockMode').checked = !!s.dockMode;
   dockAnchor = ['left','right','top','bottom'].includes(s.dockAnchor) ? s.dockAnchor : 'right';
@@ -521,7 +563,7 @@ ipcRenderer.on('settings', (_, s) => {
     dockBarWidth: s.dockBarWidth || 7,
     dockBarLength: s.dockBarLength || 110,
     dockBarPos: s.dockBarPos == null ? 50 : s.dockBarPos,
-    dockBarOpacity: s.dockBarOpacity == null ? 90 : s.dockBarOpacity,
+    dockBarOpacity: s.dockBarOpacity == null ? 30 : s.dockBarOpacity,
   };
   Object.entries(vals).forEach(([id, v]) => {
     document.getElementById(id).value = v;
@@ -542,6 +584,7 @@ function save() {
     openAtLogin: document.getElementById('openAtLogin').checked,
     bgOpacity: parseInt(document.getElementById('bgOpacity').value) || 0,
     theme: currentTheme,
+    accent: currentAccent,
     dockMode: document.getElementById('dockMode').checked,
     dockDisplayId: sel ? Number(sel) : null,
     dockAnchor,
@@ -549,7 +592,7 @@ function save() {
     dockBarWidth: parseInt(document.getElementById('dockBarWidth').value) || 7,
     dockBarLength: parseInt(document.getElementById('dockBarLength').value) || 110,
     dockBarPos: parseInt(document.getElementById('dockBarPos').value),
-    dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 90,
+    dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 30,
   } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }

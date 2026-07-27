@@ -12,7 +12,7 @@
   body { -webkit-app-region:no-drag; }
 
   :root {
-    --bar-w:7px; --bar-len:110px; --bar-pos:50%; --bar-color:#fff; --bar-opacity:.9;
+    --bar-w:7px; --bar-len:110px; --bar-pos:50%; --bar-offset:4px; --bar-color:#fff; --bar-opacity:.9;
     --panel-w:460px; --panel-h:460px;
   }
 
@@ -38,29 +38,29 @@
   .resizing .dock-panel { transition:none; }   /* al arrastrar el tirador, sin rebufo */
 
   /* ── Barrita flotante ────────────────────────────────────── */
-  /* Solo la barrita, sin franja de fondo. Discreta por defecto y se revela (más opaca y
-     algo más grande) cuando el ratón se acerca. */
+  /* Solo la barrita, sin franja de fondo. --bar-opacity es cómo se ve EN REPOSO (lo
+     elige el usuario); al acercar el ratón se muestra al máximo y algo más grande. */
   .dock-bar {
     position:absolute; cursor:pointer; border-radius:999px;
     background:var(--bar-color);
-    opacity:.18;
+    opacity:var(--bar-opacity);
     box-shadow:0 2px 10px rgba(0,0,0,.35);
     transition:opacity .22s ease, transform .22s cubic-bezier(.34,1.4,.5,1);
   }
-  .dock-bar.near { opacity:var(--bar-opacity); }
+  .dock-bar.near { opacity:1; }
   .a-right .dock-bar, .a-left .dock-bar {
     width:var(--bar-w); height:var(--bar-len); top:var(--bar-pos); transform:translateY(-50%);
   }
-  .a-right .dock-bar { right:3px; }
-  .a-left  .dock-bar { left:3px; }
+  .a-right .dock-bar { right:var(--bar-offset); }
+  .a-left  .dock-bar { left:var(--bar-offset); }
   .a-right .dock-bar.near { transform:translateY(-50%) scaleX(1.6); }
   .a-left  .dock-bar.near { transform:translateY(-50%) scaleX(1.6); }
 
   .a-top .dock-bar, .a-bottom .dock-bar {
     height:var(--bar-w); width:var(--bar-len); left:var(--bar-pos); transform:translateX(-50%);
   }
-  .a-top    .dock-bar { top:3px; }
-  .a-bottom .dock-bar { bottom:3px; }
+  .a-top    .dock-bar { top:var(--bar-offset); }
+  .a-bottom .dock-bar { bottom:var(--bar-offset); }
   .a-top .dock-bar.near, .a-bottom .dock-bar.near { transform:translateX(-50%) scaleY(1.6); }
 
   .expanded .dock-bar { opacity:0; pointer-events:none; }   /* desplegado estorba */
@@ -140,7 +140,7 @@ const VIEW_SRC = { panel:'main.html?embed=1', calendar:'calendar.html?embed=1', 
 const ANCHORS = ['left','right','top','bottom'];
 const NEAR_PX = 110;   // a qué distancia del ratón se revela la barrita
 
-let cfg = { anchor:'right', barWidth:7, barLength:110, barPos:50, panelWidth:460, panelHeight:460, calendarWidth:900 };
+let cfg = { anchor:'right', barWidth:7, barLength:110, barPos:50, barOffset:4, panelWidth:460, panelHeight:460, calendarWidth:900 };
 let currentView = 'panel';
 let expanded = false;
 
@@ -159,6 +159,7 @@ ipcRenderer.on('dock-config', (_, c) => {
   s.setProperty('--bar-w', c.barWidth + 'px');
   s.setProperty('--bar-len', c.barLength + 'px');
   s.setProperty('--bar-pos', c.barPos + '%');
+  s.setProperty('--bar-offset', c.barOffset + 'px');
   s.setProperty('--bar-color', c.barColor);
   s.setProperty('--bar-opacity', (c.barOpacity / 100).toFixed(2));
   ANCHORS.forEach(a => root.classList.remove('a-' + a));

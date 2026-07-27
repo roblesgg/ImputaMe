@@ -35,6 +35,21 @@ const THEMES = {
 };
 const DEFAULT_THEME = 'indigo';
 
+// Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el
+// suyo por defecto, pero se puede cambiar sin tocar los grises/negros/blancos del fondo.
+const ACCENTS = {
+  indigo:   { name:'Índigo',   accent:'#818cf8', accent2:'#6366f1' },
+  azul:     { name:'Azul',     accent:'#38bdf8', accent2:'#0284c7' },
+  turquesa: { name:'Turquesa', accent:'#2dd4bf', accent2:'#0d9488' },
+  verde:    { name:'Verde',    accent:'#34d399', accent2:'#059669' },
+  ambar:    { name:'Ámbar',    accent:'#fbbf24', accent2:'#d97706' },
+  naranja:  { name:'Naranja',  accent:'#fb923c', accent2:'#ea580c' },
+  rojo:     { name:'Rojo',     accent:'#fb7185', accent2:'#e11d48' },
+  rosa:     { name:'Rosa',     accent:'#f472b6', accent2:'#db2777' },
+  violeta:  { name:'Violeta',  accent:'#a78bfa', accent2:'#7c3aed' },
+  gris:     { name:'Gris',     accent:'#a1a1aa', accent2:'#71717a' },
+};
+
 const TRASH_RETENTION_DAYS = 30;   // cuánto tiempo se puede restaurar una tarea desde la papelera
 const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
@@ -85,12 +100,14 @@ let settings = {
   tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
   dockMode: false,     // modo barra flotante lateral (en vez de ventanas sueltas)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
-  theme: DEFAULT_THEME, // paleta de color de toda la app (ver THEMES)
+  theme: DEFAULT_THEME, // fondo/paleta base de toda la app (ver THEMES)
+  accent: null,         // color de acento; null = el que trae el tema (ver ACCENTS)
   dockAnchor: 'right', // borde al que se pega la barrita: left | right | top | bottom
   dockBarWidth: 7,     // grosor de la barrita (px)
   dockBarLength: 110,  // largo de la barrita (px)
   dockBarPos: 50,      // posición a lo largo del borde, en % (0 = arriba/izq, 100 = abajo/der)
-  dockBarOpacity: 90,  // opacidad de la barrita cuando el ratón está cerca (0-100)
+  dockBarOffset: 4,    // cuánto se despega del borde hacia el centro (px)
+  dockBarOpacity: 30,  // opacidad de la barrita EN REPOSO (al acercar el ratón va al máximo)
   dockBarColor: '#ffffff',
   dockPanelWidth: 460,  // ancho del panel en las vistas normales (anclajes laterales)
   dockPanelHeight: 460, // alto del panel cuando se ancla arriba/abajo
@@ -537,6 +554,7 @@ function applyTranslucencyAll() {
 // que van en iframes (insertCSS solo alcanzaría al frame principal).
 function themeVars() {
   const t = THEMES[settings.theme] || THEMES[DEFAULT_THEME];
+  const acc = ACCENTS[settings.accent];   // si no hay elegido, manda el del tema
   const light = t.scheme === 'light';
   return {
     key: settings.theme,
@@ -546,8 +564,9 @@ function themeVars() {
     border: light ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.12)',
     text: light ? '#1a1a24' : '#f0f0f8',
     text2: light ? 'rgba(26,26,36,0.6)' : 'rgba(240,240,248,0.55)',
-    accent: t.accent,
-    accent2: t.accent2,
+    accent: acc ? acc.accent : t.accent,
+    accent2: acc ? acc.accent2 : t.accent2,
+    accentKey: settings.accent || null,
     surface: t.surface,
     scheme: t.scheme,
   };
@@ -689,7 +708,8 @@ function dockConfig() {
     barWidth: Math.max(3, Math.min(24, Number(settings.dockBarWidth) || 7)),
     barLength: Math.max(30, Math.min(600, Number(settings.dockBarLength) || 110)),
     barPos: Math.max(0, Math.min(100, settings.dockBarPos == null ? 50 : Number(settings.dockBarPos))),
-    barOpacity: Math.max(10, Math.min(100, Number(settings.dockBarOpacity) || 90)),
+    barOffset: Math.max(0, Math.min(120, settings.dockBarOffset == null ? 4 : Number(settings.dockBarOffset))),
+    barOpacity: Math.max(5, Math.min(100, Number(settings.dockBarOpacity) || 30)),
     barColor: settings.dockBarColor || '#ffffff',
     panelWidth: Math.max(320, Math.min(1600, Number(settings.dockPanelWidth) || 460)),
     panelHeight: Math.max(260, Math.min(1200, Number(settings.dockPanelHeight) || 460)),
@@ -1062,7 +1082,12 @@ ipcMain.on('action', (event, { type, payload }) => {
     }
     case 'get-theme':     event.reply('theme', themeVars()); break;
     case 'set-theme':
-      settings.theme = THEMES[payload && payload.theme] ? payload.theme : DEFAULT_THEME;
+      if (payload && payload.theme !== undefined) {
+        settings.theme = THEMES[payload.theme] ? payload.theme : DEFAULT_THEME;
+      }
+      if (payload && payload.accent !== undefined) {
+        settings.accent = ACCENTS[payload.accent] ? payload.accent : null;   // null = el del tema
+      }
       saveSettings(); broadcastTheme();
       break;
     case 'get-settings':  event.reply('settings', settings); break;

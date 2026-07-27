@@ -1,4 +1,4 @@
 {
-  "version": "1.2.32",
-  "notes": "Ahora la barrita flotante se ve en tiempo real mientras mueves los deslizadores de Ajustes: antes quedaba oculta detrás del panel abierto y no había forma de ver lo que estabas cambiando. El calendario de la barra flotante se abre bastante más ancho por defecto. Y la app vuelve a abrirse por donde la dejaste: si lo último que usaste fue el calendario, se abre el calendario; si fue el panel, el panel."
+  "version": "1.2.33",
+  "notes": "IMPORTANTE: arregla el calendario, que desde la 1.2.31 mostraba las tareas a horas equivocadas (el alto de cada hora había quedado descuadrado entre el dibujo y los cálculos). Además: el color de acento (botones y resaltados) se elige aparte del fondo, así que puedes tener fondo gris o negro con el acento que quieras; nuevo control para separar la barrita flotante del borde de la pantalla; y la opacidad que se ajusta pasa a ser la de reposo — al acercar el ratón la barrita se ve siempre al máximo."
 }
