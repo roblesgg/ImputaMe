@@ -1,4 +1,4 @@
 {
-  "version": "1.2.29",
-  "notes": "El calendario ahora se abre ancho dentro de la barra flotante (el panel se ensancha solo al entrar en esa vista). Arreglado que en Guardadas las tareas se vieran cortadas: las tarjetas ya no se comprimen y la lista hace scroll de verdad, además de verse un poco más grande. Ajustes rediseñado de cero: más simple y minimalista, con interruptores animados en 3D en vez de casillas, botones grandes, y una sección para personalizar la barra flotante (lado, color, grosor, opacidad, ancho del panel y pantalla) con vista previa en vivo."
+  "version": "1.2.30",
+  "notes": "Arreglo importante del modo barra flotante: las vistas de dentro (panel, calendario, guardadas, ajustes) se quedaban congeladas con la información del momento en que se abrieron. Las acciones se ejecutaban de verdad, pero la pantalla no se refrescaba, así que parecía que no funcionaban: restaurar o eliminar de la papelera, reanudar una tarea, el contador de tiempo, etc. Ahora todas las vistas se actualizan al instante."
 }

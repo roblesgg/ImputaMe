@@ -843,8 +843,22 @@ function getSerializableState() {
   };
 }
 
+// webContents.send() SOLO llega al frame principal. En modo dock las vistas (panel,
+// calendario, guardadas, ajustes) viven en un iframe, así que sin reenviar a los
+// sub-frames se quedaban con el estado del momento en que cargaron: las acciones se
+// ejecutaban de verdad pero la interfaz no se refrescaba nunca (parecía que restaurar,
+// eliminar de la papelera o reanudar una tarea "no hacían nada").
+function sendToAllFrames(win, channel, payload) {
+  if (!win || win.isDestroyed()) return;
+  try { win.webContents.send(channel, payload); } catch {}
+  try {
+    (win.webContents.mainFrame.frames || []).forEach(f => { try { f.send(channel, payload); } catch {} });
+  } catch {}
+}
+
 function sendStateToWindow(win) {
-  if (win && !win.isDestroyed()) win.webContents.send('state', getSerializableState());
+  if (!win || win.isDestroyed()) return;
+  sendToAllFrames(win, 'state', getSerializableState());
 }
 
 function broadcastState() {
@@ -1202,7 +1216,9 @@ app.whenReady().then(() => {
       syncStatus = s;
       if (tray) tray.setContextMenu(buildTrayMenu());
       if (syncWin && !syncWin.isDestroyed()) syncWin.webContents.send('sync-status', s);
-      if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('sync-status', s);
+      // Ajustes puede estar como ventana o embebido en el dock (iframe): a los dos.
+      sendToAllFrames(settingsWin, 'sync-status', s);
+      sendToAllFrames(dockWin, 'sync-status', s);
     },
   }).catch(() => {});
 
