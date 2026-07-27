@@ -18,6 +18,23 @@ app.on('second-instance', () => {
 
 const APP_ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
 const TASK_COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
+// ── Temas de color ───────────────────────────────────────────────────────────
+// Cada tema define la paleta completa. Se envía a TODAS las ventanas (y a los iframes
+// del dock) por IPC y cada página la aplica como variables CSS; no se usa insertCSS
+// porque ese solo llega al frame principal y dejaría las vistas del dock sin tema.
+// `base` es el RGB del fondo, al que se le aplica la opacidad elegida por el usuario.
+const THEMES = {
+  indigo:   { name:'Índigo',   base:'18,18,28',    accent:'#818cf8', accent2:'#6366f1', surface:'#1c1c2a', scheme:'dark' },
+  grafito:  { name:'Grafito',  base:'16,16,18',    accent:'#a1a1aa', accent2:'#71717a', surface:'#1b1b1e', scheme:'dark' },
+  pizarra:  { name:'Pizarra',  base:'24,28,36',    accent:'#94a3b8', accent2:'#64748b', surface:'#212733', scheme:'dark' },
+  oceano:   { name:'Océano',   base:'12,22,34',    accent:'#38bdf8', accent2:'#0284c7', surface:'#12212f', scheme:'dark' },
+  bosque:   { name:'Bosque',   base:'12,24,20',    accent:'#34d399', accent2:'#059669', surface:'#122420', scheme:'dark' },
+  vino:     { name:'Vino',     base:'28,14,20',    accent:'#fb7185', accent2:'#e11d48', surface:'#291520', scheme:'dark' },
+  ambar:    { name:'Ámbar',    base:'28,20,10',    accent:'#fbbf24', accent2:'#d97706', surface:'#2a1f12', scheme:'dark' },
+  claro:    { name:'Claro',    base:'244,244,249', accent:'#4f46e5', accent2:'#4338ca', surface:'#ffffff', scheme:'light' },
+};
+const DEFAULT_THEME = 'indigo';
+
 const TRASH_RETENTION_DAYS = 30;   // cuánto tiempo se puede restaurar una tarea desde la papelera
 const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
@@ -68,11 +85,16 @@ let settings = {
   tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
   dockMode: false,     // modo barra flotante lateral (en vez de ventanas sueltas)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
-  dockSide: 'right',   // 'right' | 'left': a qué borde se pega la barra
-  dockBarWidth: 14,    // grosor de la barrita (px)
-  dockBarOpacity: 92,  // opacidad de la barrita (0-100)
-  dockBarColor: '#6366f1',
-  dockPanelWidth: 440, // ancho del panel desplegado en las vistas normales
+  theme: DEFAULT_THEME, // paleta de color de toda la app (ver THEMES)
+  dockAnchor: 'right', // borde al que se pega la barrita: left | right | top | bottom
+  dockBarWidth: 7,     // grosor de la barrita (px)
+  dockBarLength: 110,  // largo de la barrita (px)
+  dockBarPos: 50,      // posición a lo largo del borde, en % (0 = arriba/izq, 100 = abajo/der)
+  dockBarOpacity: 90,  // opacidad de la barrita cuando el ratón está cerca (0-100)
+  dockBarColor: '#ffffff',
+  dockPanelWidth: 460,  // ancho del panel en las vistas normales (anclajes laterales)
+  dockPanelHeight: 460, // alto del panel cuando se ancla arriba/abajo
+  dockCalendarWidth: 900, // el calendario se abre más ancho (y se puede estirar)
 };
 
 function nextAutoColor() {
@@ -501,20 +523,39 @@ function applyTranslucency(win) {
   try { win.setOpacity(1); } catch {}
   try { win.setBackgroundColor('#00000000'); } catch {}   // mantiene la transparencia del cristal
   try { win.setBackgroundMaterial('acrylic'); } catch {}  // blur SIEMPRE
-  const css = `:root{ --bg: rgba(18,18,28,${bgAlphaFromOpacity(settings.bgOpacity)}) !important; }`;
-  const doInsert = async () => {
-    try {
-      if (win.__bgCssKey) { try { await win.webContents.removeInsertedCSS(win.__bgCssKey); } catch {} }
-      win.__bgCssKey = await win.webContents.insertCSS(css);
-    } catch {}
-  };
-  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', doInsert);
-  else doInsert();
 }
 
 function applyTranslucencyAll() {
   // El dock NO lleva acrílico (ver createDock): se excluye a propósito.
   [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin].forEach(w => applyTranslucency(w));
+  broadcastTheme();
+}
+
+// Paleta actual, ya resuelta (incluye el --bg con la opacidad elegida). Se manda a los
+// renderers, que la aplican como variables CSS: así llega también a las vistas del dock,
+// que van en iframes (insertCSS solo alcanzaría al frame principal).
+function themeVars() {
+  const t = THEMES[settings.theme] || THEMES[DEFAULT_THEME];
+  const light = t.scheme === 'light';
+  return {
+    key: settings.theme,
+    bg: `rgba(${t.base},${bgAlphaFromOpacity(settings.bgOpacity)})`,
+    bg2: light ? 'rgba(0,0,0,0.045)' : 'rgba(255,255,255,0.06)',
+    bg3: light ? 'rgba(0,0,0,0.085)' : 'rgba(255,255,255,0.10)',
+    border: light ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.12)',
+    text: light ? '#1a1a24' : '#f0f0f8',
+    text2: light ? 'rgba(26,26,36,0.6)' : 'rgba(240,240,248,0.55)',
+    accent: t.accent,
+    accent2: t.accent2,
+    surface: t.surface,
+    scheme: t.scheme,
+  };
+}
+
+function broadcastTheme() {
+  const vars = themeVars();
+  [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin, dockWin, splashWin]
+    .forEach(w => sendToAllFrames(w, 'theme', vars));
 }
 
 function debounce(fn, ms) {
@@ -617,10 +658,11 @@ function createWidgetWindow() {
 // deja pasar los clics al escritorio con setIgnoreMouseEvents (el renderer decide cuándo,
 // según si el ratón está sobre algo interactivo). Sin material acrílico: acrílico rellena
 // toda la ventana de gris aunque el DOM sea transparente (era el "recuadro gris raro").
-// La ventana es tan ancha como la vista MÁS ancha (el calendario) y la parte que no
-// ocupa el panel es transparente y click-through: así el panel puede ensancharse o
-// estrecharse por CSS (fluido) sin tocar el tamaño de la ventana.
-const DOCK_WIDE_W = 1120;   // ancho del panel en la vista de calendario
+// La ventana del dock cubre TODA el área de trabajo de la pantalla elegida y es
+// transparente + click-through: así la posición de la barra (cualquiera de los 4 bordes
+// o de las 4 esquinas), el tamaño del panel y las animaciones son puro CSS, sin tener
+// que recalcular ni redimensionar la ventana (que era lo que iba a tirones).
+const DOCK_ANCHORS = ['left','right','top','bottom'];
 
 function dockDisplay() {
   const displays = screen.getAllDisplays();
@@ -631,26 +673,26 @@ function dockDisplay() {
   return getReferenceDisplay();
 }
 
-// Config visual del dock que se envía al renderer (colores, grosor, lado...).
+// Config visual del dock que se envía al renderer (anclaje, colores, tamaños...).
 function dockConfig() {
+  const anchor = DOCK_ANCHORS.includes(settings.dockAnchor) ? settings.dockAnchor : 'right';
   return {
-    side: settings.dockSide === 'left' ? 'left' : 'right',
-    barWidth: Math.max(6, Math.min(40, Number(settings.dockBarWidth) || 14)),
-    barOpacity: Math.max(10, Math.min(100, Number(settings.dockBarOpacity) || 92)),
-    barColor: settings.dockBarColor || '#6366f1',
-    panelWidth: Math.max(300, Math.min(900, Number(settings.dockPanelWidth) || 440)),
+    anchor,
+    barWidth: Math.max(3, Math.min(24, Number(settings.dockBarWidth) || 7)),
+    barLength: Math.max(30, Math.min(600, Number(settings.dockBarLength) || 110)),
+    barPos: Math.max(0, Math.min(100, settings.dockBarPos == null ? 50 : Number(settings.dockBarPos))),
+    barOpacity: Math.max(10, Math.min(100, Number(settings.dockBarOpacity) || 90)),
+    barColor: settings.dockBarColor || '#ffffff',
+    panelWidth: Math.max(320, Math.min(1600, Number(settings.dockPanelWidth) || 460)),
+    panelHeight: Math.max(260, Math.min(1200, Number(settings.dockPanelHeight) || 460)),
+    calendarWidth: Math.max(420, Math.min(1900, Number(settings.dockCalendarWidth) || 900)),
   };
 }
 
-// Bounds fijos: pegado al borde elegido, ocupando casi todo el alto del área de trabajo.
+// Toda el área de trabajo de la pantalla elegida.
 function computeDockBounds() {
   const work = dockDisplay().workArea;
-  const cfg = dockConfig();
-  const width = Math.min(Math.max(cfg.panelWidth, DOCK_WIDE_W) + cfg.barWidth, work.width);
-  const height = work.height - 16;
-  const x = cfg.side === 'left' ? work.x : work.x + work.width - width;
-  const y = work.y + 8;
-  return { x, y, width, height };
+  return { x: work.x, y: work.y, width: work.width, height: work.height };
 }
 
 // Empuja la config visual al renderer del dock (al crearlo y al cambiar Ajustes).
@@ -679,6 +721,19 @@ function createDock() {
   sendDockConfig();
   dockWin.once('ready-to-show', () => { if (dockWin && !dockWin.isDestroyed()) dockWin.showInactive(); });
   dockWin.on('closed', () => { dockWin = null; dockExpanded = false; });
+
+  // Red de seguridad: la ventana cubre toda el área de trabajo, y quien decide si los
+  // clics pasan al escritorio es el renderer. Si el renderer se cuelga o se muere, esa
+  // decisión deja de actualizarse, así que forzamos click-through (y si ha muerto del
+  // todo, salimos del modo dock) para no dejar la pantalla bloqueada.
+  dockWin.webContents.on('unresponsive', () => {
+    try { dockWin.setIgnoreMouseEvents(true, { forward: true }); } catch {}
+  });
+  dockWin.webContents.on('render-process-gone', () => {
+    destroyDock();
+    settings.dockMode = false; saveSettings(); updateTrayTitle();
+    openMain();
+  });
 }
 
 function destroyDock() {
@@ -949,7 +1004,30 @@ ipcMain.on('action', (event, { type, payload }) => {
     // Vista previa en vivo mientras se toquetea la barra en Ajustes (sin darle a Guardar).
     case 'set-dock-config':
       settings = { ...settings, ...(payload || {}) };
-      saveSettings(); positionDock();
+      saveSettings();
+      if (settings.dockMode) { createDock(); positionDock(); }
+      break;
+    // El interruptor de "modo barra flotante" se aplica al momento (no al Guardar), y
+    // deja el dock en Ajustes para poder seguir configurándolo sin perder de vista nada.
+    case 'set-dock-mode': {
+      const wasDock = !!settings.dockMode;
+      settings.dockMode = !!(payload && payload.enabled);
+      saveSettings();
+      if (settings.dockMode) {
+        [mainWin, calendarWin, groupsWin, settingsWin].forEach(w => { try { if (w && !w.isDestroyed()) w.hide(); } catch {} });
+        createDock();
+        if (!wasDock) dockNavigate('settings'); else positionDock();
+      } else if (wasDock) {
+        destroyDock();
+        openSettings();
+      }
+      updateTrayTitle();
+      break;
+    }
+    case 'get-theme':     event.reply('theme', themeVars()); break;
+    case 'set-theme':
+      settings.theme = THEMES[payload && payload.theme] ? payload.theme : DEFAULT_THEME;
+      saveSettings(); broadcastTheme();
       break;
     case 'get-settings':  event.reply('settings', settings); break;
     case 'min-main':      if (mainWin && !mainWin.isDestroyed()) mainWin.minimize(); break;

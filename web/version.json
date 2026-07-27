@@ -1,4 +1,4 @@
 {
-  "version": "1.2.30",
-  "notes": "Arreglo importante del modo barra flotante: las vistas de dentro (panel, calendario, guardadas, ajustes) se quedaban congeladas con la información del momento en que se abrieron. Las acciones se ejecutaban de verdad, pero la pantalla no se refrescaba, así que parecía que no funcionaban: restaurar o eliminar de la papelera, reanudar una tarea, el contador de tiempo, etc. Ahora todas las vistas se actualizan al instante."
+  "version": "1.2.31",
+  "notes": "Temas de color: 8 paletas (índigo, grafito, pizarra, océano, bosque, vino, ámbar y uno claro) que se aplican al instante a toda la app desde Ajustes. La barra flotante se rehace: ahora es solo la barrita, sin franja de fondo, y se revela al acercar el ratón; puedes elegir borde (izquierda, derecha, arriba o abajo), monitor, color, largo, grosor, posición a lo alto del borde y opacidad, todo con vista previa en vivo. El panel se redimensiona arrastrando su borde interior, el calendario se abre bastante más ancho (con su propio tamaño recordado) y con más zoom vertical. Además, el modo barra flotante se activa y desactiva al momento, y los botones de Cancelar/Guardar de Ajustes ya no se transparentan con el contenido de detrás."
 }

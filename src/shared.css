@@ -9,6 +9,9 @@
   --text2: rgba(240,240,248,0.55);
   --accent: #818cf8;
   --accent2: #6366f1;
+  /* Fondo sólido de popups, menús y del panel del dock. Lo sobrescribe el tema
+     elegido (ver THEMES en main.js y applyThemeVars en shared.js). */
+  --surface: #1c1c2a;
   --danger: #f87171;
   --success: #34d399;
   --radius: 16px;
@@ -245,7 +248,7 @@ select {
 }
 select:hover { background-color: var(--bg3); }
 select:focus { border-color: var(--accent); }
-select option { background: #1c1c2a; color: var(--text); }
+select option { background: var(--surface); color: var(--text); }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
@@ -270,7 +273,7 @@ select option { background: #1c1c2a; color: var(--text); }
 .popup-backdrop { position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:50;-webkit-app-region:no-drag; }
 .entry-popup {
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:51;
-  width:320px;max-width:90%;background:#1c1c2a;border:1px solid var(--border);border-radius:var(--radius-sm);
+  width:320px;max-width:90%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
   padding:20px;display:flex;flex-direction:column;gap:13px;-webkit-app-region:no-drag;
   box-shadow:0 20px 60px rgba(0,0,0,.5);
 }
@@ -300,7 +303,7 @@ select option { background: #1c1c2a; color: var(--text); }
               width .22s cubic-bezier(.4,0,.2,1), height .22s cubic-bezier(.4,0,.2,1);
 }
 .tut-card {
-  position: fixed; z-index: 9999; background: #1c1c2a;
+  position: fixed; z-index: 9999; background: var(--surface);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
   box-shadow: 0 20px 60px rgba(0,0,0,.55);

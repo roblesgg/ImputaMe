@@ -8,6 +8,32 @@ const COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a7
 const IS_EMBEDDED = new URLSearchParams(location.search).get('embed') === '1';
 if (IS_EMBEDDED && document.body) document.body.classList.add('embedded');
 
+// ── Tema de color ────────────────────────────────────────────────────────────
+// El proceso principal manda la paleta ya resuelta y aquí se aplica como variables
+// CSS. Se hace así (y no con insertCSS desde main) porque insertCSS solo llega al
+// frame principal, y en modo dock cada vista va dentro de un iframe.
+function applyThemeVars(t) {
+  if (!t) return;
+  const s = document.documentElement.style;
+  s.setProperty('--bg', t.bg);
+  s.setProperty('--bg2', t.bg2);
+  s.setProperty('--bg3', t.bg3);
+  s.setProperty('--border', t.border);
+  s.setProperty('--text', t.text);
+  s.setProperty('--text2', t.text2);
+  s.setProperty('--accent', t.accent);
+  s.setProperty('--accent2', t.accent2);
+  s.setProperty('--surface', t.surface);
+  s.setProperty('color-scheme', t.scheme);
+  document.documentElement.dataset.theme = t.key || '';
+}
+(function () {
+  let ipc = null;
+  try { ipc = require('electron').ipcRenderer; } catch { return; }
+  ipc.on('theme', (_, t) => applyThemeVars(t));
+  ipc.send('action', { type: 'get-theme' });   // la respuesta vuelve a ESTE frame
+})();
+
 // Blanco o negro según la luminosidad del color de fondo, para que el texto
 // siempre se lea bien encima de cualquier color de tarea (incluidos los que
 // el usuario elija manualmente).

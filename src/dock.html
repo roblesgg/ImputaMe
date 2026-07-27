@@ -4,61 +4,76 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="shared.css">
 <style>
-  /* Ventana de tamaño FIJO (tan ancha como la vista más ancha) y transparente de verdad,
-     sin material acrílico. El plegar/desplegar y el ensanchar para el calendario son puro
-     CSS (fluido). Lo que no ocupa el panel es transparente y deja pasar los clics al
-     escritorio vía setIgnoreMouseEvents, que el script activa según dónde esté el ratón. */
+  /* La ventana cubre toda el área de trabajo, es transparente y deja pasar los clics
+     (setIgnoreMouseEvents) salvo donde hay algo interactivo. Así la posición y tamaño de
+     la barrita, el tamaño del panel y las animaciones son puro CSS, sin redimensionar la
+     ventana (que es lo que hacía que fuese a tirones). */
   html, body { width:100%; height:100%; background:transparent !important; overflow:hidden; margin:0; }
   body { -webkit-app-region:no-drag; }
 
   :root {
-    --bar-w: 14px;
-    --bar-color: #6366f1;
-    --bar-opacity: .92;
-    --panel-w: 440px;
+    --bar-w:7px; --bar-len:110px; --bar-pos:50%; --bar-color:#fff; --bar-opacity:.9;
+    --panel-w:460px; --panel-h:460px;
   }
 
-  .dock-root { width:100%; height:100%; display:flex; justify-content:flex-end; }
-  .dock-root.side-left { flex-direction:row-reverse; justify-content:flex-end; }
+  .dock-root { position:absolute; inset:0; }
 
+  /* ── Panel ───────────────────────────────────────────────── */
   .dock-panel {
-    width:var(--panel-w); height:100%; flex-shrink:0;
+    position:absolute;
     display:flex; flex-direction:column;
-    background:rgba(22,22,32,.94);
+    background:color-mix(in srgb, var(--surface) 95%, transparent);
     backdrop-filter:blur(30px) saturate(160%);
     -webkit-backdrop-filter:blur(30px) saturate(160%);
-    border-radius:16px 0 0 16px;
-    border:1px solid var(--border); border-right:none;
-    box-shadow:-10px 0 36px rgba(0,0,0,.5);
+    border:1px solid var(--border);
+    box-shadow:0 0 40px rgba(0,0,0,.5);
     overflow:hidden;
-    transform:translateX(105%);
-    transition:transform .28s cubic-bezier(.32,.72,0,1), width .3s cubic-bezier(.32,.72,0,1);
+    transition:transform .28s cubic-bezier(.32,.72,0,1);
   }
-  .dock-root.expanded .dock-panel { transform:translateX(0); }
-  /* Vista de calendario: el panel se ensancha (misma ventana, solo CSS). */
-  .dock-panel.wide { width:calc(100% - var(--bar-w)); }
-  /* Anclado a la izquierda: espejo de bordes/sombra. */
-  .side-left .dock-panel {
-    border-radius:0 16px 16px 0; border-right:1px solid var(--border); border-left:none;
-    box-shadow:10px 0 36px rgba(0,0,0,.5);
-    transform:translateX(-105%);
-  }
-  .side-left.expanded .dock-panel { transform:translateX(0); }
+  .a-right .dock-panel { top:0; bottom:0; right:0; width:var(--panel-w); border-radius:16px 0 0 16px; border-right:none; transform:translateX(101%); }
+  .a-left  .dock-panel { top:0; bottom:0; left:0;  width:var(--panel-w); border-radius:0 16px 16px 0; border-left:none;  transform:translateX(-101%); }
+  .a-top    .dock-panel { left:0; right:0; top:0;    height:var(--panel-h); border-radius:0 0 16px 16px; border-top:none;    transform:translateY(-101%); }
+  .a-bottom .dock-panel { left:0; right:0; bottom:0; height:var(--panel-h); border-radius:16px 16px 0 0; border-bottom:none; transform:translateY(101%); }
+  .expanded .dock-panel { transform:none; }
+  .resizing .dock-panel { transition:none; }   /* al arrastrar el tirador, sin rebufo */
 
+  /* ── Barrita flotante ────────────────────────────────────── */
+  /* Solo la barrita, sin franja de fondo. Discreta por defecto y se revela (más opaca y
+     algo más grande) cuando el ratón se acerca. */
   .dock-bar {
-    width:var(--bar-w); flex-shrink:0; height:100%;
-    display:flex; align-items:center; justify-content:center; cursor:pointer;
-    background:var(--bar-color); opacity:var(--bar-opacity);
-    border-radius:10px 0 0 10px;
-    box-shadow:-3px 0 16px rgba(0,0,0,.45);
-    transition:filter .16s ease, background .2s ease, opacity .2s ease, box-shadow .2s ease;
+    position:absolute; cursor:pointer; border-radius:999px;
+    background:var(--bar-color);
+    opacity:.18;
+    box-shadow:0 2px 10px rgba(0,0,0,.35);
+    transition:opacity .22s ease, transform .22s cubic-bezier(.34,1.4,.5,1);
   }
-  .side-left .dock-bar { border-radius:0 10px 10px 0; box-shadow:3px 0 16px rgba(0,0,0,.45); }
-  .dock-bar:hover { filter:brightness(1.25); }
-  .dock-bar::after { content:''; width:4px; height:40px; border-radius:3px; background:rgba(255,255,255,.75); transition:height .2s ease; }
-  .dock-root.expanded .dock-bar { background:rgba(255,255,255,.08); opacity:1; box-shadow:none; border-radius:0; }
-  .dock-root.expanded .dock-bar::after { height:60px; background:rgba(255,255,255,.28); }
+  .dock-bar.near { opacity:var(--bar-opacity); }
+  .a-right .dock-bar, .a-left .dock-bar {
+    width:var(--bar-w); height:var(--bar-len); top:var(--bar-pos); transform:translateY(-50%);
+  }
+  .a-right .dock-bar { right:3px; }
+  .a-left  .dock-bar { left:3px; }
+  .a-right .dock-bar.near { transform:translateY(-50%) scaleX(1.6); }
+  .a-left  .dock-bar.near { transform:translateY(-50%) scaleX(1.6); }
 
+  .a-top .dock-bar, .a-bottom .dock-bar {
+    height:var(--bar-w); width:var(--bar-len); left:var(--bar-pos); transform:translateX(-50%);
+  }
+  .a-top    .dock-bar { top:3px; }
+  .a-bottom .dock-bar { bottom:3px; }
+  .a-top .dock-bar.near, .a-bottom .dock-bar.near { transform:translateX(-50%) scaleY(1.6); }
+
+  .expanded .dock-bar { opacity:0; pointer-events:none; }   /* desplegado estorba */
+
+  /* ── Tirador para redimensionar el panel ─────────────────── */
+  .dock-resize { position:absolute; z-index:5; }
+  .a-right .dock-resize { top:0; bottom:0; left:0;  width:7px; cursor:ew-resize; }
+  .a-left  .dock-resize { top:0; bottom:0; right:0; width:7px; cursor:ew-resize; }
+  .a-top    .dock-resize { left:0; right:0; bottom:0; height:7px; cursor:ns-resize; }
+  .a-bottom .dock-resize { left:0; right:0; top:0;    height:7px; cursor:ns-resize; }
+  .dock-resize:hover { background:var(--accent); opacity:.5; }
+
+  /* ── Navegación ──────────────────────────────────────────── */
   .dock-nav { flex-shrink:0; display:flex; align-items:center; gap:2px; padding:9px 8px; border-bottom:1px solid var(--border); }
   .dock-nav-btn {
     flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
@@ -67,10 +82,9 @@
   }
   .dock-nav-btn svg { width:18px; height:18px; }
   .dock-nav-btn:hover { background:var(--bg3); color:var(--text); }
-  .dock-nav-btn.active { background:rgba(99,102,241,.18); color:var(--accent); }
+  .dock-nav-btn.active { background:color-mix(in srgb, var(--accent2) 22%, transparent); color:var(--accent); }
   .dock-collapse { background:transparent; border:none; color:var(--text2); cursor:pointer; width:30px; height:30px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
   .dock-collapse:hover { background:var(--bg3); color:var(--text); }
-  .side-left .dock-collapse svg { transform:scaleX(-1); }
 
   .dock-content { flex:1; min-height:0; position:relative; }
   .dock-content iframe { position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent; opacity:1; transition:opacity .16s ease; }
@@ -78,8 +92,9 @@
 </style>
 </head>
 <body>
-<div class="dock-root" id="dockRoot">
+<div class="dock-root a-right" id="dockRoot">
   <div class="dock-panel" id="dockPanel">
+    <div class="dock-resize" id="dockResize" title="Arrastra para cambiar el tamaño"></div>
     <div class="dock-nav">
       <button class="dock-nav-btn active" data-view="panel" onclick="navTo('panel')" title="Panel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
@@ -98,40 +113,58 @@
         Ajustes
       </button>
       <button class="dock-collapse" onclick="collapse()" title="Esconder">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
     </div>
     <div class="dock-content" id="dockContent">
       <iframe id="dockFrame" src="main.html?embed=1"></iframe>
     </div>
   </div>
-  <div class="dock-bar" id="dockBar" title="imputa.me — clic para desplegar/esconder"></div>
+  <div class="dock-bar" id="dockBar" title="imputa.me — clic para desplegar"></div>
 </div>
 
+<script src="shared.js"></script>
 <script>
 const { ipcRenderer } = require('electron');
 const root = document.getElementById('dockRoot');
-const panel = document.getElementById('dockPanel');
 const frame = document.getElementById('dockFrame');
 const content = document.getElementById('dockContent');
 const bar = document.getElementById('dockBar');
+const resizer = document.getElementById('dockResize');
 
 const VIEW_SRC = { panel:'main.html?embed=1', calendar:'calendar.html?embed=1', groups:'groups.html?embed=1', settings:'settings.html?embed=1' };
-const WIDE_VIEWS = new Set(['calendar']);   // vistas que necesitan el panel ancho
+const ANCHORS = ['left','right','top','bottom'];
+const NEAR_PX = 110;   // a qué distancia del ratón se revela la barrita
+
+let cfg = { anchor:'right', barWidth:7, barLength:110, barPos:50, panelWidth:460, panelHeight:460, calendarWidth:900 };
 let currentView = 'panel';
 let expanded = false;
 
-// ---- Config visual (lado, grosor, color, opacidad, ancho del panel) ----
-ipcRenderer.on('dock-config', (_, cfg) => {
+function isVertical() { return cfg.anchor === 'left' || cfg.anchor === 'right'; }
+function widthForView(view) { return view === 'calendar' ? cfg.calendarWidth : cfg.panelWidth; }
+
+function applyPanelSize() {
   const s = document.documentElement.style;
-  s.setProperty('--bar-w', cfg.barWidth + 'px');
-  s.setProperty('--bar-color', cfg.barColor);
-  s.setProperty('--bar-opacity', (cfg.barOpacity / 100).toFixed(2));
-  s.setProperty('--panel-w', cfg.panelWidth + 'px');
-  root.classList.toggle('side-left', cfg.side === 'left');
+  if (isVertical()) s.setProperty('--panel-w', widthForView(currentView) + 'px');
+  else s.setProperty('--panel-h', cfg.panelHeight + 'px');
+}
+
+ipcRenderer.on('dock-config', (_, c) => {
+  cfg = c;
+  const s = document.documentElement.style;
+  s.setProperty('--bar-w', c.barWidth + 'px');
+  s.setProperty('--bar-len', c.barLength + 'px');
+  s.setProperty('--bar-pos', c.barPos + '%');
+  s.setProperty('--bar-color', c.barColor);
+  s.setProperty('--bar-opacity', (c.barOpacity / 100).toFixed(2));
+  ANCHORS.forEach(a => root.classList.remove('a-' + a));
+  root.classList.add('a-' + (ANCHORS.includes(c.anchor) ? c.anchor : 'right'));
+  applyPanelSize();
 });
 
-// ---- Click-through: los clics pasan al escritorio salvo sobre la barra o el panel ----
+// ---- Click-through + revelado de la barrita por cercanía ----
+// La ventana cubre la pantalla, así que por defecto los clics pasan al escritorio; solo
+// capturamos cuando el ratón está sobre la barrita o (desplegado) sobre el panel.
 let lastIgnore = null;
 function setIgnore(ig) {
   if (ig === lastIgnore) return;
@@ -139,8 +172,16 @@ function setIgnore(ig) {
   ipcRenderer.send('action', { type:'dock-set-ignore-mouse', payload:{ ignore: ig } });
 }
 document.addEventListener('mousemove', (e) => {
+  if (resizeState) return;   // mientras se arrastra el tirador, la ventana debe capturar
+
+  // Distancia del ratón a la barrita, para revelarla al acercarse.
+  const r = bar.getBoundingClientRect();
+  const dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
+  const dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
+  const near = Math.hypot(dx, dy) < NEAR_PX;
+  bar.classList.toggle('near', near && !expanded);
+
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  // Plegado, el panel está fuera de la ventana (translateX) y no se detecta: solo cuenta la barra.
   setIgnore(!(el && el.closest('.dock-bar, .dock-panel')));
 });
 setIgnore(true);
@@ -153,6 +194,7 @@ function expand() {
   if (expanded) return;
   expanded = true;
   root.classList.add('expanded');
+  bar.classList.remove('near');
   setIgnore(false);
   ipcRenderer.send('action', { type:'dock-focus' });
 }
@@ -160,23 +202,67 @@ function collapse() {
   if (!expanded) return;
   expanded = false;
   root.classList.remove('expanded');
-  setIgnore(true);   // el mousemove lo corrige si el ratón sigue sobre la barra
+  setIgnore(true);
 }
 bar.addEventListener('click', () => { expanded ? collapse() : expand(); });
 
 function navTo(view) {
   if (!VIEW_SRC[view]) return;
   if (!expanded) expand();
-  panel.classList.toggle('wide', WIDE_VIEWS.has(view));   // el calendario se abre ancho
   if (view === currentView) return;
   currentView = view;
   setActiveNav(view);
+  applyPanelSize();          // el calendario tiene su propio ancho, más generoso
   content.classList.add('switching');
   setTimeout(() => {
     frame.src = VIEW_SRC[view];
     frame.addEventListener('load', () => content.classList.remove('switching'), { once: true });
   }, 130);
 }
+
+// ---- Redimensionar el panel arrastrando su borde interior ----
+let resizeState = null;
+resizer.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  const vertical = isVertical();
+  resizeState = {
+    vertical,
+    startX: e.clientX, startY: e.clientY,
+    startSize: vertical ? widthForView(currentView) : cfg.panelHeight,
+  };
+  root.classList.add('resizing');
+});
+document.addEventListener('mousemove', (e) => {
+  if (!resizeState) return;
+  let size;
+  if (resizeState.vertical) {
+    // Anclado a la derecha, arrastrar hacia la izquierda agranda (y al revés).
+    const dx = e.clientX - resizeState.startX;
+    const grow = cfg.anchor === 'right' ? -dx : dx;
+    size = Math.max(320, Math.min(window.innerWidth - 40, resizeState.startSize + grow));
+    document.documentElement.style.setProperty('--panel-w', size + 'px');
+  } else {
+    const dy = e.clientY - resizeState.startY;
+    const grow = cfg.anchor === 'bottom' ? -dy : dy;
+    size = Math.max(260, Math.min(window.innerHeight - 40, resizeState.startSize + grow));
+    document.documentElement.style.setProperty('--panel-h', size + 'px');
+  }
+  resizeState.size = size;
+});
+document.addEventListener('mouseup', () => {
+  if (!resizeState) return;
+  const { size, vertical } = resizeState;
+  resizeState = null;
+  root.classList.remove('resizing');
+  if (size == null) return;
+  // Se guarda por separado: el ancho del calendario no pisa el de las demás vistas.
+  const payload = vertical
+    ? (currentView === 'calendar' ? { dockCalendarWidth: size } : { dockPanelWidth: size })
+    : { dockPanelHeight: size };
+  if (vertical) { if (currentView === 'calendar') cfg.calendarWidth = size; else cfg.panelWidth = size; }
+  else cfg.panelHeight = size;
+  ipcRenderer.send('action', { type:'set-dock-config', payload });
+});
 
 ipcRenderer.on('dock-navigate', (_, view) => navTo(view));
 ipcRenderer.on('dock-collapse', () => collapse());

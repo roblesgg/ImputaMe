@@ -209,7 +209,7 @@
 
   .drag-time-label {
     position:absolute;left:50%;top:-26px;transform:translateX(-50%);
-    background:rgba(20,20,32,.95);border:1px solid var(--accent);color:#fff;
+    background:var(--surface);border:1px solid var(--accent);color:var(--text);
     font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;
     padding:3px 9px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:20;
     box-shadow:0 4px 12px rgba(0,0,0,.4);
@@ -254,7 +254,7 @@
   .tp-group {
     display:flex;align-items:center;gap:7px;
     font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);
-    padding:8px 8px 5px;cursor:pointer;position:sticky;top:0;background:#1c1c2a;
+    padding:8px 8px 5px;cursor:pointer;position:sticky;top:0;background:var(--surface);
   }
   .tp-group:hover { color:var(--text); }
   .tp-group-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
@@ -430,7 +430,10 @@
 <script>
 const { ipcRenderer, shell } = require('electron');
 
-const ROW_H = 48;
+// Alto de cada hora en la cuadrícula. Dentro de la barra flotante se usa más zoom
+// vertical: el panel es más estrecho, así que las tareas cortas quedaban minúsculas
+// (y para moverse por el día ya está el scroll).
+const ROW_H = IS_EMBEDDED ? 68 : 52;
 const DOW = ['L','M','X','J','V','S','D'];
 const DOW_LONG = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
