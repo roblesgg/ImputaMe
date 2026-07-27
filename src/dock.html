@@ -4,47 +4,61 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="shared.css">
 <style>
-  /* Ventana de tamaño FIJO y transparente de verdad (sin acrílico). El plegar/desplegar
-     es solo CSS (fluido); la parte transparente deja pasar los clics al escritorio
-     mediante setIgnoreMouseEvents, que el script activa/desactiva según dónde esté el
-     ratón. Así no hay "recuadro gris" ni tirones por redimensionar la ventana. */
+  /* Ventana de tamaño FIJO (tan ancha como la vista más ancha) y transparente de verdad,
+     sin material acrílico. El plegar/desplegar y el ensanchar para el calendario son puro
+     CSS (fluido). Lo que no ocupa el panel es transparente y deja pasar los clics al
+     escritorio vía setIgnoreMouseEvents, que el script activa según dónde esté el ratón. */
   html, body { width:100%; height:100%; background:transparent !important; overflow:hidden; margin:0; }
   body { -webkit-app-region:no-drag; }
 
-  .dock-root { width:100%; height:100%; display:flex; }
+  :root {
+    --bar-w: 14px;
+    --bar-color: #6366f1;
+    --bar-opacity: .92;
+    --panel-w: 440px;
+  }
 
-  /* Panel: ocupa todo menos la barra; se desliza desde la derecha. Fondo propio (no
-     acrílico de ventana) con un blur CSS para el efecto cristal. */
+  .dock-root { width:100%; height:100%; display:flex; justify-content:flex-end; }
+  .dock-root.side-left { flex-direction:row-reverse; justify-content:flex-end; }
+
   .dock-panel {
-    flex:1; height:100%; min-width:0;
+    width:var(--panel-w); height:100%; flex-shrink:0;
     display:flex; flex-direction:column;
-    background:rgba(22,22,32,.92);
-    backdrop-filter:blur(28px) saturate(160%);
-    -webkit-backdrop-filter:blur(28px) saturate(160%);
+    background:rgba(22,22,32,.94);
+    backdrop-filter:blur(30px) saturate(160%);
+    -webkit-backdrop-filter:blur(30px) saturate(160%);
     border-radius:16px 0 0 16px;
     border:1px solid var(--border); border-right:none;
-    box-shadow:-8px 0 30px rgba(0,0,0,.45);
+    box-shadow:-10px 0 36px rgba(0,0,0,.5);
     overflow:hidden;
     transform:translateX(105%);
-    transition:transform .28s cubic-bezier(.32,.72,0,1);
+    transition:transform .28s cubic-bezier(.32,.72,0,1), width .3s cubic-bezier(.32,.72,0,1);
   }
   .dock-root.expanded .dock-panel { transform:translateX(0); }
-
-  /* Barra (grip) siempre visible pegada al borde derecho. */
-  .dock-bar {
-    width:14px; flex-shrink:0; height:100%;
-    display:flex; align-items:center; justify-content:center; cursor:pointer;
-    background:linear-gradient(180deg, rgba(99,102,241,.92), rgba(129,140,248,.92));
-    border-radius:8px 0 0 8px;
-    box-shadow:-3px 0 14px rgba(0,0,0,.4);
-    transition:width .14s ease, background .18s ease, box-shadow .18s ease;
+  /* Vista de calendario: el panel se ensancha (misma ventana, solo CSS). */
+  .dock-panel.wide { width:calc(100% - var(--bar-w)); }
+  /* Anclado a la izquierda: espejo de bordes/sombra. */
+  .side-left .dock-panel {
+    border-radius:0 16px 16px 0; border-right:1px solid var(--border); border-left:none;
+    box-shadow:10px 0 36px rgba(0,0,0,.5);
+    transform:translateX(-105%);
   }
-  .dock-bar:hover { width:16px; }
-  .dock-bar::after { content:''; width:4px; height:38px; border-radius:3px; background:rgba(255,255,255,.7); transition:height .18s ease; }
-  .dock-root.expanded .dock-bar { background:rgba(255,255,255,.08); box-shadow:none; border-radius:0; }
-  .dock-root.expanded .dock-bar::after { height:52px; background:rgba(255,255,255,.3); }
+  .side-left.expanded .dock-panel { transform:translateX(0); }
 
-  /* Nav superior */
+  .dock-bar {
+    width:var(--bar-w); flex-shrink:0; height:100%;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    background:var(--bar-color); opacity:var(--bar-opacity);
+    border-radius:10px 0 0 10px;
+    box-shadow:-3px 0 16px rgba(0,0,0,.45);
+    transition:filter .16s ease, background .2s ease, opacity .2s ease, box-shadow .2s ease;
+  }
+  .side-left .dock-bar { border-radius:0 10px 10px 0; box-shadow:3px 0 16px rgba(0,0,0,.45); }
+  .dock-bar:hover { filter:brightness(1.25); }
+  .dock-bar::after { content:''; width:4px; height:40px; border-radius:3px; background:rgba(255,255,255,.75); transition:height .2s ease; }
+  .dock-root.expanded .dock-bar { background:rgba(255,255,255,.08); opacity:1; box-shadow:none; border-radius:0; }
+  .dock-root.expanded .dock-bar::after { height:60px; background:rgba(255,255,255,.28); }
+
   .dock-nav { flex-shrink:0; display:flex; align-items:center; gap:2px; padding:9px 8px; border-bottom:1px solid var(--border); }
   .dock-nav-btn {
     flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
@@ -56,6 +70,7 @@
   .dock-nav-btn.active { background:rgba(99,102,241,.18); color:var(--accent); }
   .dock-collapse { background:transparent; border:none; color:var(--text2); cursor:pointer; width:30px; height:30px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
   .dock-collapse:hover { background:var(--bg3); color:var(--text); }
+  .side-left .dock-collapse svg { transform:scaleX(-1); }
 
   .dock-content { flex:1; min-height:0; position:relative; }
   .dock-content iframe { position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent; opacity:1; transition:opacity .16s ease; }
@@ -64,7 +79,7 @@
 </head>
 <body>
 <div class="dock-root" id="dockRoot">
-  <div class="dock-panel">
+  <div class="dock-panel" id="dockPanel">
     <div class="dock-nav">
       <button class="dock-nav-btn active" data-view="panel" onclick="navTo('panel')" title="Panel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
@@ -96,16 +111,27 @@
 <script>
 const { ipcRenderer } = require('electron');
 const root = document.getElementById('dockRoot');
+const panel = document.getElementById('dockPanel');
 const frame = document.getElementById('dockFrame');
 const content = document.getElementById('dockContent');
 const bar = document.getElementById('dockBar');
 
 const VIEW_SRC = { panel:'main.html?embed=1', calendar:'calendar.html?embed=1', groups:'groups.html?embed=1', settings:'settings.html?embed=1' };
+const WIDE_VIEWS = new Set(['calendar']);   // vistas que necesitan el panel ancho
 let currentView = 'panel';
 let expanded = false;
 
-// ---- Click-through: deja pasar los clics al escritorio salvo cuando el ratón está
-// sobre algo interactivo (la barra si está plegado, o todo el panel si está desplegado).
+// ---- Config visual (lado, grosor, color, opacidad, ancho del panel) ----
+ipcRenderer.on('dock-config', (_, cfg) => {
+  const s = document.documentElement.style;
+  s.setProperty('--bar-w', cfg.barWidth + 'px');
+  s.setProperty('--bar-color', cfg.barColor);
+  s.setProperty('--bar-opacity', (cfg.barOpacity / 100).toFixed(2));
+  s.setProperty('--panel-w', cfg.panelWidth + 'px');
+  root.classList.toggle('side-left', cfg.side === 'left');
+});
+
+// ---- Click-through: los clics pasan al escritorio salvo sobre la barra o el panel ----
 let lastIgnore = null;
 function setIgnore(ig) {
   if (ig === lastIgnore) return;
@@ -113,11 +139,11 @@ function setIgnore(ig) {
   ipcRenderer.send('action', { type:'dock-set-ignore-mouse', payload:{ ignore: ig } });
 }
 document.addEventListener('mousemove', (e) => {
-  if (expanded) { setIgnore(false); return; }
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  setIgnore(!(el && el.closest('.dock-bar')));
+  // Plegado, el panel está fuera de la ventana (translateX) y no se detecta: solo cuenta la barra.
+  setIgnore(!(el && el.closest('.dock-bar, .dock-panel')));
 });
-setIgnore(true);   // arranca plegado: solo la barra captura
+setIgnore(true);
 
 function setActiveNav(view) {
   document.querySelectorAll('.dock-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -134,13 +160,14 @@ function collapse() {
   if (!expanded) return;
   expanded = false;
   root.classList.remove('expanded');
-  setIgnore(true);   // el mousemove lo corrige a false si el ratón sigue sobre la barra
+  setIgnore(true);   // el mousemove lo corrige si el ratón sigue sobre la barra
 }
 bar.addEventListener('click', () => { expanded ? collapse() : expand(); });
 
 function navTo(view) {
   if (!VIEW_SRC[view]) return;
   if (!expanded) expand();
+  panel.classList.toggle('wide', WIDE_VIEWS.has(view));   // el calendario se abre ancho
   if (view === currentView) return;
   currentView = view;
   setActiveNav(view);

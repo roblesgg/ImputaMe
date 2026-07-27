@@ -1,4 +1,4 @@
 {
-  "version": "1.2.28",
-  "notes": "Modo barra flotante (dock) rehecho: se quita el recuadro gris (era el material acrílico rellenando la ventana) y las animaciones ya no van a tirones porque el desplegado es puro CSS en vez de redimensionar la ventana. Ahora la barra plegada es solo una franja fina en el borde derecho y el resto deja pasar los clics al escritorio. Añadido un interruptor \"Modo barra flotante (dock)\" en el menú de la bandeja del sistema, para poder activarlo o desactivarlo desde ahí."
+  "version": "1.2.29",
+  "notes": "El calendario ahora se abre ancho dentro de la barra flotante (el panel se ensancha solo al entrar en esa vista). Arreglado que en Guardadas las tareas se vieran cortadas: las tarjetas ya no se comprimen y la lista hace scroll de verdad, además de verse un poco más grande. Ajustes rediseñado de cero: más simple y minimalista, con interruptores animados en 3D en vez de casillas, botones grandes, y una sección para personalizar la barra flotante (lado, color, grosor, opacidad, ancho del panel y pantalla) con vista previa en vivo."
 }

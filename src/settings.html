@@ -6,189 +6,299 @@
 <style>
   html, body { width:100%;height:100%; }
   body { border-radius:var(--radius);overflow:hidden; }
-  /* La zona con scroll va en no-drag: si fuese arrastrable (como el body), la
-     rueda del ratón no desplazaría el contenido. El título queda como asa para
-     mover la ventana. */
-  .app { width:100%;height:100%;padding:24px;display:flex;flex-direction:column;gap:16px;position:relative;min-height:0;overflow-y:auto;-webkit-app-region:no-drag; }
-  /* align-self:flex-start → el asa de arrastre ocupa solo el ancho del título (a la
-     izquierda) y no se solapa con la X de cerrar (arriba a la derecha), que así se
-     pulsa bien. */
-  .app-title { font-size:16px;font-weight:700;-webkit-app-region:drag;align-self:flex-start; }
-  .field { display:flex;flex-direction:column;gap:6px; }
-  .field label { font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
-  .field-row { display:flex;align-items:center;gap:10px;-webkit-app-region:no-drag; }
-  .field input[type=number] {
-    background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);
-    color:var(--text);font-family:inherit;font-size:14px;padding:9px 12px;outline:none;width:80px;
+  .app {
+    width:100%;height:100%;padding:22px 20px;display:flex;flex-direction:column;gap:18px;
+    position:relative;min-height:0;overflow-y:auto;-webkit-app-region:no-drag;
+  }
+  .app::-webkit-scrollbar { width:8px; }
+  .app::-webkit-scrollbar-thumb { background:rgba(255,255,255,.16);border-radius:4px; }
+  .app::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,.28); }
+
+  .app-title {
+    font-size:22px;font-weight:700;letter-spacing:-.02em;
+    -webkit-app-region:drag;align-self:flex-start;flex-shrink:0;
+  }
+
+  /* ── Secciones ─────────────────────────────────────────────── */
+  .section { display:flex;flex-direction:column;gap:2px;flex-shrink:0; }
+  .section-label {
+    font-size:10.5px;font-weight:700;color:var(--text2);
+    text-transform:uppercase;letter-spacing:.1em;margin:0 0 8px 2px;
+  }
+  .card {
+    background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .row {
+    display:flex;align-items:center;gap:14px;padding:15px 16px;
     -webkit-app-region:no-drag;
   }
-  .field input[type=number]:focus { border-color:var(--accent); }
-  .field-unit { font-size:13px;color:var(--text2); }
-  .hint { font-size:11px;color:var(--text2); }
-  .check-row {
-    display:flex;align-items:center;gap:9px;cursor:pointer;-webkit-app-region:no-drag;
-    font-size:13px;color:var(--text);text-transform:none;letter-spacing:normal;
-  }
-  .check-row input[type=checkbox] { width:16px;height:16px;accent-color:var(--accent2);cursor:pointer; }
-  .footer { display:flex;gap:8px;justify-content:flex-end;-webkit-app-region:no-drag;margin-top:auto; }
+  .row + .row { border-top:1px solid var(--border); }
+  .row-text { flex:1;min-width:0;display:flex;flex-direction:column;gap:3px; }
+  .row-title { font-size:14px;font-weight:600;color:var(--text); }
+  .row-desc { font-size:11.5px;color:var(--text2);line-height:1.4; }
+  .row-sub { padding:0 16px 15px;display:none;flex-direction:column;gap:9px; }
+  .row-sub.open { display:flex; }
 
-  .account-field { border-top:1px solid var(--border);padding-top:14px; }
-  .account-status { font-size:13px;color:var(--text);text-transform:none;letter-spacing:normal; }
+  /* ── Interruptor 3D animado ────────────────────────────────── */
+  .switch { position:relative;width:54px;height:31px;flex-shrink:0; }
+  .switch input {
+    position:absolute;inset:0;width:100%;height:100%;margin:0;
+    opacity:0;cursor:pointer;z-index:3;
+  }
+  .switch-track {
+    position:absolute;inset:0;border-radius:999px;
+    background:linear-gradient(180deg, rgba(0,0,0,.42), rgba(255,255,255,.05));
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.07), 0 1px 0 rgba(255,255,255,.05);
+    transition:background .3s ease, box-shadow .3s ease;
+  }
+  .switch input:checked ~ .switch-track {
+    background:linear-gradient(180deg, #7c7ff5, #4f46e5);
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.32), 0 0 16px rgba(99,102,241,.55), inset 0 -1px 0 rgba(255,255,255,.22);
+  }
+  .switch-knob {
+    position:absolute;top:3px;left:3px;width:25px;height:25px;border-radius:50%;
+    background:linear-gradient(180deg, #ffffff, #d5d5e2);
+    box-shadow:0 3px 6px rgba(0,0,0,.55), inset 0 -2px 3px rgba(0,0,0,.16), inset 0 2px 0 rgba(255,255,255,.95);
+    transition:transform .34s cubic-bezier(.34,1.45,.5,1), width .16s ease;
+    pointer-events:none;
+  }
+  .switch input:checked ~ .switch-knob { transform:translateX(23px); }
+  .switch input:active ~ .switch-knob { width:30px; }
+  .switch input:checked:active ~ .switch-knob { transform:translateX(18px); }
+
+  /* ── Controles ─────────────────────────────────────────────── */
+  .num-input {
+    width:74px;background:var(--bg);border:1px solid var(--border);border-radius:10px;
+    color:var(--text);font-family:inherit;font-size:15px;font-weight:600;text-align:center;
+    padding:10px 8px;outline:none;-webkit-app-region:no-drag;flex-shrink:0;
+  }
+  .num-input:focus { border-color:var(--accent); }
+  .unit { font-size:12px;color:var(--text2);flex-shrink:0; }
+
+  input[type=range] {
+    width:100%;accent-color:var(--accent2);-webkit-app-region:no-drag;cursor:pointer;height:20px;
+  }
+  .range-row { display:flex;align-items:center;gap:12px; }
+  .range-row .unit { min-width:38px;text-align:right;font-variant-numeric:tabular-nums; }
+
+  select { width:100%; }
+
+  /* Selector de lado (izquierda/derecha) tipo segmented control */
+  .seg { display:flex;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:3px;gap:3px; }
+  .seg button {
+    flex:1;background:transparent;border:none;color:var(--text2);
+    font-size:12.5px;font-weight:600;padding:8px 6px;border-radius:8px;cursor:pointer;transition:all .15s;
+  }
+  .seg button.active { background:var(--accent2);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.4); }
+
+  /* Paleta de colores de la barra */
+  .swatches { display:flex;gap:9px;flex-wrap:wrap; }
+  .swatch {
+    width:30px;height:30px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;
+    transition:transform .15s, border-color .15s;
+  }
+  .swatch:hover { transform:scale(1.12); }
+  .swatch.selected { border-color:#fff;transform:scale(1.12); }
+
+  .sub-label { font-size:11.5px;color:var(--text2);font-weight:600; }
+
+  /* ── Botones grandes ───────────────────────────────────────── */
+  .btn-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+  .big-btn {
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+    color:var(--text);font-size:12.5px;font-weight:600;padding:18px 10px;
+    cursor:pointer;-webkit-app-region:no-drag;transition:all .16s;
+  }
+  .big-btn svg { color:var(--accent);transition:transform .2s; }
+  .big-btn:hover { background:var(--bg3);border-color:var(--accent);transform:translateY(-2px); }
+  .big-btn:hover svg { transform:scale(1.12); }
+  .big-btn:active { transform:translateY(0); }
+
+  /* ── Cuenta ────────────────────────────────────────────────── */
+  .account-status { font-size:13px;color:var(--text2);line-height:1.4; }
   .account-status.online b { color:var(--accent2); }
 
-  /* Slider de segundos del auto-ocultado */
-  .autohide-slider {
-    margin-top:0;padding-top:0;border-top:1px solid transparent;
-    display:flex;flex-direction:column;gap:8px;
-    max-height:0;opacity:0;overflow:hidden;
-    transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .22s ease,margin-top .32s ease,padding-top .32s ease,border-color .32s ease;
+  /* ── Pie ───────────────────────────────────────────────────── */
+  .footer {
+    display:flex;gap:10px;-webkit-app-region:no-drag;flex-shrink:0;
+    position:sticky;bottom:-22px;background:var(--bg);
+    padding:14px 0 4px;margin-top:auto;border-top:1px solid var(--border);
   }
-  .autohide-slider.visible {
-    max-height:90px;opacity:1;margin-top:6px;padding-top:12px;border-top-color:var(--border);
-  }
-  .slider-row { display:flex;align-items:center;gap:12px;-webkit-app-region:no-drag; }
-  .slider-track {
-    position:relative;flex:1;height:6px;border-radius:3px;
-    background:var(--bg2);border:1px solid var(--border);
-    cursor:pointer;-webkit-app-region:no-drag;
-  }
-  .slider-fill {
-    position:absolute;left:0;top:-1px;bottom:-1px;border-radius:3px;
-    background:linear-gradient(90deg,var(--accent2),var(--accent));
-    transition:width .12s ease;
-  }
-  .slider-thumb {
-    position:absolute;top:50%;width:18px;height:18px;margin-left:-9px;
-    background:#fff;border:2px solid var(--accent2);border-radius:50%;
-    transform:translateY(-50%);cursor:grab;-webkit-app-region:no-drag;
-    transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease;
-    box-shadow:0 1px 4px rgba(0,0,0,.4);
-  }
-  .slider-thumb:hover { transform:translateY(-50%) scale(1.15); }
-  .slider-thumb.dragging {
-    cursor:grabbing;transform:translateY(-50%) scale(1.3);
-    box-shadow:0 2px 14px rgba(99,102,241,.65);
-  }
-  .slider-value { font-size:12.5px;color:var(--text2);min-width:30px;text-align:right;font-variant-numeric:tabular-nums; }
-  .btn-row { display:flex;gap:8px;-webkit-app-region:no-drag; }
-  .entry-popup.wide { width:440px; }
+  .footer button { flex:1;padding:13px 16px;font-size:14px;font-weight:600;border-radius:12px; }
+
+  /* Popup de conflictos al restaurar copia */
+  .entry-popup.wide { width:min(440px, 92vw); }
   .conflict-row {
     display:flex;align-items:center;justify-content:space-between;gap:8px;
-    background:var(--bg2);border:1px solid var(--border);border-radius:8px;
-    padding:8px 10px;-webkit-app-region:no-drag;
+    background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;
   }
   .conflict-name { font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-  .conflict-choice { font-size:11.5px;padding:5px 9px; }
+  .conflict-choice { font-size:11.5px;padding:6px 10px;border-radius:8px; }
   .conflict-choice.active-choice { border-color:var(--accent);color:var(--text);background:rgba(99,102,241,.22); }
-  .slider-bubble {
-    position:absolute;bottom:22px;left:50%;transform:translateX(-50%) scale(.6);
-    background:var(--accent2);color:#fff;font-size:11px;font-weight:700;
-    padding:3px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;
-    opacity:0;transition:opacity .15s ease,transform .15s cubic-bezier(.34,1.56,.64,1);
-    box-shadow:0 4px 12px rgba(0,0,0,.45);
-  }
-  .slider-thumb.dragging .slider-bubble { opacity:1;transform:translateX(-50%) scale(1); }
 </style>
 </head>
 <body>
 <div class="app animate-in">
   <div class="win-drag" title="Arrastra para mover la ventana"></div>
-
-
   <div class="win-controls">
     <button class="win-btn close" onclick="cancel()" title="Cerrar">
       <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
     </button>
   </div>
 
-  <div class="app-title" style="display:flex;align-items:center;gap:8px">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    Ajustes
-  </div>
+  <div class="app-title">Ajustes</div>
 
-  <div class="field">
-    <label>Frecuencia del aviso</label>
-    <div class="field-row">
-      <input type="number" id="reminderMinutes" value="10" min="1" max="120">
-      <span class="field-unit">minutos</span>
-    </div>
-    <span class="hint">Cada cuántos minutos sale el widget recordatorio mientras hay una tarea activa.</span>
-  </div>
-
-  <div class="field">
-    <label class="check-row"><input type="checkbox" id="widgetAutoHide"><span>Ocultar el aviso automáticamente</span></label>
-    <span class="hint">Si lo desactivas, el aviso se queda en pantalla hasta que lo cierres, pauses o cambies de tarea.</span>
-
-    <div class="autohide-slider" id="autohideSliderWrap">
-      <div class="slider-row">
-        <div class="slider-track" id="autohideTrack">
-          <div class="slider-fill" id="autohideFill"></div>
-          <div class="slider-thumb" id="autohideThumb">
-            <div class="slider-bubble" id="autohideBubble">10s</div>
-          </div>
+  <!-- ── Avisos ─────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Avisos</div>
+    <div class="card">
+      <div class="row">
+        <div class="row-text">
+          <span class="row-title">Frecuencia</span>
+          <span class="row-desc">Cada cuánto sale el recordatorio mientras hay una tarea activa.</span>
         </div>
-        <span class="slider-value" id="autohideValueLabel">10s</span>
+        <input type="number" class="num-input" id="reminderMinutes" value="10" min="1" max="120">
+        <span class="unit">min</span>
       </div>
-      <span class="hint">Cuánto tiempo se muestra el aviso antes de ocultarse (de 2 a 60 segundos).</span>
+      <div class="row">
+        <div class="row-text">
+          <span class="row-title">Ocultar solo</span>
+          <span class="row-desc">Si lo apagas, el aviso se queda hasta que lo cierres.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="widgetAutoHide">
+          <span class="switch-track"></span>
+          <span class="switch-knob"></span>
+        </label>
+      </div>
+      <div class="row-sub" id="autohideSliderWrap">
+        <span class="sub-label">Se oculta tras <span id="autohideValueLabel">10s</span></span>
+        <input type="range" id="autohideRange" min="2" max="60" step="1" value="10">
+      </div>
     </div>
   </div>
 
-  <div class="field">
-    <label class="check-row"><input type="checkbox" id="manualColors"><span>Elegir colores de las tareas manualmente</span></label>
-    <span class="hint">Si lo desactivas, cada tarea nueva recibe automáticamente el siguiente color de la paleta.</span>
-  </div>
-
-  <div class="field">
-    <label>Opacidad del fondo (con blur)</label>
-    <div class="field-row">
-      <span class="field-unit">Translúcida</span>
-      <input type="range" id="bgOpacity" min="0" max="100" step="5"
-        style="flex:1;accent-color:var(--accent2);-webkit-app-region:no-drag;cursor:pointer">
-      <span class="field-unit">Opaca</span>
-    </div>
-    <span class="hint">El blur (efecto cristal) está siempre puesto. Con el deslizador la haces más translúcida (se ve más el escritorio) o más opaca (más sólida). Si en algún equipo se ve blanquecina, muévela hacia "Opaca". Se ve al instante.</span>
-  </div>
-
-  <div class="field">
-    <label class="check-row"><input type="checkbox" id="openAtLogin"><span>Iniciar imputa.me al encender el PC</span></label>
-    <span class="hint">Si lo activas, la app arranca sola al iniciar sesión en Windows y se queda en la bandeja del sistema. Desactivado por defecto.</span>
-  </div>
-
-  <div class="field">
-    <label class="check-row" style="cursor:default"><span>Tutorial guiado</span></label>
-    <button class="btn-ghost" style="align-self:flex-start" onclick="startTutorial()">Iniciar tutorial</button>
-    <span class="hint">Vuelve a ver, paso a paso, para qué sirve cada cosa del panel principal y del calendario.</span>
-  </div>
-
-  <div class="field">
-    <label class="check-row" style="cursor:default"><span>Actualizaciones</span></label>
-    <button class="btn-ghost" style="align-self:flex-start" onclick="checkUpdates()">Buscar actualizaciones</button>
-    <span class="hint">Comprueba si hay una versión nueva sin tener que cerrar y volver a abrir la app.</span>
-  </div>
-
-  <div class="field">
-    <label class="check-row"><input type="checkbox" id="dockMode"><span>Modo barra flotante (dock)</span></label>
-    <span class="hint">En vez de ventanas sueltas, una barra discreta pegada al borde derecho de la pantalla: al pulsarla se despliega el panel, y Calendario/Guardadas/Ajustes se abren dentro de la misma barra en lugar de en ventanas nuevas.</span>
-    <div id="dockDisplayRow" style="display:none;flex-direction:column;gap:6px;margin-top:4px">
-      <label style="font-size:12px;color:var(--text2)">Pantalla donde anclar la barra</label>
-      <select id="dockDisplay"></select>
+  <!-- ── Apariencia ─────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Apariencia</div>
+    <div class="card">
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div class="row-text">
+          <span class="row-title">Fondo</span>
+          <span class="row-desc">De translúcida (se ve el escritorio) a opaca.</span>
+        </div>
+        <div class="range-row">
+          <span class="unit">Trans.</span>
+          <input type="range" id="bgOpacity" min="0" max="100" step="5">
+          <span class="unit">Opaca</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="row-text">
+          <span class="row-title">Colores manuales</span>
+          <span class="row-desc">Elegir tú el color de cada tarea nueva.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="manualColors">
+          <span class="switch-track"></span>
+          <span class="switch-knob"></span>
+        </label>
+      </div>
     </div>
   </div>
 
-  <div class="field">
-    <label class="check-row" style="cursor:default"><span>Copia de seguridad</span></label>
-    <div class="btn-row">
-      <button class="btn-ghost" onclick="exportBackup()">Exportar copia…</button>
-      <button class="btn-ghost" onclick="importBackup()">Restaurar copia…</button>
+  <!-- ── Barra flotante ─────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Barra flotante</div>
+    <div class="card">
+      <div class="row">
+        <div class="row-text">
+          <span class="row-title">Modo barra flotante</span>
+          <span class="row-desc">Una barra en el borde de la pantalla: al pulsarla se despliega la app y todo se abre dentro, sin ventanas sueltas.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="dockMode">
+          <span class="switch-track"></span>
+          <span class="switch-knob"></span>
+        </label>
+      </div>
+      <div class="row-sub" id="dockOptionsWrap">
+        <span class="sub-label">Lado</span>
+        <div class="seg" id="dockSideSeg">
+          <button type="button" data-side="left" onclick="setDockSide('left')">Izquierda</button>
+          <button type="button" data-side="right" onclick="setDockSide('right')">Derecha</button>
+        </div>
+
+        <span class="sub-label">Color</span>
+        <div class="swatches" id="dockColorSwatches"></div>
+
+        <span class="sub-label">Grosor de la barra · <span id="dockBarWidthLabel">14px</span></span>
+        <input type="range" id="dockBarWidth" min="6" max="40" step="1" value="14">
+
+        <span class="sub-label">Opacidad de la barra · <span id="dockBarOpacityLabel">92%</span></span>
+        <input type="range" id="dockBarOpacity" min="10" max="100" step="1" value="92">
+
+        <span class="sub-label">Ancho del panel · <span id="dockPanelWidthLabel">440px</span></span>
+        <input type="range" id="dockPanelWidth" min="320" max="800" step="10" value="440">
+
+        <span class="sub-label">Pantalla</span>
+        <select id="dockDisplay"></select>
+      </div>
     </div>
-    <span class="hint">Guarda tus tareas y grupos en un archivo, o restáuralos desde uno. Al restaurar, lo que sea idéntico se ignora solo y solo se te pregunta por lo que de verdad choque con lo que ya tienes.</span>
   </div>
 
-  <div class="field account-field">
-    <label>Cuenta y sincronización</label>
-    <div class="account-status" id="accountStatus">Trabajando en local (sin cuenta)</div>
-    <button class="btn-ghost" id="accountBtn" style="align-self:flex-start" onclick="openSync()">Iniciar sesión para sincronizar…</button>
-    <span class="hint">imputa.me funciona sin cuenta y todo se guarda en este equipo. Inicia sesión solo si quieres sincronizar tus horas con la app móvil; lo que ya tengas en local se conservará y se subirá a tu cuenta.</span>
+  <!-- ── General ────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">General</div>
+    <div class="card">
+      <div class="row">
+        <div class="row-text">
+          <span class="row-title">Abrir al encender</span>
+          <span class="row-desc">Arranca sola con Windows, en la bandeja.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="openAtLogin">
+          <span class="switch-track"></span>
+          <span class="switch-knob"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Acciones ───────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Acciones</div>
+    <div class="btn-grid">
+      <button class="big-btn" onclick="startTutorial()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 4.2 2.8c-.8.4-1.3 1.1-1.3 2"/><path d="M12 17h.01"/></svg>
+        Ver tutorial
+      </button>
+      <button class="big-btn" onclick="checkUpdates()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-9m0 0l-4 4m4-4l4 4"/><path d="M20 12a8 8 0 1 0-16 0"/></svg>
+        Actualizaciones
+      </button>
+      <button class="big-btn" onclick="exportBackup()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 21h16"/></svg>
+        Exportar copia
+      </button>
+      <button class="big-btn" onclick="importBackup()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0l-4 4m4-4l4 4"/><path d="M4 21h16"/></svg>
+        Restaurar copia
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Cuenta ─────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Cuenta</div>
+    <div class="card">
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:12px">
+        <div class="account-status" id="accountStatus">Trabajando en local (sin cuenta)</div>
+        <button class="btn-ghost" id="accountBtn" style="padding:11px;border-radius:10px" onclick="openSync()">Iniciar sesión para sincronizar…</button>
+      </div>
+    </div>
   </div>
 
   <div class="footer">
@@ -196,14 +306,15 @@
     <button class="btn-primary" onclick="save()">Guardar</button>
   </div>
 
+  <!-- Popup de conflictos al restaurar una copia -->
   <div class="popup-backdrop" id="importPopupBackdrop" style="display:none" onclick="closeImportPopup()"></div>
   <div class="entry-popup wide" id="importPopup" style="display:none">
     <div class="entry-popup-title">Restaurar copia de seguridad</div>
-    <div class="hint" id="importSummary"></div>
-    <div id="importConflictsList" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto"></div>
-    <div class="btn-row" id="importBulkActions" style="display:none">
-      <button class="btn-ghost" style="font-size:11.5px;padding:5px 9px" onclick="setAllImportResolutions('omit')">Omitir todas</button>
-      <button class="btn-ghost" style="font-size:11.5px;padding:5px 9px" onclick="setAllImportResolutions('replace')">Reemplazar todas</button>
+    <div class="row-desc" id="importSummary"></div>
+    <div id="importConflictsList" style="display:flex;flex-direction:column;gap:8px;max-height:250px;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px" id="importBulkActions">
+      <button class="btn-ghost" style="font-size:11.5px;padding:6px 10px" onclick="setAllImportResolutions('omit')">Omitir todas</button>
+      <button class="btn-ghost" style="font-size:11.5px;padding:6px 10px" onclick="setAllImportResolutions('replace')">Reemplazar todas</button>
     </div>
     <div class="entry-popup-actions">
       <div style="flex:1"></div>
@@ -217,52 +328,76 @@
 <script>
 const { ipcRenderer } = require('electron');
 
-const AUTOHIDE_MIN = 2, AUTOHIDE_MAX = 60;
-let autohideSeconds = 10;
+const DOCK_COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf','#94a3b8'];
+let dockSide = 'right';
+let dockColor = DOCK_COLORS[0];
 
-const autohideTrack = document.getElementById('autohideTrack');
-const autohideThumb = document.getElementById('autohideThumb');
-
-function renderAutohideSlider() {
-  const pct = (autohideSeconds - AUTOHIDE_MIN) / (AUTOHIDE_MAX - AUTOHIDE_MIN);
-  document.getElementById('autohideFill').style.width = (pct * 100) + '%';
-  autohideThumb.style.left = (pct * 100) + '%';
-  document.getElementById('autohideValueLabel').textContent = autohideSeconds + 's';
-  document.getElementById('autohideBubble').textContent = autohideSeconds + 's';
-}
-
+// ---------- Aviso: auto-ocultar ----------
 function updateAutohideVisibility() {
-  document.getElementById('autohideSliderWrap').classList.toggle('visible', document.getElementById('widgetAutoHide').checked);
+  document.getElementById('autohideSliderWrap').classList.toggle('open', document.getElementById('widgetAutoHide').checked);
 }
-
-function setAutohideFromClientX(clientX) {
-  const rect = autohideTrack.getBoundingClientRect();
-  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-  autohideSeconds = Math.round(AUTOHIDE_MIN + pct * (AUTOHIDE_MAX - AUTOHIDE_MIN));
-  renderAutohideSlider();
-}
-
-autohideTrack.addEventListener('mousedown', (e) => {
-  autohideThumb.classList.add('dragging');
-  setAutohideFromClientX(e.clientX);
-  const onMove = (ev) => setAutohideFromClientX(ev.clientX);
-  const onUp = () => {
-    autohideThumb.classList.remove('dragging');
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-  };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-});
-
 document.getElementById('widgetAutoHide').addEventListener('change', updateAutohideVisibility);
-
-// Opacidad del fondo: vista previa en vivo (aplica a todas las ventanas al instante).
-document.getElementById('bgOpacity').addEventListener('input', (e) => {
-  ipcRenderer.send('action', { type: 'set-bg-opacity', payload: { value: parseInt(e.target.value) || 0 } });
+document.getElementById('autohideRange').addEventListener('input', (e) => {
+  document.getElementById('autohideValueLabel').textContent = e.target.value + 's';
 });
 
-// Rellena el desplegable de pantallas (para elegir dónde ancla el dock).
+// ---------- Fondo: vista previa en vivo ----------
+document.getElementById('bgOpacity').addEventListener('input', (e) => {
+  ipcRenderer.send('action', { type:'set-bg-opacity', payload:{ value: parseInt(e.target.value) || 0 } });
+});
+
+// ---------- Barra flotante ----------
+function updateDockOptionsVisibility() {
+  document.getElementById('dockOptionsWrap').classList.toggle('open', document.getElementById('dockMode').checked);
+}
+document.getElementById('dockMode').addEventListener('change', updateDockOptionsVisibility);
+
+function setDockSide(side) {
+  dockSide = side;
+  document.querySelectorAll('#dockSideSeg button').forEach(b => b.classList.toggle('active', b.dataset.side === side));
+  previewDock();
+}
+
+function buildDockSwatches() {
+  const wrap = document.getElementById('dockColorSwatches');
+  wrap.innerHTML = '';
+  DOCK_COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (c === dockColor ? ' selected' : '');
+    sw.style.background = c;
+    sw.onclick = () => {
+      dockColor = c;
+      wrap.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+      previewDock();
+    };
+    wrap.appendChild(sw);
+  });
+}
+
+// Vista previa en vivo de la barra (sin tener que darle a Guardar).
+function previewDock() {
+  const sel = document.getElementById('dockDisplay').value;
+  ipcRenderer.send('action', { type:'set-dock-config', payload:{
+    dockSide,
+    dockBarColor: dockColor,
+    dockBarWidth: parseInt(document.getElementById('dockBarWidth').value) || 14,
+    dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 92,
+    dockPanelWidth: parseInt(document.getElementById('dockPanelWidth').value) || 440,
+    dockDisplayId: sel ? Number(sel) : null,
+  } });
+}
+
+['dockBarWidth','dockBarOpacity','dockPanelWidth'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    const v = document.getElementById(id).value;
+    const suffix = id === 'dockBarOpacity' ? '%' : 'px';
+    document.getElementById(id + 'Label').textContent = v + suffix;
+    previewDock();
+  });
+});
+document.getElementById('dockDisplay').addEventListener('change', previewDock);
+
 function populateDisplays(selectedId) {
   const sel = document.getElementById('dockDisplay');
   sel.innerHTML = '';
@@ -272,49 +407,62 @@ function populateDisplays(selectedId) {
     const opt = document.createElement('option');
     opt.value = String(d.id);
     const primary = (d.bounds.x === 0 && d.bounds.y === 0) ? ' (principal)' : '';
-    opt.textContent = `Pantalla ${i + 1}${primary} — ${d.size.width}×${d.size.height}`;
+    opt.textContent = `Pantalla ${i + 1}${primary} · ${d.size.width}×${d.size.height}`;
     sel.appendChild(opt);
   });
   if (selectedId != null) sel.value = String(selectedId);
 }
-function updateDockDisplayVisibility() {
-  document.getElementById('dockDisplayRow').style.display =
-    document.getElementById('dockMode').checked ? 'flex' : 'none';
-}
-document.getElementById('dockMode').addEventListener('change', updateDockDisplayVisibility);
 
+// ---------- Carga de ajustes ----------
 ipcRenderer.on('settings', (_, s) => {
   document.getElementById('reminderMinutes').value = s.reminderMinutes || 10;
   document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
   document.getElementById('openAtLogin').checked = !!s.openAtLogin;
   document.getElementById('bgOpacity').value = (s.bgOpacity == null ? 50 : s.bgOpacity);
-  document.getElementById('dockMode').checked = !!s.dockMode;
-  populateDisplays(s.dockDisplayId);
-  updateDockDisplayVisibility();
-  autohideSeconds = Math.max(AUTOHIDE_MIN, Math.min(AUTOHIDE_MAX, s.widgetAutoHideSeconds || 10));
-  renderAutohideSlider();
+
+  const secs = Math.max(2, Math.min(60, s.widgetAutoHideSeconds || 10));
+  document.getElementById('autohideRange').value = secs;
+  document.getElementById('autohideValueLabel').textContent = secs + 's';
   updateAutohideVisibility();
+
+  document.getElementById('dockMode').checked = !!s.dockMode;
+  dockSide = s.dockSide === 'left' ? 'left' : 'right';
+  dockColor = s.dockBarColor || DOCK_COLORS[0];
+  document.querySelectorAll('#dockSideSeg button').forEach(b => b.classList.toggle('active', b.dataset.side === dockSide));
+  buildDockSwatches();
+  const bw = s.dockBarWidth || 14, bo = s.dockBarOpacity == null ? 92 : s.dockBarOpacity, pw = s.dockPanelWidth || 440;
+  document.getElementById('dockBarWidth').value = bw;
+  document.getElementById('dockBarWidthLabel').textContent = bw + 'px';
+  document.getElementById('dockBarOpacity').value = bo;
+  document.getElementById('dockBarOpacityLabel').textContent = bo + '%';
+  document.getElementById('dockPanelWidth').value = pw;
+  document.getElementById('dockPanelWidthLabel').textContent = pw + 'px';
+  populateDisplays(s.dockDisplayId);
+  updateDockOptionsVisibility();
 });
+
 function save() {
   const mins = parseInt(document.getElementById('reminderMinutes').value) || 10;
-  const dockDisplaySel = document.getElementById('dockDisplay').value;
+  const sel = document.getElementById('dockDisplay').value;
   ipcRenderer.send('action', { type:'save-settings', payload:{
     reminderMinutes: Math.max(1, Math.min(120, mins)),
     widgetAutoHide: document.getElementById('widgetAutoHide').checked,
-    widgetAutoHideSeconds: autohideSeconds,
+    widgetAutoHideSeconds: parseInt(document.getElementById('autohideRange').value) || 10,
     colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',
     openAtLogin: document.getElementById('openAtLogin').checked,
     bgOpacity: parseInt(document.getElementById('bgOpacity').value) || 0,
     dockMode: document.getElementById('dockMode').checked,
-    dockDisplayId: dockDisplaySel ? Number(dockDisplaySel) : null,
+    dockDisplayId: sel ? Number(sel) : null,
+    dockSide,
+    dockBarColor: dockColor,
+    dockBarWidth: parseInt(document.getElementById('dockBarWidth').value) || 14,
+    dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 92,
+    dockPanelWidth: parseInt(document.getElementById('dockPanelWidth').value) || 440,
   } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
-function startTutorial() {
-  ipcRenderer.send('action', { type:'reset-tutorial' });
-  cancel();
-}
+function startTutorial() { ipcRenderer.send('action', { type:'reset-tutorial' }); cancel(); }
 function checkUpdates() { ipcRenderer.send('action', { type:'check-for-updates' }); }
 
 // ---------- Copia de seguridad ----------
@@ -333,7 +481,6 @@ async function importBackup() {
   if (!r || r.canceled) return;
   if (!r.ok) { alert('No se pudo leer la copia: ' + (r.error || '')); return; }
   if (!r.conflicts.length) {
-    // Nada que decidir (todo nuevo o ya idéntico): se aplica directo, sin preguntar.
     const res = await ipcRenderer.invoke('apply-import-backup', { resolutions: {} });
     if (res.ok) alert(`Copia restaurada: ${r.newCount} nueva(s), ${r.sameCount} ya estaban igual.`);
     else alert('No se pudo restaurar: ' + (res.error || ''));
@@ -347,7 +494,7 @@ function openImportPopup(r) {
   importResolutions = {};
   importConflicts.forEach(c => { importResolutions[c.key] = 'omit'; });
   document.getElementById('importSummary').textContent =
-    `${r.newCount} nueva(s) se añadirán, ${r.sameCount} ya estaban igual (se ignoran). Estas ${r.conflicts.length} tienen datos distintos a los que ya tienes — elige qué hacer con cada una:`;
+    `${r.newCount} nueva(s) se añadirán, ${r.sameCount} ya estaban igual (se ignoran). Estas ${r.conflicts.length} tienen datos distintos — elige qué hacer:`;
   renderImportConflicts();
   document.getElementById('importPopupBackdrop').style.display = 'block';
   document.getElementById('importPopup').style.display = 'flex';
@@ -383,7 +530,6 @@ function renderImportConflicts() {
     row.appendChild(label); row.appendChild(btnWrap);
     list.appendChild(row);
   });
-  document.getElementById('importBulkActions').style.display = importConflicts.length ? 'flex' : 'none';
 }
 
 function setAllImportResolutions(v) {
@@ -421,12 +567,11 @@ async function refreshAccount() {
     btn.textContent = 'Iniciar sesión para sincronizar…';
   }
 }
-ipcRenderer.on('sync-status', (_, s) => refreshAccount());
+ipcRenderer.on('sync-status', () => refreshAccount());
 window.addEventListener('focus', refreshAccount);
 refreshAccount();
 
-// Al abrirse como ventana, main.js empuja 'settings' tras ready-to-show; pero embebido
-// en el dock no lo hace, así que lo pedimos nosotros. Sirve en ambos casos.
+// Embebido en el dock nadie empuja 'settings' al cargar, así que lo pedimos.
 ipcRenderer.send('action', { type:'get-settings' });
 </script>
 </body>

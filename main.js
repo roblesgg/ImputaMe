@@ -68,6 +68,11 @@ let settings = {
   tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
   dockMode: false,     // modo barra flotante lateral (en vez de ventanas sueltas)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
+  dockSide: 'right',   // 'right' | 'left': a qué borde se pega la barra
+  dockBarWidth: 14,    // grosor de la barrita (px)
+  dockBarOpacity: 92,  // opacidad de la barrita (0-100)
+  dockBarColor: '#6366f1',
+  dockPanelWidth: 440, // ancho del panel desplegado en las vistas normales
 };
 
 function nextAutoColor() {
@@ -612,8 +617,10 @@ function createWidgetWindow() {
 // deja pasar los clics al escritorio con setIgnoreMouseEvents (el renderer decide cuándo,
 // según si el ratón está sobre algo interactivo). Sin material acrílico: acrílico rellena
 // toda la ventana de gris aunque el DOM sea transparente (era el "recuadro gris raro").
-const DOCK_BAR_W = 14;      // ancho de la barrita visible cuando está plegada
-const DOCK_PANEL_W = 440;   // ancho del panel desplegado (= ancho fijo de la ventana)
+// La ventana es tan ancha como la vista MÁS ancha (el calendario) y la parte que no
+// ocupa el panel es transparente y click-through: así el panel puede ensancharse o
+// estrecharse por CSS (fluido) sin tocar el tamaño de la ventana.
+const DOCK_WIDE_W = 1120;   // ancho del panel en la vista de calendario
 
 function dockDisplay() {
   const displays = screen.getAllDisplays();
@@ -624,15 +631,34 @@ function dockDisplay() {
   return getReferenceDisplay();
 }
 
-// Bounds fijos: pegado al borde derecho de la pantalla elegida, alto = casi todo el área
-// de trabajo, centrado en vertical. Siempre el mismo tamaño (plegado o desplegado).
+// Config visual del dock que se envía al renderer (colores, grosor, lado...).
+function dockConfig() {
+  return {
+    side: settings.dockSide === 'left' ? 'left' : 'right',
+    barWidth: Math.max(6, Math.min(40, Number(settings.dockBarWidth) || 14)),
+    barOpacity: Math.max(10, Math.min(100, Number(settings.dockBarOpacity) || 92)),
+    barColor: settings.dockBarColor || '#6366f1',
+    panelWidth: Math.max(300, Math.min(900, Number(settings.dockPanelWidth) || 440)),
+  };
+}
+
+// Bounds fijos: pegado al borde elegido, ocupando casi todo el alto del área de trabajo.
 function computeDockBounds() {
   const work = dockDisplay().workArea;
-  const width = DOCK_PANEL_W;
-  const height = Math.min(760, work.height - 24);
-  const x = work.x + work.width - width;
-  const y = work.y + Math.round((work.height - height) / 2);
+  const cfg = dockConfig();
+  const width = Math.min(Math.max(cfg.panelWidth, DOCK_WIDE_W) + cfg.barWidth, work.width);
+  const height = work.height - 16;
+  const x = cfg.side === 'left' ? work.x : work.x + work.width - width;
+  const y = work.y + 8;
   return { x, y, width, height };
+}
+
+// Empuja la config visual al renderer del dock (al crearlo y al cambiar Ajustes).
+function sendDockConfig() {
+  if (!dockWin || dockWin.isDestroyed()) return;
+  const send = () => { try { dockWin.webContents.send('dock-config', dockConfig()); } catch {} };
+  if (dockWin.webContents.isLoading()) dockWin.webContents.once('did-finish-load', send);
+  else send();
 }
 
 function createDock() {
@@ -650,6 +676,7 @@ function createDock() {
   // dock pinta su propio fondo. Arranca dejando pasar los clics (solo la barra captura).
   try { dockWin.setIgnoreMouseEvents(true, { forward: true }); } catch {}
   dockWin.loadFile(path.join(__dirname, 'src', 'dock.html'));
+  sendDockConfig();
   dockWin.once('ready-to-show', () => { if (dockWin && !dockWin.isDestroyed()) dockWin.showInactive(); });
   dockWin.on('closed', () => { dockWin = null; dockExpanded = false; });
 }
@@ -659,10 +686,11 @@ function destroyDock() {
   dockWin = null; dockExpanded = false;
 }
 
-// Reposiciona el dock (p. ej. si cambia la pantalla elegida en Ajustes).
+// Reposiciona el dock y le reenvía la config (pantalla, lado, grosor, color...).
 function positionDock() {
   if (!dockWin || dockWin.isDestroyed()) return;
   try { dockWin.setBounds(computeDockBounds()); } catch {}
+  sendDockConfig();
 }
 
 // Enseña una vista dentro del dock (en vez de abrir una ventana suelta).
@@ -750,9 +778,9 @@ function openCalendar() {
 function openSettings() {
   if (settings.dockMode) { dockNavigate('settings'); return; }
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
-  settingsWin = makeWindow('settings.html', 380, 620, {
-    minWidth: 340, minHeight: 400,
-    maxWidth: 520, maxHeight: 760,
+  settingsWin = makeWindow('settings.html', 430, 720, {
+    minWidth: 380, minHeight: 420,
+    maxWidth: 560, maxHeight: 900,
   });
   settingsWin.once('ready-to-show', () => { settingsWin.show(); settingsWin.webContents.send('settings', settings); });
   settingsWin.on('closed', () => { settingsWin = null; });
@@ -903,6 +931,11 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     case 'dock-focus':
       if (dockWin && !dockWin.isDestroyed()) { try { dockWin.focus(); } catch {} }
+      break;
+    // Vista previa en vivo mientras se toquetea la barra en Ajustes (sin darle a Guardar).
+    case 'set-dock-config':
+      settings = { ...settings, ...(payload || {}) };
+      saveSettings(); positionDock();
       break;
     case 'get-settings':  event.reply('settings', settings); break;
     case 'min-main':      if (mainWin && !mainWin.isDestroyed()) mainWin.minimize(); break;
