@@ -81,6 +81,8 @@
     box-shadow:0 4px 18px rgba(0,0,0,.5);
     opacity:0; transform:scale(.6); pointer-events:none;
     transition:opacity .26s cubic-bezier(.34,1.5,.5,1), transform .26s cubic-bezier(.34,1.5,.5,1),
+               right .34s cubic-bezier(.32,.72,0,1), left .34s cubic-bezier(.32,.72,0,1),
+               top .34s cubic-bezier(.32,.72,0,1), bottom .34s cubic-bezier(.32,.72,0,1),
                background .18s, color .18s, box-shadow .18s;
   }
   .expanded .dock-hide { opacity:1; transform:scale(1); pointer-events:auto; }
@@ -129,6 +131,16 @@ let cfg = { anchor:'right', barWidth:7, barLength:110, barPos:50, barOffset:4, b
 let expanded = false;
 let barDrag = null;
 
+// Tamaño REAL del panel ahora mismo (el calendario es mucho más ancho): sin esto el
+// botón de esconder se colocaba según el ancho "normal" y quedaba detrás del panel.
+ipcRenderer.on('dock-panel-size', (_, sz) => {
+  if (!sz) return;
+  const s = document.documentElement.style;
+  s.setProperty('--panel-w', sz.width + 'px');
+  s.setProperty('--panel-h', sz.height + 'px');
+  sendHitRects();
+});
+
 ipcRenderer.on('dock-config', (_, c) => {
   cfg = c;
   const s = document.documentElement.style;
@@ -138,8 +150,8 @@ ipcRenderer.on('dock-config', (_, c) => {
   s.setProperty('--bar-offset', c.barOffset + 'px');
   s.setProperty('--bar-color', c.barColor);
   s.setProperty('--bar-opacity', (c.barOpacity / 100).toFixed(2));
-  s.setProperty('--panel-w', c.panelWidth + 'px');
-  s.setProperty('--panel-h', c.panelHeight + 'px');
+  // OJO: --panel-w/--panel-h NO se tocan aquí. Los fija 'dock-panel-size' con el tamaño
+  // real de la ventana del panel, que cambia según la pestaña (el calendario es más ancho).
   ANCHORS.forEach(a => root.classList.remove('a-' + a));
   root.classList.add('a-' + (ANCHORS.includes(c.anchor) ? c.anchor : 'right'));
   sendHitRects();

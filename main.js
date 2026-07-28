@@ -824,12 +824,24 @@ function createDockPanel() {
   dockPanelWin.on('closed', () => { dockPanelWin = null; });
 }
 
+// Le dice a la ventana de la barrita cómo de grande es AHORA el panel, para que coloque
+// su botón de esconder justo por fuera (el calendario es bastante más ancho que el resto).
+function sendPanelSizeToBar() {
+  if (!dockWin || dockWin.isDestroyed()) return;
+  let b = null;
+  try { b = computePanelBounds(dockPanelView); } catch {}
+  if (dockPanelWin && !dockPanelWin.isDestroyed()) { try { b = dockPanelWin.getBounds(); } catch {} }
+  if (!b) return;
+  try { dockWin.webContents.send('dock-panel-size', { width: b.width, height: b.height }); } catch {}
+}
+
 function showDockPanel() {
   createDockPanel();
   if (!dockPanelWin || dockPanelWin.isDestroyed()) return;
   try { dockPanelWin.setBounds(computePanelBounds(dockPanelView)); } catch {}
   try { dockPanelWin.showInactive(); dockPanelWin.moveTop(); dockPanelWin.focus(); } catch {}
   dockExpanded = true; dockOutsideSince = 0;
+  sendPanelSizeToBar();
   const go = () => { try { dockPanelWin.webContents.send('panel-show'); } catch {} };
   if (dockPanelWin.webContents.isLoading()) dockPanelWin.webContents.once('did-finish-load', go);
   else go();
@@ -1292,6 +1304,7 @@ ipcMain.on('action', (event, { type, payload }) => {
         if (dockPanelWin && !dockPanelWin.isDestroyed()) {
           try { dockPanelWin.setBounds(computePanelBounds(dockPanelView)); } catch {}
         }
+        sendPanelSizeToBar();
       }
       break;
     case 'dock-panel-resize':
@@ -1309,6 +1322,7 @@ ipcMain.on('action', (event, { type, payload }) => {
             dockPanelWin.setBounds({ x: work.x, y: c.anchor === 'top' ? work.y : work.y + work.height - height, width: work.width, height });
           }
         } catch {}
+        sendPanelSizeToBar();
       }
       break;
     case 'dock-panel-resize-end': {

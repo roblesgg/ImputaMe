@@ -44,8 +44,28 @@
   .nav-btn.active { background:color-mix(in srgb, var(--accent2) 22%, transparent); color:var(--accent); }
 
   .content { flex:1; min-height:0; position:relative; }
-  .content iframe { position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent; opacity:1; transition:opacity .16s ease; }
-  .content.switching iframe { opacity:0; }
+  .content iframe {
+    position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent;
+    opacity:1; transform:none;
+    transition:opacity .18s ease, transform .26s cubic-bezier(.32,.72,0,1);
+  }
+  /* Sale hacia el lado del que viene la nueva pestaña y entra desde el contrario. */
+  .content.switching iframe { opacity:0; transform:translateX(var(--slide-out, -14px)) scale(.985); }
+  .content.entering iframe { animation:viewIn .3s cubic-bezier(.32,.72,0,1); }
+  @keyframes viewIn {
+    from { opacity:0; transform:translateX(var(--slide-in, 14px)) scale(.985); }
+    to   { opacity:1; transform:none; }
+  }
+
+  .nav-btn { position:relative; }
+  .nav-btn.active { animation:navPop .32s cubic-bezier(.34,1.5,.5,1); }
+  @keyframes navPop {
+    0%   { transform:scale(.9); }
+    55%  { transform:scale(1.08); }
+    100% { transform:scale(1); }
+  }
+  .nav-btn svg { transition:transform .22s cubic-bezier(.34,1.5,.5,1); }
+  .nav-btn:hover svg { transform:translateY(-2px) scale(1.08); }
 </style>
 </head>
 <body>
@@ -106,15 +126,26 @@ function setActiveNav(view) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
 }
 
+const VIEW_ORDER = ['panel','calendar','groups','settings'];
 function navTo(view) {
   if (!VIEW_SRC[view] || view === currentView) return;
+  const forward = VIEW_ORDER.indexOf(view) > VIEW_ORDER.indexOf(currentView);
+  const s = document.documentElement.style;
+  s.setProperty('--slide-out', (forward ? -18 : 18) + 'px');
+  s.setProperty('--slide-in',  (forward ? 18 : -18) + 'px');
+
   currentView = view;
   setActiveNav(view);
+  content.classList.remove('entering');
   content.classList.add('switching');
   setTimeout(() => {
     frame.src = VIEW_SRC[view];
-    frame.addEventListener('load', () => content.classList.remove('switching'), { once: true });
-  }, 130);
+    frame.addEventListener('load', () => {
+      content.classList.remove('switching');
+      content.classList.add('entering');
+      setTimeout(() => content.classList.remove('entering'), 320);
+    }, { once: true });
+  }, 150);
   ipcRenderer.send('action', { type:'dock-view-changed', payload:{ view } });
 }
 ipcRenderer.on('dock-navigate', (_, view) => navTo(view));
