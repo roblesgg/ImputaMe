@@ -1,4 +1,4 @@
 {
-  "version": "1.2.35",
-  "notes": "Arreglado el control de \"separación del borde\" de la barra flotante, que no hacía nada (se quedó sin conectar). Ajustes tiene ahora una vista previa a escala de la pantalla donde ves la barrita según la vas configurando — antes la barra real quedaba tapada por el propio panel y no se apreciaba ningún cambio. Y se puede elegir cualquier color para la barrita, no solo los predefinidos."
+  "version": "1.2.36",
+  "notes": "Las tareas guardadas ya se pueden renombrar: pasa el ratón por encima de una y pulsa el lápiz que aparece a la derecha. Como siempre, el nombre cambia de ahí en adelante y el calendario ya hecho conserva el que tenía en cada momento."
 }
