@@ -1,4 +1,4 @@
 {
-  "version": "2.0.2",
-  "notes": "Arreglado el fondo del panel flotante, que en la 2.0.1 quedó demasiado transparente: el texto se leía mal y los bordes se perdían. Ahora tiene su propio fondo, que sigue haciendo caso al deslizador de transparencia pero sin bajar nunca de un mínimo legible, con el borde más marcado y el blur bien aplicado. El deslizador de transparencia de las ventanas también vuelve a un recorrido razonable."
+  "version": "2.0.3",
+  "notes": "El botón de esconder el panel flotante pasa a ser un botón redondo flotante por fuera del panel, con animación de entrada y de pulsación. Y en Ajustes el botón de Guardar ahora se llama Aplicar."
 }

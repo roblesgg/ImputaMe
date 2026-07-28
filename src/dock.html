@@ -97,34 +97,37 @@
   .dock-root.expanded.preview-bar .dock-bar { opacity:var(--bar-opacity); pointer-events:auto; }
   .preview-bar .dock-bar { box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 2px 10px rgba(0,0,0,.35); }
 
-  /* ── Asa para esconder, en el borde que mira al centro de la pantalla ────── */
+  /* ── Botón flotante para esconder, FUERA del panel ──────── */
   .dock-hide {
-    position:absolute; z-index:8; display:flex; align-items:center; justify-content:center;
-    background:var(--bg3); border:1px solid var(--border); color:var(--text2);
-    cursor:pointer; padding:0;
-    transition:background .18s, color .18s, transform .28s cubic-bezier(.34,1.5,.5,1), box-shadow .18s;
+    position:absolute; z-index:12; width:34px; height:34px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; padding:0;
+    background:var(--panel, var(--surface));
+    border:1px solid color-mix(in srgb, var(--text) 20%, transparent);
+    color:var(--text2); cursor:pointer;
+    box-shadow:0 4px 18px rgba(0,0,0,.5);
+    opacity:0; transform:scale(.6);
+    transition:opacity .26s cubic-bezier(.34,1.5,.5,1), transform .26s cubic-bezier(.34,1.5,.5,1),
+               background .18s, color .18s, box-shadow .18s;
   }
-  .dock-hide svg { transition:transform .28s cubic-bezier(.34,1.5,.5,1); }
-  .dock-hide:hover { background:var(--accent2); color:#fff; box-shadow:0 0 16px color-mix(in srgb, var(--accent2) 55%, transparent); }
-  /* Laterales: pastilla vertical pegada al borde interior. */
-  .a-right .dock-hide, .a-left .dock-hide { top:50%; width:20px; height:74px; margin-top:-37px; }
-  .a-right .dock-hide { left:-1px; border-radius:12px 0 0 12px; border-right:none; }
-  .a-left  .dock-hide { right:-1px; border-radius:0 12px 12px 0; border-left:none; }
-  .a-right .dock-hide:hover { transform:translateX(-4px); }
-  .a-left  .dock-hide:hover { transform:translateX(4px); }
-  .a-left  .dock-hide svg { transform:scaleX(-1); }
-  /* Arriba/abajo: pastilla horizontal. */
-  .a-top .dock-hide, .a-bottom .dock-hide { left:50%; height:20px; width:74px; margin-left:-37px; }
-  .a-top    .dock-hide { bottom:-1px; border-radius:0 0 12px 12px; border-top:none; }
-  .a-bottom .dock-hide { top:-1px; border-radius:12px 12px 0 0; border-bottom:none; }
-  .a-top    .dock-hide:hover { transform:translateY(4px); }
-  .a-bottom .dock-hide:hover { transform:translateY(-4px); }
+  .expanded .dock-hide { opacity:1; transform:scale(1); }
+  .dock-hide svg { transition:transform .24s cubic-bezier(.34,1.5,.5,1); }
+  .dock-hide:hover {
+    background:var(--accent2); color:#fff; transform:scale(1.16);
+    box-shadow:0 6px 22px color-mix(in srgb, var(--accent2) 60%, transparent);
+  }
+  .dock-hide:active { transform:scale(.94); }
+  /* Se cuelga por fuera del borde interior del panel (el que mira al centro). */
+  .a-right  .dock-hide { top:50%; margin-top:-17px; right:calc(var(--panel-w) + 12px); }
+  .a-left   .dock-hide { top:50%; margin-top:-17px; left:calc(var(--panel-w) + 12px); }
+  .a-top    .dock-hide { left:50%; margin-left:-17px; top:calc(var(--panel-h) + 12px); }
+  .a-bottom .dock-hide { left:50%; margin-left:-17px; bottom:calc(var(--panel-h) + 12px); }
+  .a-left   .dock-hide svg { transform:scaleX(-1); }
   .a-top    .dock-hide svg { transform:rotate(90deg); }
   .a-bottom .dock-hide svg { transform:rotate(-90deg); }
-  .a-top    .dock-hide:hover svg { transform:rotate(90deg) scale(1.25); }
-  .a-bottom .dock-hide:hover svg { transform:rotate(-90deg) scale(1.25); }
-  .a-right  .dock-hide:hover svg { transform:scale(1.25); }
-  .a-left   .dock-hide:hover svg { transform:scaleX(-1) scale(1.25); }
+  .a-right  .dock-hide:hover svg { transform:translateX(2px); }
+  .a-left   .dock-hide:hover svg { transform:scaleX(-1) translateX(2px); }
+  .a-top    .dock-hide:hover svg { transform:rotate(90deg) translateX(2px); }
+  .a-bottom .dock-hide:hover svg { transform:rotate(-90deg) translateX(2px); }
 
   /* ── Tirador para redimensionar el panel ─────────────────── */
   .dock-resize { position:absolute; z-index:5; }
@@ -156,9 +159,6 @@
 <div class="dock-root a-right" id="dockRoot">
   <div class="dock-panel" id="dockPanel">
     <div class="dock-resize" id="dockResize" title="Arrastra para cambiar el tamaño"></div>
-    <button class="dock-hide" id="dockHide" onclick="collapse()" title="Esconder">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-    </button>
     <div class="dock-nav">
       <button class="dock-nav-btn active" data-view="panel" onclick="navTo('panel')" title="Panel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
@@ -181,6 +181,10 @@
       <iframe id="dockFrame" src="main.html?embed=1"></iframe>
     </div>
   </div>
+  <!-- Fuera del panel a propósito: el panel tiene overflow:hidden y lo recortaría. -->
+  <button class="dock-hide" id="dockHide" onclick="collapse()" title="Esconder">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
   <div class="dock-bar" id="dockBar" title="imputa.me — clic para desplegar"></div>
 </div>
 
@@ -243,7 +247,10 @@ function sendHitRects() {
   if (barDrag && barDrag.dragging) {
     rects.push({ x:0, y:0, w:window.innerWidth, h:window.innerHeight });   // arrastrando: todo
   } else if (!expanded) push(bar);     // plegado: solo la barrita
-  else push(document.getElementById('dockPanel'));   // desplegado: todo el panel
+  else {
+    push(document.getElementById('dockPanel'));      // desplegado: el panel...
+    push(document.getElementById('dockHide'));       // ...y el botón, que cuelga fuera
+  }
   const json = JSON.stringify(rects);
   if (json === lastRectsJson) return;
   lastRectsJson = json;
