@@ -10,7 +10,7 @@
   /* Alto de cada hora. Lo fija el JS con el valor real de ROW_H (ver más abajo); esto es
      solo el valor por defecto hasta que lo haga. CSS y JS deben usar SIEMPRE el mismo,
      porque si no las etiquetas de horas y la rejilla se desalinean de los bloques. */
-  :root { --row-h: 52px; }
+  :root { --row-h: 66px; }
 
   /* padding-top: deja una franja limpia arriba para el asa de arrastre. En las demás
      ventanas el asa cae sobre el padding vacío del contenedor y funciona; aquí caía
@@ -438,7 +438,7 @@ const { ipcRenderer, shell } = require('electron');
 // Alto de cada hora en la cuadrícula. Dentro de la barra flotante se usa más zoom
 // vertical: el panel es más estrecho, así que las tareas cortas quedaban minúsculas
 // (y para moverse por el día ya está el scroll).
-const ROW_H = IS_EMBEDDED ? 68 : 52;
+const ROW_H = IS_EMBEDDED ? 96 : 66;
 // El CSS (alto de cada celda de hora y las líneas de la rejilla) tiene que usar el mismo
 // valor que los cálculos de JS; si no, los bloques quedan desplazados respecto a las horas.
 document.documentElement.style.setProperty('--row-h', ROW_H + 'px');

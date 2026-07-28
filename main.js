@@ -819,11 +819,23 @@ function rememberView(view) {
 // Abre la app por donde se quedó la última vez (panel, calendario o guardadas).
 function openLastView() {
   checkForUpdatesIfStale();
-  const v = settings.lastView;
+  const v = settings.lastView;   // se lee ANTES: openMain() lo sobrescribe con 'panel'
   if (settings.dockMode) { dockNavigate(v && v !== 'settings' ? v : 'panel'); return; }
+  // En modo ventanas el panel se abre SIEMPRE: es el único sitio con los botones para
+  // navegar. Si no, al recordar "Guardadas" o "Calendario" se abría solo esa ventana y no
+  // había forma de volver (y al cerrarla no quedaba nada visible: parecía que la app se
+  // rompía). La vista recordada se abre encima del panel.
+  openMain();
   if (v === 'calendar') openCalendar();
   else if (v === 'groups') openGroups();
-  else openMain();
+}
+
+// Evita quedarse sin ninguna ventana a la vista al cerrar el calendario o Guardadas.
+function ensureSomeWindowVisible() {
+  if (settings.dockMode) return;
+  const anyVisible = [mainWin, calendarWin, groupsWin]
+    .some(w => w && !w.isDestroyed() && w.isVisible());
+  if (!anyVisible) openMain();
 }
 
 // Enseña una vista dentro del dock (en vez de abrir una ventana suelta).
@@ -1131,7 +1143,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'min-main':      if (mainWin && !mainWin.isDestroyed()) mainWin.minimize(); break;
     case 'close-calendar':
       if (settings.dockMode) dockNavigate('panel');
-      else if (calendarWin && !calendarWin.isDestroyed()) calendarWin.hide();
+      else { if (calendarWin && !calendarWin.isDestroyed()) calendarWin.hide(); ensureSomeWindowVisible(); }
       break;
     case 'close-settings':
       if (settings.dockMode) dockNavigate('panel');
@@ -1139,7 +1151,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     case 'close-groups':
       if (settings.dockMode) dockNavigate('panel');
-      else if (groupsWin && !groupsWin.isDestroyed()) groupsWin.hide();
+      else { if (groupsWin && !groupsWin.isDestroyed()) groupsWin.hide(); ensureSomeWindowVisible(); }
       break;
     case 'open-sync':     openSync(); break;
     case 'close-sync':    if (syncWin && !syncWin.isDestroyed()) syncWin.hide(); break;
@@ -1327,7 +1339,9 @@ function setupAutoUpdate() {
     autoUpdater = null;                 // dependencia no instalada aún
     return;
   }
-  autoUpdater.autoDownload = false;     // primero preguntamos; el botón confirma
+  // Se descarga sola en cuanto hay versión nueva: así, cuando toque instalar, es
+  // instantáneo y no hay que esperar la descarga ni cerrar y abrir la app a mano.
+  autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => {
@@ -1350,6 +1364,16 @@ function setupAutoUpdate() {
   autoUpdater.on('update-downloaded', (info) => {
     openUpdateWindow();
     sendUpdateState({ phase: 'downloaded', version: info.version });
+    // Instalación automática (la app se reinicia sola). Solo si NO hay una tarea en
+    // marcha: al salir se pausaría la que estuviera corriendo y el usuario perdería el
+    // cronómetro sin enterarse. Con tarea activa se deja el aviso y decide él.
+    if (!state.activeTaskId) {
+      setTimeout(() => {
+        if (state.activeTaskId) return;   // ha arrancado una tarea mientras tanto
+        try { saveData(); saveSettings(); } catch {}
+        setImmediate(() => autoUpdater.quitAndInstall());
+      }, 6000);
+    }
   });
 
   autoUpdater.on('error', (err) => {

@@ -1,4 +1,4 @@
 {
-  "version": "1.2.36",
-  "notes": "Las tareas guardadas ya se pueden renombrar: pasa el ratón por encima de una y pulsa el lápiz que aparece a la derecha. Como siempre, el nombre cambia de ahí en adelante y el calendario ya hecho conserva el que tenía en cada momento."
+  "version": "1.2.37",
+  "notes": "ARREGLO IMPORTANTE: si lo último que habías usado era Guardadas (o el Calendario), la app abría solo esa ventana y no había forma de volver al panel — te quedabas encerrado y al cerrarla no quedaba nada a la vista. Ahora el panel se abre siempre y la vista recordada aparece encima. Además, las actualizaciones se descargan e instalan solas (la app se reinicia sola) siempre que no tengas una tarea en marcha; si la tienes, te avisa y decides tú. Y el calendario se ve con bastante más espacio entre horas."
 }
