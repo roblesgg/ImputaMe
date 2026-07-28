@@ -1212,10 +1212,8 @@ ipcMain.on('action', (event, { type, payload }) => {
       settings = { ...settings, ...payload };
       saveSettings(); resetReminderTimer(); applyLoginItem(); applyTranslucencyAll();
       applyDockMode(wasDock);   // crea/destruye el dock si ha cambiado el modo
-      // En modo dock, Ajustes es un iframe: al guardar volvemos al panel. Fuera de él,
-      // se cierra la ventana de Ajustes como siempre.
-      if (settings.dockMode && wasDock) dockNavigate('panel');
-      else if (!settings.dockMode && settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
+      // El botón es "Aplicar": deja los ajustes aplicados pero SIN cerrarlos ni sacarte
+      // de la pantalla, para poder seguir tocando cosas.
       break;
     }
     case 'set-blur':
@@ -1331,6 +1329,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       if (settings.dockMode) { createDock(); positionDock(); }
       // Con el panel abierto la barrita se oculta; al ajustarla hay que verla.
       if (preview && dockWin && !dockWin.isDestroyed()) {
+        try { dockWin.moveTop(); } catch {}   // si no, queda debajo de la ventana del panel
         try { dockWin.webContents.send('dock-bar-preview'); } catch {}
       }
       break;
