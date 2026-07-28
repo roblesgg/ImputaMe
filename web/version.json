@@ -1,4 +1,4 @@
 {
-  "version": "1.2.34",
-  "notes": "Arreglado que a veces no se pudiera hacer clic en las tareas del calendario dentro de la barra flotante: si el cursor entraba directo sobre el calendario, la ventana se quedaba dejando pasar los clics al escritorio. Y arreglado que la app dejara de avisar de versiones nuevas al usarla (desde la 1.2.32 solo quedaba el temporizador de fondo); ahora vuelve a comprobarlo al volver a la app, incluido al desplegar la barrita."
+  "version": "1.2.35",
+  "notes": "Arreglado el control de \"separación del borde\" de la barra flotante, que no hacía nada (se quedó sin conectar). Ajustes tiene ahora una vista previa a escala de la pantalla donde ves la barrita según la vas configurando — antes la barra real quedaba tapada por el propio panel y no se apreciaba ningún cambio. Y se puede elegir cualquier color para la barrita, no solo los predefinidos."
 }
