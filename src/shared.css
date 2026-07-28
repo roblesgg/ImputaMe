@@ -120,22 +120,22 @@ button {
 .btn-icon:hover { color: var(--text); background: var(--bg3); }
 
 /* Window controls top right.
-   top se deja algo más generoso que el mínimo visual: al hacer las ventanas
-   redimensionables, Windows reserva una franja de "agarre" para cambiar el
-   tamaño justo en el borde/esquina superior, y si el botón queda demasiado
-   pegado al borde esa franja se come sus clics (por eso antes sólo
-   respondía la mitad inferior del botón). */
+   Se separan bastante del borde por DOS motivos: (1) al ser ventanas
+   redimensionables, Windows reserva una franja de "agarre" en el borde que se come
+   los clics; y (2) el body tiene border-radius 16px con overflow:hidden, así que
+   pegado a la esquina el botón se RECORTA y solo responde el trozo que queda dentro
+   (era justo lo que pasaba: solo se podía pulsar un trocito). */
 .win-controls {
   position: absolute;
-  top: 20px; right: 14px;
-  display: flex; gap: 6px;
+  top: 24px; right: 20px;
+  display: flex; gap: 8px;
   -webkit-app-region: no-drag;
 }
 .win-btn {
   background: rgba(255,255,255,0.08);
   color: var(--text2);
   border: none;
-  width: 28px; height: 28px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   font-size: 14px; line-height: 1;
   cursor: pointer;

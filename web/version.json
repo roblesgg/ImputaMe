@@ -1,4 +1,4 @@
 {
-  "version": "1.2.37",
-  "notes": "ARREGLO IMPORTANTE: si lo último que habías usado era Guardadas (o el Calendario), la app abría solo esa ventana y no había forma de volver al panel — te quedabas encerrado y al cerrarla no quedaba nada a la vista. Ahora el panel se abre siempre y la vista recordada aparece encima. Además, las actualizaciones se descargan e instalan solas (la app se reinicia sola) siempre que no tengas una tarea en marcha; si la tienes, te avisa y decides tú. Y el calendario se ve con bastante más espacio entre horas."
+  "version": "1.2.38",
+  "notes": "La barra flotante pasa a ser el modo por defecto en instalaciones nuevas, y el tutorial se hace también en ese modo (esperando a que despliegues el panel, para que no se dé por visto sin verlo). Arreglado que Guardadas se abriera sola al iniciar, y que su botón de cerrar solo respondiera en un trocito: quedaba pisado por la esquina redondeada de la ventana, así que se ha separado del borde y agrandado en todas las ventanas."
 }

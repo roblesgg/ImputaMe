@@ -101,7 +101,7 @@ let settings = {
   openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
   bgOpacity: 50,       // 0 = muy translúcida (se ve más el blur), 100 = muy opaca. Blur siempre puesto.
   tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
-  dockMode: false,     // modo barra flotante lateral (en vez de ventanas sueltas)
+  dockMode: true,      // modo barra flotante lateral: es el modo por defecto (instalación nueva)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
   theme: DEFAULT_THEME, // fondo/paleta base de toda la app (ver THEMES)
   accent: null,         // color de acento; null = el que trae el tema (ver ACCENTS)
@@ -811,7 +811,8 @@ function positionDock() {
 // Recuerda por dónde andaba el usuario para volver a abrir ahí (ver openLastView).
 // Ajustes no cuenta: no es una "pestaña" a la que tenga sentido volver al arrancar.
 function rememberView(view) {
-  if (view === 'settings' || settings.lastView === view) return;
+  if (view !== 'panel' && view !== 'calendar') return;   // Guardadas/Ajustes no se recuerdan
+  if (settings.lastView === view) return;
   settings.lastView = view;
   saveSettingsSoon();
 }
@@ -827,7 +828,6 @@ function openLastView() {
   // rompía). La vista recordada se abre encima del panel.
   openMain();
   if (v === 'calendar') openCalendar();
-  else if (v === 'groups') openGroups();
 }
 
 // Evita quedarse sin ninguna ventana a la vista al cerrar el calendario o Guardadas.
@@ -1095,6 +1095,9 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'dock-hit-rects':
       dockHitRects = (payload && Array.isArray(payload.rects)) ? payload.rects : [];
       updateDockHitTest();
+      break;
+    case 'dock-expanded':
+      sendToAllFrames(dockWin, 'dock-expanded');
       break;
     case 'dock-focus':
       checkForUpdatesIfStale();

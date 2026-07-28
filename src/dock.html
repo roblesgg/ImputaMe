@@ -215,6 +215,8 @@ function expand() {
   bar.classList.remove('near');
   sendHitRects();
   ipcRenderer.send('action', { type:'dock-focus' });
+  // La vista de dentro ya es visible: puede arrancar el tutorial si le toca.
+  ipcRenderer.send('action', { type:'dock-expanded' });
 }
 function collapse() {
   if (!expanded) return;

@@ -32,7 +32,20 @@ function applyThemeVars(t) {
   try { ipc = require('electron').ipcRenderer; } catch { return; }
   ipc.on('theme', (_, t) => applyThemeVars(t));
   ipc.send('action', { type: 'get-theme' });   // la respuesta vuelve a ESTE frame
+  // Dentro del dock, la vista existe aunque el panel esté plegado: hasta que se despliega
+  // no se ve nada (ver isViewVisibleToUser).
+  ipc.on('dock-expanded', () => {
+    window.__dockExpanded = true;
+    window.dispatchEvent(new Event('dock-expanded'));
+  });
 })();
+
+// ¿Está esta vista realmente a la vista del usuario? Embebida en el dock, no lo está
+// mientras el panel siga plegado; sin esto el tutorial arrancaría a escondidas y daría
+// sus pasos por vistos sin que nadie los llegue a ver.
+function isViewVisibleToUser() {
+  return !IS_EMBEDDED || window.__dockExpanded === true;
+}
 
 // Blanco o negro según la luminosidad del color de fondo, para que el texto
 // siempre se lea bien encima de cualquier color de tarea (incluidos los que

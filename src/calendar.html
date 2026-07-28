@@ -492,11 +492,15 @@ ipcRenderer.on('state', (_, state) => {
   }
   renderAll();
   if (firstLoad) scrollToNow();
-  if (!tutorialActive) {
-    const seen = (state.settings && state.settings.tutorialSeenSteps) || [];
-    tutorialActive = startTutorialIfNeeded('calendar', seen, () => { tutorialActive = false; });
-  }
+  maybeStartTutorial();
 });
+// Ver comentario en main.html: embebido, se espera a que el panel esté desplegado.
+function maybeStartTutorial() {
+  if (tutorialActive || !currentState || !isViewVisibleToUser()) return;
+  const seen = (currentState.settings && currentState.settings.tutorialSeenSteps) || [];
+  tutorialActive = startTutorialIfNeeded('calendar', seen, () => { tutorialActive = false; });
+}
+window.addEventListener('dock-expanded', maybeStartTutorial);
 ipcRenderer.send('action', { type: 'get-state' });
 
 function renderAll() {

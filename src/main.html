@@ -211,12 +211,18 @@ function fmt(secs) {
 }
 
 let tutorialActive = false;
+// isViewVisibleToUser(): dentro de la barra flotante esta vista existe aunque el panel
+// esté plegado. Si el tutorial arrancase ahí, daría sus pasos por vistos sin que nadie
+// los haya visto, así que se espera a que el panel se despliegue.
+function maybeStartTutorial() {
+  if (tutorialActive || !currentState || !isViewVisibleToUser()) return;
+  const seen = (currentState.settings && currentState.settings.tutorialSeenSteps) || [];
+  tutorialActive = startTutorialIfNeeded('main', seen, () => { tutorialActive = false; });
+}
+window.addEventListener('dock-expanded', maybeStartTutorial);
 ipcRenderer.on('state', (_, state) => {
   currentState = state; render(state);
-  if (!tutorialActive) {
-    const seen = (state.settings && state.settings.tutorialSeenSteps) || [];
-    tutorialActive = startTutorialIfNeeded('main', seen, () => { tutorialActive = false; });
-  }
+  maybeStartTutorial();
 });
 ipcRenderer.send('action', { type: 'get-state' });
 
