@@ -548,8 +548,8 @@ function bgAlphaFromOpacity(op) {
 function applyTranslucency(win) {
   if (!win || win.isDestroyed()) return;
   try { win.setOpacity(1); } catch {}
-  try { win.setBackgroundColor('#00000000'); } catch {}   // mantiene la transparencia del cristal
-  try { win.setBackgroundMaterial('acrylic'); } catch {}  // blur SIEMPRE
+  try { win.setBackgroundColor('#00000000'); } catch {}   // deja ver el material de debajo
+  try { win.setBackgroundMaterial('acrylic'); } catch {}  // blur del sistema
 }
 
 function applyTranslucencyAll() {
@@ -672,7 +672,13 @@ function makeWindow(file, w, h, opts = {}) {
     x: posX, y: posY,
     minWidth: Math.min(designMinW, cappedMaxW), minHeight: Math.min(designMinH, cappedMaxH),
     maxWidth: cappedMaxW, maxHeight: cappedMaxH,
-    frame: false, transparent: true, hasShadow: false,
+    // OJO: en Windows, backgroundMaterial (el acrílico que da el desenfoque) se ignora
+    // si la ventana es transparent:true. Estaba así, de modo que el "blur" nunca existió
+    // y solo se veía el tinte con alfa. Con transparent:false + backgroundColor
+    // transparente + backgroundMaterial, el sistema sí difumina lo que hay detrás, y las
+    // esquinas las redondea el propio Windows (roundedCorners).
+    frame: false, transparent: false, hasShadow: false,
+    backgroundColor: '#00000000', backgroundMaterial: 'acrylic',
     resizable: true, roundedCorners: true,
     icon: APP_ICON_PATH,
     ...restOpts,

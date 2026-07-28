@@ -65,7 +65,7 @@
 
   /* Mantener pulsado ~2 s "arma" el arrastre: la barrita late para avisar de que va a
      poder moverse (así un clic normal nunca se confunde con querer moverla). */
-  .dock-bar.arming { animation:barArming 2s cubic-bezier(.4,0,.6,1) forwards; }
+  .dock-bar.arming { animation:barArming .65s cubic-bezier(.4,0,.6,1) forwards; }
   @keyframes barArming {
     0%   { opacity:var(--bar-opacity); filter:none; }
     100% { opacity:1; filter:brightness(1.5) drop-shadow(0 0 10px var(--bar-color)); }
@@ -122,12 +122,12 @@
   .a-top    .dock-hide { left:50%; margin-left:-17px; top:calc(var(--panel-h) + 12px); }
   .a-bottom .dock-hide { left:50%; margin-left:-17px; bottom:calc(var(--panel-h) + 12px); }
   .a-left   .dock-hide svg { transform:scaleX(-1); }
-  .a-top    .dock-hide svg { transform:rotate(90deg); }
-  .a-bottom .dock-hide svg { transform:rotate(-90deg); }
+  .a-top    .dock-hide svg { transform:rotate(-90deg); }
+  .a-bottom .dock-hide svg { transform:rotate(90deg); }
   .a-right  .dock-hide:hover svg { transform:translateX(2px); }
   .a-left   .dock-hide:hover svg { transform:scaleX(-1) translateX(2px); }
-  .a-top    .dock-hide:hover svg { transform:rotate(90deg) translateX(2px); }
-  .a-bottom .dock-hide:hover svg { transform:rotate(-90deg) translateX(2px); }
+  .a-top    .dock-hide:hover svg { transform:rotate(-90deg) translateX(2px); }
+  .a-bottom .dock-hide:hover svg { transform:rotate(90deg) translateX(2px); }
 
   /* ── Tirador para redimensionar el panel ─────────────────── */
   .dock-resize { position:absolute; z-index:5; }
@@ -292,9 +292,9 @@ function collapse() {
   ipcRenderer.send('action', { type:'dock-collapsed' });
 }
 // ---- Barrita: clic para desplegar, pulsación larga para moverla de sitio ----
-// Se exige mantener pulsado ~2 s antes de poder arrastrarla para que un clic normal
-// (que es lo habitual) no la mueva sin querer.
-const HOLD_MS = 2000;
+// Se exige mantener pulsado un poco antes de poder arrastrarla para que un clic normal
+// (que es lo habitual) no la mueva sin querer, pero sin que se haga pesado.
+const HOLD_MS = 650;
 const CLICK_SLOP = 6;      // px de margen para seguir considerándolo un clic
 let barDrag = null;
 
