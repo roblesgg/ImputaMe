@@ -14,7 +14,7 @@
 
   .panel {
     position:absolute; inset:0; display:flex; flex-direction:column;
-    background:var(--bg);            /* solo tinte: el desenfoque lo pone el acrílico */
+    background:var(--panel, var(--surface));   /* solo tinte: el desenfoque lo pone el acrílico */
     border:1px solid var(--border);
     overflow:hidden;
     transition:transform .28s cubic-bezier(.32,.72,0,1);

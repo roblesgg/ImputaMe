@@ -1,4 +1,4 @@
 {
-  "version": "2.0.8",
-  "notes": "La barrita vuelve a verse mientras la configuras: al pasar el panel a su propia ventana, esta le tapaba justo el borde donde vive. Y el botón Aplicar de Ajustes ya no cierra ni te saca de la pantalla de ajustes: aplica y te deja seguir tocando."
+  "version": "2.0.9",
+  "notes": "Nueva opción Betatester en Ajustes: actívala para recibir todas las versiones nada más publicarse, incluidas las de prueba; si la dejas apagada solo te llegarán las marcadas como estables. Revisada la transparencia: el desenfoque de Windows trae su propio tinte grisáceo, así que al bajar mucho el nuestro el resultado se veía lavado; ahora el color de tu tema manda en todo el recorrido. Y todos los controles de Ajustes se aplican al momento, sin tener que pulsar Aplicar."
 }

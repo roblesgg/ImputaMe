@@ -119,6 +119,10 @@ let settings = {
   dockCloseMode: 'button',  // 'button' | 'clickOutside' | 'mouseLeave'
   dockCloseSeconds: 3,      // con 'mouseLeave', segundos fuera antes de esconderse
   blurEnabled: true,        // difuminado del fondo (acrílico de Windows) sí/no
+  // Canal de actualizaciones. Con betaUpdates, llegan TODAS las versiones que se publican
+  // (las de prueba van marcadas como "prerelease" en GitHub); sin él, solo las marcadas
+  // como estables.
+  betaUpdates: false,
   dockCalendarWidth: 1180, // el calendario se abre bastante más ancho (y se puede estirar)
   lastView: 'panel',    // última vista abierta: la app vuelve a abrirse por donde la dejaste
 };
@@ -541,10 +545,11 @@ function scheduleWidgetAutoHide() {
 // aparece el "gris" de togglear el material en caliente.
 function bgAlphaFromOpacity(op) {
   const x = Math.max(0, Math.min(100, op == null ? 50 : Number(op))) / 100;
-  // Un poco más de recorrido que el original (0.20..0.92) pero sin llegar a dejar la
-  // ventana ilegible por abajo. El blur no depende de esto: lo pone el material acrílico
-  // (y en el panel del dock, un backdrop-filter), así que se mantiene en todo el rango.
-  return (0.18 + x * 0.78).toFixed(3);
+  // El acrílico de Windows YA pone su propio tinte (grisáceo). Si nuestro tinte baja
+  // demasiado, manda el suyo y el resultado se ve lavado/blanquecino en vez de "tu color
+  // con el fondo difuminado". Por eso el mínimo no baja de ~0.30: en todo el recorrido
+  // se sigue viendo el color del tema, cambiando cuánto se transparenta.
+  return (0.30 + x * 0.64).toFixed(3);
 }
 
 function applyTranslucency(win) {
@@ -589,7 +594,7 @@ function themeVars() {
   // un suelo bastante alto: con el alfa general (que puede bajar mucho) se transparentaba
   // tanto que no se leía nada y se perdían los bordes.
   const x = Math.max(0, Math.min(100, settings.bgOpacity == null ? 50 : Number(settings.bgOpacity))) / 100;
-  const panelAlpha = (0.66 + x * 0.32).toFixed(3);
+  const panelAlpha = (0.44 + x * 0.52).toFixed(3);
   return {
     key: settings.theme,
     bg: `rgba(${t.base},${bgAlphaFromOpacity(settings.bgOpacity)})`,
@@ -1228,6 +1233,18 @@ ipcMain.on('action', (event, { type, payload }) => {
         if (wasVisible) showDockPanel();
       }
       break;
+    // Aplicar un ajuste suelto al momento (los controles de Ajustes no deben esperar a
+    // que se pulse "Aplicar" para verse).
+    case 'set-setting': {
+      const key = payload && payload.key;
+      if (!key || !(key in settings)) break;
+      settings[key] = payload.value;
+      saveSettingsSoon();
+      if (key === 'reminderMinutes' || key === 'widgetAutoHide' || key === 'widgetAutoHideSeconds') resetReminderTimer();
+      if (key === 'openAtLogin') applyLoginItem();
+      broadcastState();   // p. ej. colorMode lo usan los selectores de color
+      break;
+    }
     case 'set-bg-opacity':
       settings.bgOpacity = Math.max(0, Math.min(100, Number(payload.value)));
       saveSettings(); applyTranslucencyAll();
@@ -1383,6 +1400,15 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'update-install':  if (autoUpdater) setImmediate(() => autoUpdater.quitAndInstall()); break;
     case 'close-update':    if (updateWin && !updateWin.isDestroyed()) updateWin.close(); break;
     case 'check-for-updates': checkForUpdates(true); break;   // botón "Buscar actualizaciones" de Ajustes
+    case 'set-beta-updates':
+      settings.betaUpdates = !!(payload && payload.enabled);
+      saveSettings();
+      if (autoUpdater) {
+        autoUpdater.allowPrerelease = settings.betaUpdates;
+        lastAutoCheckAt = 0;              // que la próxima comprobación no la frene el límite
+        checkForUpdates(true);            // mirar ya en el canal nuevo
+      }
+      break;
     case 'get-state':     event.reply('state', getSerializableState()); break;
   }
 });
@@ -1566,6 +1592,7 @@ function setupAutoUpdate() {
   // instantáneo y no hay que esperar la descarga ni cerrar y abrir la app a mano.
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = !!settings.betaUpdates;   // canal betatester
 
   autoUpdater.on('update-available', (info) => {
     manualCheck = false;
