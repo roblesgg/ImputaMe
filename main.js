@@ -826,6 +826,33 @@ function createDockPanel() {
 
 // Le dice a la ventana de la barrita cómo de grande es AHORA el panel, para que coloque
 // su botón de esconder justo por fuera (el calendario es bastante más ancho que el resto).
+// Anima el cambio de tamaño/posición de una ventana. Hace falta porque al pasar del
+// panel normal al calendario (mucho más ancho) la ventana daba un salto seco; Electron
+// solo sabe animar bounds en macOS, así que se interpola a mano.
+function animateWindowBounds(win, target, ms = 260) {
+  if (!win || win.isDestroyed()) return;
+  let from;
+  try { from = win.getBounds(); } catch { return; }
+  if (win.__boundsTween) { clearInterval(win.__boundsTween); win.__boundsTween = null; }
+  if (from.x === target.x && from.y === target.y && from.width === target.width && from.height === target.height) return;
+
+  const start = Date.now();
+  const ease = (t) => 1 - Math.pow(1 - t, 3);   // suave al final, como el resto de la app
+  win.__boundsTween = setInterval(() => {
+    if (!win || win.isDestroyed()) { clearInterval(win.__boundsTween); return; }
+    const t = Math.min(1, (Date.now() - start) / ms);
+    const k = ease(t);
+    const b = {
+      x: Math.round(from.x + (target.x - from.x) * k),
+      y: Math.round(from.y + (target.y - from.y) * k),
+      width: Math.round(from.width + (target.width - from.width) * k),
+      height: Math.round(from.height + (target.height - from.height) * k),
+    };
+    try { win.setBounds(b); } catch {}
+    if (t >= 1) { clearInterval(win.__boundsTween); win.__boundsTween = null; }
+  }, 16);
+}
+
 function sendPanelSizeToBar() {
   if (!dockWin || dockWin.isDestroyed()) return;
   let b = null;
@@ -1302,9 +1329,9 @@ ipcMain.on('action', (event, { type, payload }) => {
         rememberView(payload.view);
         // El calendario tiene su propio ancho: al cambiar de vista se reajusta.
         if (dockPanelWin && !dockPanelWin.isDestroyed()) {
-          try { dockPanelWin.setBounds(computePanelBounds(dockPanelView)); } catch {}
+          animateWindowBounds(dockPanelWin, computePanelBounds(dockPanelView));
         }
-        sendPanelSizeToBar();
+        sendPanelSizeToBar();   // el botón de esconder se recoloca con su propia transición
       }
       break;
     case 'dock-panel-resize':

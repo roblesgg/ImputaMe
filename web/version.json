@@ -1,4 +1,4 @@
 {
-  "version": "2.0.10",
-  "notes": "Arreglado que al abrir el Calendario desapareciera el botón de esconder: la barrita colocaba ese botón según el ancho normal del panel y, siendo el calendario mucho más ancho, quedaba detrás. Ahora se le pasa el tamaño real del panel y el botón se recoloca solo, con animación. Añadidas animaciones al cambiar de pestaña: la vista entra y sale con un desplazamiento en el sentido del cambio y el botón de la pestaña activa reacciona."
+  "version": "2.0.11",
+  "notes": "Versión de prueba (canal betatester). El panel flotante ahora cambia de tamaño con animación al pasar del panel al calendario y viceversa, en vez de dar un salto seco. Y al aplicar ajustes aparece un aviso animado de \"Cambios aplicados\"; las copias de seguridad usan ese mismo aviso en lugar de ventanas emergentes."
 }

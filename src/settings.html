@@ -164,6 +164,31 @@
   }
   .footer button { flex:1;padding:13px 16px;font-size:14px;font-weight:600;border-radius:12px; }
 
+  /* Aviso de "cambios aplicados": aparece un momento y se va solo. */
+  .toast {
+    position:fixed; left:50%; bottom:86px; transform:translateX(-50%) translateY(14px) scale(.94);
+    z-index:40; display:flex; align-items:center; gap:9px;
+    background:color-mix(in srgb, var(--surface) 96%, transparent);
+    border:1px solid color-mix(in srgb, var(--success) 45%, transparent);
+    color:var(--text); font-size:13px; font-weight:600;
+    padding:11px 16px; border-radius:999px;
+    box-shadow:0 8px 28px rgba(0,0,0,.45);
+    opacity:0; pointer-events:none;
+    transition:opacity .22s ease, transform .32s cubic-bezier(.34,1.5,.5,1);
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+  .toast .check {
+    width:20px; height:20px; border-radius:50%; flex-shrink:0;
+    background:var(--success); color:#0f2a20;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .toast.show .check svg { animation:checkPop .42s cubic-bezier(.34,1.6,.5,1); }
+  @keyframes checkPop {
+    0%   { transform:scale(0) rotate(-25deg); }
+    60%  { transform:scale(1.25) rotate(6deg); }
+    100% { transform:scale(1) rotate(0); }
+  }
+
   /* Popup de conflictos al restaurar copia */
   .entry-popup.wide { width:min(440px, 92vw); }
   .conflict-row {
@@ -402,6 +427,13 @@
         <button class="btn-ghost" id="accountBtn" style="padding:11px;border-radius:10px" onclick="openSync()">Iniciar sesión para sincronizar…</button>
       </div>
     </div>
+  </div>
+
+  <div class="toast" id="toast">
+    <span class="check">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+    </span>
+    <span id="toastText">Cambios aplicados</span>
   </div>
 
   <div class="footer">
@@ -689,7 +721,20 @@ function save() {
     dockCloseMode,
     dockCloseSeconds: parseInt(document.getElementById('dockCloseSeconds').value) || 3,
   } });
+  showToast('Cambios aplicados');
 }
+let toastTimer = null;
+function showToast(text) {
+  const el = document.getElementById('toast');
+  document.getElementById('toastText').textContent = text || 'Cambios aplicados';
+  el.classList.remove('show');
+  // Reinicia la animación aunque se pulse varias veces seguidas.
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1900);
+}
+
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
 function startTutorial() { ipcRenderer.send('action', { type:'reset-tutorial' }); cancel(); }
 function checkUpdates() { ipcRenderer.send('action', { type:'check-for-updates' }); }
@@ -699,7 +744,7 @@ async function exportBackup() {
   const r = await ipcRenderer.invoke('export-backup');
   if (!r || r.canceled) return;
   if (!r.ok) { alert('No se pudo exportar la copia: ' + (r.error || '')); return; }
-  alert('Copia guardada en:\n' + r.path);
+  showToast('Copia guardada');
 }
 
 let importConflicts = [];
@@ -711,7 +756,7 @@ async function importBackup() {
   if (!r.ok) { alert('No se pudo leer la copia: ' + (r.error || '')); return; }
   if (!r.conflicts.length) {
     const res = await ipcRenderer.invoke('apply-import-backup', { resolutions: {} });
-    if (res.ok) alert(`Copia restaurada: ${r.newCount} nueva(s), ${r.sameCount} ya estaban igual.`);
+    if (res.ok) showToast(`Copia restaurada · ${r.newCount} nueva(s)`);
     else alert('No se pudo restaurar: ' + (res.error || ''));
     return;
   }
@@ -774,7 +819,7 @@ function closeImportPopup() {
 async function confirmImport() {
   const res = await ipcRenderer.invoke('apply-import-backup', { resolutions: importResolutions });
   closeImportPopup();
-  if (res.ok) alert('Copia restaurada.');
+  if (res.ok) showToast('Copia restaurada');
   else alert('No se pudo restaurar: ' + (res.error || ''));
 }
 
