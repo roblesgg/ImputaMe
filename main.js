@@ -75,6 +75,9 @@ let syncWin = null;
 let updateWin = null;
 let dockWin = null;              // barra flotante lateral (modo dock, opcional)
 let dockExpanded = false;
+let dockHitRects = [];           // zonas "clicables" del dock, en coords de su ventana
+let dockHitTimer = null;
+let dockIgnoring = null;
 let pendingUpdateState = null;   // último estado enviado a la ventana de actualización
 let updateInfo = null;           // { version } si hay una actualización disponible (para el botón del panel)
 let syncStatus = { loggedIn: false, email: null };
@@ -731,6 +734,28 @@ function sendDockConfig() {
   else send();
 }
 
+// Decide si el dock captura el ratón o deja pasar los clics al escritorio, mirando dónde
+// está el cursor de verdad. Se hace desde el proceso principal (y no con mousemove en la
+// página) porque el ratón sobre un iframe NO genera eventos en el documento que lo
+// contiene: al entrar directo sobre el calendario, la ventana se quedaba en modo "dejar
+// pasar los clics" y no se podía pulsar nada.
+function setDockIgnore(ignore) {
+  if (ignore === dockIgnoring) return;
+  dockIgnoring = ignore;
+  if (dockWin && !dockWin.isDestroyed()) {
+    try { dockWin.setIgnoreMouseEvents(ignore, { forward: true }); } catch {}
+  }
+}
+
+function updateDockHitTest() {
+  if (!dockWin || dockWin.isDestroyed()) return;
+  let p, b;
+  try { p = screen.getCursorScreenPoint(); b = dockWin.getBounds(); } catch { return; }
+  const x = p.x - b.x, y = p.y - b.y;
+  const inside = dockHitRects.some(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+  setDockIgnore(!inside);
+}
+
 function createDock() {
   if (dockWin && !dockWin.isDestroyed()) return;
   dockWin = new BrowserWindow({
@@ -744,11 +769,17 @@ function createDock() {
   dockExpanded = false;
   // Sin acrílico ni insertCSS de --bg: la ventana es transparente de verdad; el panel del
   // dock pinta su propio fondo. Arranca dejando pasar los clics (solo la barra captura).
-  try { dockWin.setIgnoreMouseEvents(true, { forward: true }); } catch {}
+  dockHitRects = []; dockIgnoring = null;
+  setDockIgnore(true);
+  if (dockHitTimer) clearInterval(dockHitTimer);
+  dockHitTimer = setInterval(updateDockHitTest, 60);
   dockWin.loadFile(path.join(__dirname, 'src', 'dock.html'));
   sendDockConfig();
   dockWin.once('ready-to-show', () => { if (dockWin && !dockWin.isDestroyed()) dockWin.showInactive(); });
-  dockWin.on('closed', () => { dockWin = null; dockExpanded = false; });
+  dockWin.on('closed', () => {
+    if (dockHitTimer) { clearInterval(dockHitTimer); dockHitTimer = null; }
+    dockWin = null; dockExpanded = false; dockHitRects = []; dockIgnoring = null;
+  });
 
   // Red de seguridad: la ventana cubre toda el área de trabajo, y quien decide si los
   // clics pasan al escritorio es el renderer. Si el renderer se cuelga o se muere, esa
@@ -765,8 +796,9 @@ function createDock() {
 }
 
 function destroyDock() {
+  if (dockHitTimer) { clearInterval(dockHitTimer); dockHitTimer = null; }
   if (dockWin && !dockWin.isDestroyed()) dockWin.close();
-  dockWin = null; dockExpanded = false;
+  dockWin = null; dockExpanded = false; dockHitRects = []; dockIgnoring = null;
 }
 
 // Reposiciona el dock y le reenvía la config (pantalla, lado, grosor, color...).
@@ -1048,10 +1080,9 @@ ipcMain.on('action', (event, { type, payload }) => {
       if (settings.dockMode && dockWin && !dockWin.isDestroyed()) dockWin.webContents.send('dock-collapse');
       else if (mainWin && !mainWin.isDestroyed()) mainWin.hide();
       break;
-    case 'dock-set-ignore-mouse':
-      if (dockWin && !dockWin.isDestroyed()) {
-        try { dockWin.setIgnoreMouseEvents(!!(payload && payload.ignore), { forward: true }); } catch {}
-      }
+    case 'dock-hit-rects':
+      dockHitRects = (payload && Array.isArray(payload.rects)) ? payload.rects : [];
+      updateDockHitTest();
       break;
     case 'dock-focus':
       checkForUpdatesIfStale();

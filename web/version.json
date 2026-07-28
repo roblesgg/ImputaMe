@@ -1,4 +1,4 @@
 {
   "version": "1.2.34",
-  "notes": "Arreglado que la app dejara de avisar de nuevas versiones al usarla: desde la 1.2.32, abrir la app por la última vista o usar la barra flotante ya no disparaba la comprobación (solo quedaba el temporizador de fondo). Ahora se comprueba al volver a la app por cualquier vía, incluido desplegar la barrita. Además, el aviso de actualización se pone por delante de la barra flotante para que no quede tapado."
+  "notes": "Arreglado que a veces no se pudiera hacer clic en las tareas del calendario dentro de la barra flotante: si el cursor entraba directo sobre el calendario, la ventana se quedaba dejando pasar los clics al escritorio. Y arreglado que la app dejara de avisar de versiones nuevas al usarla (desde la 1.2.32 solo quedaba el temporizador de fondo); ahora vuelve a comprobarlo al volver a la app, incluido al desplegar la barrita."
 }

@@ -165,31 +165,44 @@ ipcRenderer.on('dock-config', (_, c) => {
   ANCHORS.forEach(a => root.classList.remove('a-' + a));
   root.classList.add('a-' + (ANCHORS.includes(c.anchor) ? c.anchor : 'right'));
   applyPanelSize();
+  sendHitRects();
 });
 
-// ---- Click-through + revelado de la barrita por cercanía ----
-// La ventana cubre la pantalla, así que por defecto los clics pasan al escritorio; solo
-// capturamos cuando el ratón está sobre la barrita o (desplegado) sobre el panel.
-let lastIgnore = null;
-function setIgnore(ig) {
-  if (ig === lastIgnore) return;
-  lastIgnore = ig;
-  ipcRenderer.send('action', { type:'dock-set-ignore-mouse', payload:{ ignore: ig } });
+// ---- Zonas "clicables" ----
+// La ventana cubre la pantalla, así que por defecto los clics pasan al escritorio y solo
+// se capturan sobre la barrita o (desplegado) sobre el panel. QUIÉN decide eso es el
+// proceso principal, mirando dónde está el cursor: aquí solo le mandamos los rectángulos.
+// Antes se decidía en esta página con mousemove, pero los eventos del ratón DENTRO de un
+// iframe no llegan al documento que lo contiene, así que si el cursor entraba directo
+// sobre el calendario (sin pasar por la barra de navegación) la ventana se quedaba en
+// "dejar pasar los clics" y no se podía pulsar nada.
+let lastRectsJson = '';
+function sendHitRects() {
+  const rects = [];
+  const push = (el) => {
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) rects.push({ x:Math.round(r.left), y:Math.round(r.top), w:Math.round(r.width), h:Math.round(r.height) });
+  };
+  if (!expanded) push(bar);            // plegado: solo la barrita
+  else push(document.getElementById('dockPanel'));   // desplegado: todo el panel
+  const json = JSON.stringify(rects);
+  if (json === lastRectsJson) return;
+  lastRectsJson = json;
+  ipcRenderer.send('action', { type:'dock-hit-rects', payload:{ rects } });
 }
-document.addEventListener('mousemove', (e) => {
-  if (resizeState) return;   // mientras se arrastra el tirador, la ventana debe capturar
+// Se reenvían periódicamente (es barato) para cubrir también el final de las animaciones
+// y cualquier cambio de tamaño que no pase por los eventos de abajo.
+setInterval(sendHitRects, 180);
 
-  // Distancia del ratón a la barrita, para revelarla al acercarse.
+// Revelado de la barrita al acercar el ratón (esto sí funciona con mousemove: cuando está
+// plegada no hay panel ni iframe por medio).
+document.addEventListener('mousemove', (e) => {
+  if (expanded) return;
   const r = bar.getBoundingClientRect();
   const dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
   const dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
-  const near = Math.hypot(dx, dy) < NEAR_PX;
-  bar.classList.toggle('near', near && !expanded);
-
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  setIgnore(!(el && el.closest('.dock-bar, .dock-panel')));
+  bar.classList.toggle('near', Math.hypot(dx, dy) < NEAR_PX);
 });
-setIgnore(true);
 
 function setActiveNav(view) {
   document.querySelectorAll('.dock-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -200,14 +213,14 @@ function expand() {
   expanded = true;
   root.classList.add('expanded');
   bar.classList.remove('near');
-  setIgnore(false);
+  sendHitRects();
   ipcRenderer.send('action', { type:'dock-focus' });
 }
 function collapse() {
   if (!expanded) return;
   expanded = false;
   root.classList.remove('expanded');
-  setIgnore(true);
+  sendHitRects();
 }
 bar.addEventListener('click', () => { expanded ? collapse() : expand(); });
 
