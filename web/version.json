@@ -1,4 +1,4 @@
 {
-  "version": "2.0.6",
-  "notes": "El panel de la barra flotante ya desenfoca de verdad el fondo. La causa era de fondo: en Windows el efecto acrílico se ignora en ventanas transparentes, y el panel iba dentro de la ventana transparente de la barrita (que tiene que serlo para dejar pasar los clics al escritorio). Ahora el panel tiene su propia ventana con acrílico, así que al bajar la opacidad se ve el escritorio desenfocado con el tinte de tu tema, conservando bordes y esquinas redondeadas."
+  "version": "2.0.7",
+  "notes": "Arreglado que el fondo se volviera blanquecino en vez de difuminarse: el desenfoque lo pinta Windows y estaba cogiendo el tinte claro del sistema, así que ahora se le fuerza a seguir el tema que tengas elegido en la app. Además, el difuminado tiene ya su propio interruptor en Ajustes, separado del deslizador de transparencia."
 }

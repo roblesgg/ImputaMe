@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -118,6 +118,7 @@ let settings = {
   dockPanelHeight: 620, // alto del panel cuando se ancla arriba/abajo (más generoso: hay ancho de sobra)
   dockCloseMode: 'button',  // 'button' | 'clickOutside' | 'mouseLeave'
   dockCloseSeconds: 3,      // con 'mouseLeave', segundos fuera antes de esconderse
+  blurEnabled: true,        // difuminado del fondo (acrílico de Windows) sí/no
   dockCalendarWidth: 1180, // el calendario se abre bastante más ancho (y se puede estirar)
   lastView: 'panel',    // última vista abierta: la app vuelve a abrirse por donde la dejaste
 };
@@ -550,12 +551,24 @@ function applyTranslucency(win) {
   if (!win || win.isDestroyed()) return;
   try { win.setOpacity(1); } catch {}
   try { win.setBackgroundColor('#00000000'); } catch {}   // deja ver el material de debajo
-  try { win.setBackgroundMaterial('acrylic'); } catch {}  // blur del sistema
+  // 'acrylic' = difuminado del sistema; 'none' = sin difuminar (solo el tinte).
+  try { win.setBackgroundMaterial(settings.blurEnabled === false ? 'none' : 'acrylic'); } catch {}
+}
+
+// El acrílico lo pinta Windows y toma su tinte del modo claro/oscuro DEL SISTEMA: con
+// Windows en claro salía blanquecino aunque el tema de la app fuese oscuro. Forzando el
+// themeSource a juego con el tema elegido, el difuminado sale del color correcto.
+function applySystemThemeSource() {
+  const t = THEMES[settings.theme] || THEMES[DEFAULT_THEME];
+  try { nativeTheme.themeSource = t.scheme === 'light' ? 'light' : 'dark'; } catch {}
 }
 
 function applyTranslucencyAll() {
-  // El dock NO lleva acrílico (ver createDock): se excluye a propósito.
-  [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin].forEach(w => applyTranslucency(w));
+  applySystemThemeSource();
+  // La ventana de la barrita NO lleva material (es transparente a propósito); la del
+  // panel sí, y por eso puede difuminar.
+  [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin, dockPanelWin]
+    .forEach(w => applyTranslucency(w));
   broadcastTheme();
 }
 
@@ -680,7 +693,8 @@ function makeWindow(file, w, h, opts = {}) {
     // transparente + backgroundMaterial, el sistema sí difumina lo que hay detrás, y las
     // esquinas las redondea el propio Windows (roundedCorners).
     frame: false, transparent: false, hasShadow: false,
-    backgroundColor: '#00000000', backgroundMaterial: 'acrylic',
+    backgroundColor: '#00000000',
+    backgroundMaterial: settings.blurEnabled === false ? 'none' : 'acrylic',
     resizable: true, roundedCorners: true,
     icon: APP_ICON_PATH,
     ...restOpts,
@@ -786,7 +800,8 @@ function createDockPanel() {
     // SIN transparent: en Windows el acrílico (lo que difumina el fondo de verdad) se
     // ignora en ventanas transparentes. Por eso el panel salió de la ventana de la
     // barrita, que sí tiene que ser transparente para dejar pasar los clics.
-    transparent: false, backgroundColor: '#00000000', backgroundMaterial: 'acrylic',
+    transparent: false, backgroundColor: '#00000000',
+    backgroundMaterial: settings.blurEnabled === false ? 'none' : 'acrylic',
     resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true, roundedCorners: true,
     icon: APP_ICON_PATH,
     webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true },
@@ -1203,6 +1218,18 @@ ipcMain.on('action', (event, { type, payload }) => {
       else if (!settings.dockMode && settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
       break;
     }
+    case 'set-blur':
+      settings.blurEnabled = !!(payload && payload.enabled);
+      saveSettings();
+      // El material solo se puede cambiar en caliente en algunas ventanas; el panel del
+      // dock se recrea para que el cambio se vea seguro.
+      applyTranslucencyAll();
+      if (dockPanelWin && !dockPanelWin.isDestroyed()) {
+        const wasVisible = dockPanelWin.isVisible();
+        dockPanelWin.close(); dockPanelWin = null;
+        if (wasVisible) showDockPanel();
+      }
+      break;
     case 'set-bg-opacity':
       settings.bgOpacity = Math.max(0, Math.min(100, Number(payload.value)));
       saveSettings(); applyTranslucencyAll();
@@ -1329,6 +1356,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'set-theme':
       if (payload && payload.theme !== undefined) {
         settings.theme = THEMES[payload.theme] ? payload.theme : DEFAULT_THEME;
+        applySystemThemeSource();
       }
       if (payload && payload.accent !== undefined) {
         settings.accent = ACCENTS[payload.accent] ? payload.accent : null;   // null = el del tema
@@ -1601,6 +1629,7 @@ app.whenReady().then(() => {
   DATA_FILE = path.join(app.getPath('userData'), 'imputa-tasks.json');
   SETTINGS_FILE = path.join(app.getPath('userData'), 'imputa-settings.json');
   loadData();
+  applySystemThemeSource();
 
   // Sincronización opcional (Supabase). Si hay sesión guardada, arranca sola.
   if (sync) sync.init({

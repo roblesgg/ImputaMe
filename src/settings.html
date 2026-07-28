@@ -247,6 +247,17 @@
       </div>
       <div class="row">
         <div class="row-text">
+          <span class="row-title">Difuminar el fondo</span>
+          <span class="row-desc">Desenfoca lo que hay detrás de la app. Lo hace Windows, así que la intensidad la marca el sistema: aquí se enciende o se apaga.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="blurEnabled">
+          <span class="switch-track"></span>
+          <span class="switch-knob"></span>
+        </label>
+      </div>
+      <div class="row">
+        <div class="row-text">
           <span class="row-title">Colores manuales</span>
           <span class="row-desc">Elegir tú el color de cada tarea nueva.</span>
         </div>
@@ -596,6 +607,7 @@ ipcRenderer.on('settings', (_, s) => {
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
   document.getElementById('openAtLogin').checked = !!s.openAtLogin;
   document.getElementById('bgOpacity').value = (s.bgOpacity == null ? 50 : s.bgOpacity);
+  document.getElementById('blurEnabled').checked = s.blurEnabled !== false;
 
   const secs = Math.max(2, Math.min(60, s.widgetAutoHideSeconds || 10));
   document.getElementById('autohideRange').value = secs;
@@ -643,6 +655,7 @@ function save() {
     colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',
     openAtLogin: document.getElementById('openAtLogin').checked,
     bgOpacity: parseInt(document.getElementById('bgOpacity').value) || 0,
+    blurEnabled: document.getElementById('blurEnabled').checked,
     theme: currentTheme,
     accent: currentAccent,
     dockMode: document.getElementById('dockMode').checked,
