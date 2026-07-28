@@ -22,7 +22,7 @@
   .dock-panel {
     position:absolute;
     display:flex; flex-direction:column;
-    background:color-mix(in srgb, var(--surface) 95%, transparent);
+    background:var(--bg);
     backdrop-filter:blur(30px) saturate(160%);
     -webkit-backdrop-filter:blur(30px) saturate(160%);
     border:1px solid var(--border);
@@ -97,9 +97,38 @@
   .dock-root.expanded.preview-bar .dock-bar { opacity:var(--bar-opacity); pointer-events:auto; }
   .preview-bar .dock-bar { box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 2px 10px rgba(0,0,0,.35); }
 
+  /* ── Asa para esconder, en el borde que mira al centro de la pantalla ────── */
+  .dock-hide {
+    position:absolute; z-index:8; display:flex; align-items:center; justify-content:center;
+    background:var(--bg3); border:1px solid var(--border); color:var(--text2);
+    cursor:pointer; padding:0;
+    transition:background .18s, color .18s, transform .28s cubic-bezier(.34,1.5,.5,1), box-shadow .18s;
+  }
+  .dock-hide svg { transition:transform .28s cubic-bezier(.34,1.5,.5,1); }
+  .dock-hide:hover { background:var(--accent2); color:#fff; box-shadow:0 0 16px color-mix(in srgb, var(--accent2) 55%, transparent); }
+  /* Laterales: pastilla vertical pegada al borde interior. */
+  .a-right .dock-hide, .a-left .dock-hide { top:50%; width:20px; height:74px; margin-top:-37px; }
+  .a-right .dock-hide { left:-1px; border-radius:12px 0 0 12px; border-right:none; }
+  .a-left  .dock-hide { right:-1px; border-radius:0 12px 12px 0; border-left:none; }
+  .a-right .dock-hide:hover { transform:translateX(-4px); }
+  .a-left  .dock-hide:hover { transform:translateX(4px); }
+  .a-left  .dock-hide svg { transform:scaleX(-1); }
+  /* Arriba/abajo: pastilla horizontal. */
+  .a-top .dock-hide, .a-bottom .dock-hide { left:50%; height:20px; width:74px; margin-left:-37px; }
+  .a-top    .dock-hide { bottom:-1px; border-radius:0 0 12px 12px; border-top:none; }
+  .a-bottom .dock-hide { top:-1px; border-radius:12px 12px 0 0; border-bottom:none; }
+  .a-top    .dock-hide:hover { transform:translateY(4px); }
+  .a-bottom .dock-hide:hover { transform:translateY(-4px); }
+  .a-top    .dock-hide svg { transform:rotate(90deg); }
+  .a-bottom .dock-hide svg { transform:rotate(-90deg); }
+  .a-top    .dock-hide:hover svg { transform:rotate(90deg) scale(1.25); }
+  .a-bottom .dock-hide:hover svg { transform:rotate(-90deg) scale(1.25); }
+  .a-right  .dock-hide:hover svg { transform:scale(1.25); }
+  .a-left   .dock-hide:hover svg { transform:scaleX(-1) scale(1.25); }
+
   /* ── Tirador para redimensionar el panel ─────────────────── */
   .dock-resize { position:absolute; z-index:5; }
-  .a-right .dock-resize { top:0; bottom:0; left:0;  width:7px; cursor:ew-resize; }
+  .a-right .dock-resize { top:0; bottom:0; left:0;  width:7px; cursor:ew-resize; z-index:4; }
   .a-left  .dock-resize { top:0; bottom:0; right:0; width:7px; cursor:ew-resize; }
   .a-top    .dock-resize { left:0; right:0; bottom:0; height:7px; cursor:ns-resize; }
   .a-bottom .dock-resize { left:0; right:0; top:0;    height:7px; cursor:ns-resize; }
@@ -127,6 +156,9 @@
 <div class="dock-root a-right" id="dockRoot">
   <div class="dock-panel" id="dockPanel">
     <div class="dock-resize" id="dockResize" title="Arrastra para cambiar el tamaño"></div>
+    <button class="dock-hide" id="dockHide" onclick="collapse()" title="Esconder">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
     <div class="dock-nav">
       <button class="dock-nav-btn active" data-view="panel" onclick="navTo('panel')" title="Panel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
@@ -143,9 +175,6 @@
       <button class="dock-nav-btn" data-view="settings" onclick="navTo('settings')" title="Ajustes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Ajustes
-      </button>
-      <button class="dock-collapse" onclick="collapse()" title="Esconder">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
     </div>
     <div class="dock-content" id="dockContent">
@@ -253,6 +282,7 @@ function collapse() {
   expanded = false;
   root.classList.remove('expanded');
   sendHitRects();
+  ipcRenderer.send('action', { type:'dock-collapsed' });
 }
 // ---- Barrita: clic para desplegar, pulsación larga para moverla de sitio ----
 // Se exige mantener pulsado ~2 s antes de poder arrastrarla para que un clic normal

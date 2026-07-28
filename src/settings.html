@@ -111,14 +111,6 @@
   }
   .custom-color span { font-size:12px;color:var(--text2); }
 
-  /* Maqueta a escala de la pantalla, para ver la barrita mientras se ajusta (la de
-     verdad queda tapada por el propio panel cuando estás en Ajustes). */
-  .bar-preview {
-    position:relative;width:100%;height:132px;border-radius:10px;
-    background:repeating-linear-gradient(45deg, var(--bg2), var(--bg2) 8px, var(--bg3) 8px, var(--bg3) 16px);
-    border:1px dashed var(--border);overflow:hidden;
-  }
-  .bar-preview-bar { position:absolute;border-radius:999px;transition:none; }
 
   /* Rejilla de temas: cada uno se previsualiza con sus propios colores. */
   .theme-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:9px; }
@@ -283,9 +275,6 @@
         </label>
       </div>
       <div class="row-sub" id="dockOptionsWrap">
-        <span class="sub-label">Vista previa</span>
-        <div class="bar-preview" id="barPreview"><div class="bar-preview-bar" id="barPreviewBar"></div></div>
-
         <span class="sub-label">Borde de la pantalla</span>
         <div class="seg" id="dockAnchorSeg">
           <button type="button" data-anchor="left" onclick="setDockAnchor('left')">Izq.</button>
@@ -318,6 +307,17 @@
 
         <span class="sub-label">Pantalla</span>
         <select id="dockDisplay"></select>
+
+        <span class="sub-label">Cómo se esconde el panel</span>
+        <div class="seg" id="dockCloseSeg">
+          <button type="button" data-mode="button" onclick="setCloseMode('button')">Con el botón</button>
+          <button type="button" data-mode="clickOutside" onclick="setCloseMode('clickOutside')">Al clicar fuera</button>
+          <button type="button" data-mode="mouseLeave" onclick="setCloseMode('mouseLeave')">Al salir el ratón</button>
+        </div>
+        <div id="dockCloseSecondsRow" style="display:none;flex-direction:column;gap:6px">
+          <span class="sub-label">Segundos con el ratón fuera · <span id="dockCloseSecondsLabel">3s</span></span>
+          <input type="range" id="dockCloseSeconds" min="1" max="15" step="1" value="3">
+        </div>
 
         <span class="row-desc">El tamaño del panel se cambia arrastrando su borde interior cuando está desplegado.</span>
       </div>
@@ -494,12 +494,28 @@ document.getElementById('dockColorCustom').addEventListener('input', (e) => {
 
 function updateDockOptionsVisibility() {
   document.getElementById('dockOptionsWrap').classList.toggle('open', document.getElementById('dockMode').checked);
-  if (document.getElementById('dockMode').checked) requestAnimationFrame(renderBarPreview);
 }
 // El modo barra se aplica AL MOMENTO (no al Guardar): así se ve el efecto según lo tocas.
 document.getElementById('dockMode').addEventListener('change', (e) => {
   updateDockOptionsVisibility();
   ipcRenderer.send('action', { type:'set-dock-mode', payload:{ enabled: e.target.checked } });
+});
+
+let dockCloseMode = 'button';
+function setCloseModeUI(mode) {
+  dockCloseMode = ['button','clickOutside','mouseLeave'].includes(mode) ? mode : 'button';
+  document.querySelectorAll('#dockCloseSeg button').forEach(b => b.classList.toggle('active', b.dataset.mode === dockCloseMode));
+  document.getElementById('dockCloseSecondsRow').style.display = dockCloseMode === 'mouseLeave' ? 'flex' : 'none';
+}
+function setCloseMode(mode) {
+  dockCloseMode = mode;
+  document.querySelectorAll('#dockCloseSeg button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('dockCloseSecondsRow').style.display = mode === 'mouseLeave' ? 'flex' : 'none';
+  previewDock();
+}
+document.getElementById('dockCloseSeconds').addEventListener('input', (e) => {
+  document.getElementById('dockCloseSecondsLabel').textContent = e.target.value + 's';
+  previewDock();
 });
 
 function setDockAnchor(anchor) {
@@ -526,56 +542,8 @@ function buildDockSwatches() {
   });
 }
 
-// Dibuja la barrita en la maqueta, a escala real respecto a la pantalla elegida.
-function renderBarPreview() {
-  const box = document.getElementById('barPreview');
-  const el = document.getElementById('barPreviewBar');
-  if (!box || !el) return;
-
-  let disp = null;
-  try {
-    const scr = require('electron').screen;
-    const all = scr.getAllDisplays();
-    const sel = document.getElementById('dockDisplay').value;
-    disp = all.find(d => String(d.id) === sel) || scr.getPrimaryDisplay();
-  } catch {}
-  const workW = (disp && disp.workArea.width) || 1920;
-  const workH = (disp && disp.workArea.height) || 1080;
-
-  const boxW = box.clientWidth || 300, boxH = box.clientHeight || 132;
-  const sx = boxW / workW, sy = boxH / workH;
-
-  const w = parseInt(document.getElementById('dockBarWidth').value) || 7;
-  const len = parseInt(document.getElementById('dockBarLength').value) || 110;
-  const pos = parseInt(document.getElementById('dockBarPos').value);
-  const off = parseInt(document.getElementById('dockBarOffset').value) || 0;
-  const op = (parseInt(document.getElementById('dockBarOpacity').value) || 30) / 100;
-
-  el.style.cssText = 'position:absolute;border-radius:999px;';
-  el.style.background = dockColor;
-  el.style.opacity = op;
-
-  const vertical = dockAnchor === 'left' || dockAnchor === 'right';
-  if (vertical) {
-    el.style.width = Math.max(2, w * sx) + 'px';
-    el.style.height = Math.max(4, len * sy) + 'px';
-    el.style.top = (pos / 100 * boxH) + 'px';
-    el.style.transform = 'translateY(-50%)';
-    if (dockAnchor === 'right') el.style.right = (off * sx) + 'px';
-    else el.style.left = (off * sx) + 'px';
-  } else {
-    el.style.height = Math.max(2, w * sy) + 'px';
-    el.style.width = Math.max(4, len * sx) + 'px';
-    el.style.left = (pos / 100 * boxW) + 'px';
-    el.style.transform = 'translateX(-50%)';
-    if (dockAnchor === 'bottom') el.style.bottom = (off * sy) + 'px';
-    else el.style.top = (off * sy) + 'px';
-  }
-}
-
 // Vista previa en vivo de la barra (sin tener que darle a Guardar).
 function previewDock() {
-  renderBarPreview();
   const sel = document.getElementById('dockDisplay').value;
   ipcRenderer.send('action', { type:'set-dock-config', payload:{
     dockAnchor,
@@ -586,6 +554,8 @@ function previewDock() {
     dockBarOffset: parseInt(document.getElementById('dockBarOffset').value) || 0,
     dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 30,
     dockDisplayId: sel ? Number(sel) : null,
+    dockCloseMode,
+    dockCloseSeconds: parseInt(document.getElementById('dockCloseSeconds').value) || 3,
     // Hace que la barrita se vea aunque el panel esté abierto, para poder ir viendo
     // el cambio mientras se arrastra el deslizador.
     preview: true,
@@ -602,20 +572,22 @@ const PCT_SLIDERS = new Set(['dockBarOpacity','dockBarPos']);
 });
 document.getElementById('dockDisplay').addEventListener('change', previewDock);
 
+let pendingDisplayId = null;
 function populateDisplays(selectedId) {
+  pendingDisplayId = selectedId;
+  ipcRenderer.send('action', { type:'get-displays' });   // responde por 'displays'
+}
+ipcRenderer.on('displays', (_, list) => {
   const sel = document.getElementById('dockDisplay');
   sel.innerHTML = '';
-  let displays = [];
-  try { displays = require('electron').screen.getAllDisplays(); } catch {}
-  displays.forEach((d, i) => {
+  (list || []).forEach(d => {
     const opt = document.createElement('option');
     opt.value = String(d.id);
-    const primary = (d.bounds.x === 0 && d.bounds.y === 0) ? ' (principal)' : '';
-    opt.textContent = `Pantalla ${i + 1}${primary} · ${d.size.width}×${d.size.height}`;
+    opt.textContent = `Pantalla ${d.index}${d.primary ? ' (principal)' : ''} · ${d.width}×${d.height}`;
     sel.appendChild(opt);
   });
-  if (selectedId != null) sel.value = String(selectedId);
-}
+  if (pendingDisplayId != null) sel.value = String(pendingDisplayId);
+});
 
 // ---------- Carga de ajustes ----------
 ipcRenderer.on('settings', (_, s) => {
@@ -653,9 +625,12 @@ ipcRenderer.on('settings', (_, s) => {
     document.getElementById(id).value = v;
     document.getElementById(id + 'Label').textContent = v + (PCT_SLIDERS.has(id) ? '%' : 'px');
   });
+  const closeSecs = s.dockCloseSeconds == null ? 3 : s.dockCloseSeconds;
+  document.getElementById('dockCloseSeconds').value = closeSecs;
+  document.getElementById('dockCloseSecondsLabel').textContent = closeSecs + 's';
+  setCloseModeUI(s.dockCloseMode || 'button');
   populateDisplays(s.dockDisplayId);
   updateDockOptionsVisibility();
-  requestAnimationFrame(renderBarPreview);
 });
 
 function save() {
@@ -679,6 +654,8 @@ function save() {
     dockBarPos: parseInt(document.getElementById('dockBarPos').value),
     dockBarOffset: parseInt(document.getElementById('dockBarOffset').value) || 0,
     dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 30,
+    dockCloseMode,
+    dockCloseSeconds: parseInt(document.getElementById('dockCloseSeconds').value) || 3,
   } });
 }
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }

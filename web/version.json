@@ -1,4 +1,4 @@
 {
-  "version": "2.0.0",
-  "notes": "imputa.me 2.0. La barra flotante ahora se puede mover: mantenla pulsada dos segundos y arrástrala donde quieras; al soltarla vuela hasta el borde más cercano respetando la separación que tengas configurada, y si cambia de vertical a horizontal se estira y encoge con una animación líquida. El tema de color se aplica ya a TODA la app (antes quedaban muchos morados fijos que ignoraban el tema elegido), con una estética común más redondeada y con más aire. El calendario usa el mismo zoom en ventana que en la barra flotante. Y la barra flotante es el modo por defecto."
+  "version": "2.0.1",
+  "notes": "Arreglado el desplegable de monitores de la barra flotante, que salía vacío. El deslizador de transparencia ahora sí afecta al panel flotante (se quedaba fijo) y tiene mucho más recorrido, manteniendo el blur en todo momento. Puedes elegir cómo se esconde el panel: con el botón, al clicar fuera, o cuando el ratón lleva fuera los segundos que tú digas. El botón de esconder pasa al borde interior del panel, más grande y animado. Anclada arriba o abajo, la barra se abre bastante más grande. Y se quita la maqueta de vista previa de los ajustes: ya se ve la barra de verdad mientras la configuras."
 }

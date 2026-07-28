@@ -76,6 +76,7 @@ let updateWin = null;
 let dockWin = null;              // barra flotante lateral (modo dock, opcional)
 let dockExpanded = false;
 let dockHitRects = [];           // zonas "clicables" del dock, en coords de su ventana
+let dockOutsideSince = 0;        // desde cuándo el cursor está fuera del panel desplegado
 let dockHitTimer = null;
 let dockIgnoring = null;
 let pendingUpdateState = null;   // último estado enviado a la ventana de actualización
@@ -113,7 +114,9 @@ let settings = {
   dockBarOpacity: 30,  // opacidad de la barrita EN REPOSO (al acercar el ratón va al máximo)
   dockBarColor: '#ffffff',
   dockPanelWidth: 460,  // ancho del panel en las vistas normales (anclajes laterales)
-  dockPanelHeight: 460, // alto del panel cuando se ancla arriba/abajo
+  dockPanelHeight: 620, // alto del panel cuando se ancla arriba/abajo (más generoso: hay ancho de sobra)
+  dockCloseMode: 'button',  // 'button' | 'clickOutside' | 'mouseLeave'
+  dockCloseSeconds: 3,      // con 'mouseLeave', segundos fuera antes de esconderse
   dockCalendarWidth: 1180, // el calendario se abre bastante más ancho (y se puede estirar)
   lastView: 'panel',    // última vista abierta: la app vuelve a abrirse por donde la dejaste
 };
@@ -536,7 +539,11 @@ function scheduleWidgetAutoHide() {
 // aparece el "gris" de togglear el material en caliente.
 function bgAlphaFromOpacity(op) {
   const x = Math.max(0, Math.min(100, op == null ? 50 : Number(op))) / 100;
-  return (0.20 + x * 0.72).toFixed(3);   // 0 → 0.20 (muy translúcido) .. 100 → 0.92 (muy opaco)
+  // Rango más amplio que antes (era 0.20..0.92): abajo del todo se ve de verdad a través
+  // y arriba queda prácticamente sólido. El blur no depende de esto: en las ventanas lo
+  // pone el material acrílico y en el panel del dock un backdrop-filter, así que se
+  // mantiene en todo el recorrido.
+  return (0.06 + x * 0.91).toFixed(3);
 }
 
 function applyTranslucency(win) {
@@ -715,8 +722,10 @@ function dockConfig() {
     barOpacity: Math.max(5, Math.min(100, Number(settings.dockBarOpacity) || 30)),
     barColor: settings.dockBarColor || '#ffffff',
     panelWidth: Math.max(320, Math.min(1600, Number(settings.dockPanelWidth) || 460)),
-    panelHeight: Math.max(260, Math.min(1200, Number(settings.dockPanelHeight) || 460)),
+    panelHeight: Math.max(260, Math.min(1400, Number(settings.dockPanelHeight) || 620)),
     calendarWidth: Math.max(420, Math.min(1900, Number(settings.dockCalendarWidth) || 1180)),
+    closeMode: ['button','clickOutside','mouseLeave'].includes(settings.dockCloseMode) ? settings.dockCloseMode : 'button',
+    closeSeconds: Math.max(1, Math.min(30, Number(settings.dockCloseSeconds) || 3)),
   };
 }
 
@@ -754,6 +763,21 @@ function updateDockHitTest() {
   const x = p.x - b.x, y = p.y - b.y;
   const inside = dockHitRects.some(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
   setDockIgnore(!inside);
+
+  // Auto-esconder cuando el cursor lleva un rato fuera del panel abierto.
+  if (dockExpanded && settings.dockCloseMode === 'mouseLeave') {
+    if (inside) dockOutsideSince = 0;
+    else {
+      const now = Date.now();
+      if (!dockOutsideSince) dockOutsideSince = now;
+      else if (now - dockOutsideSince > (Number(settings.dockCloseSeconds) || 3) * 1000) {
+        dockOutsideSince = 0;
+        try { dockWin.webContents.send('dock-collapse'); } catch {}
+      }
+    }
+  } else {
+    dockOutsideSince = 0;
+  }
 }
 
 function createDock() {
@@ -776,6 +800,13 @@ function createDock() {
   dockWin.loadFile(path.join(__dirname, 'src', 'dock.html'));
   sendDockConfig();
   dockWin.once('ready-to-show', () => { if (dockWin && !dockWin.isDestroyed()) dockWin.showInactive(); });
+  // Clic fuera = la ventana del dock pierde el foco. Es más limpio que capturar toda la
+  // pantalla para detectar el clic (eso se comería el clic destinado a la otra app).
+  dockWin.on('blur', () => {
+    if (settings.dockCloseMode === 'clickOutside' && dockExpanded) {
+      try { dockWin.webContents.send('dock-collapse'); } catch {}
+    }
+  });
   dockWin.on('closed', () => {
     if (dockHitTimer) { clearInterval(dockHitTimer); dockHitTimer = null; }
     dockWin = null; dockExpanded = false; dockHitRects = []; dockIgnoring = null;
@@ -1097,7 +1128,20 @@ ipcMain.on('action', (event, { type, payload }) => {
       updateDockHitTest();
       break;
     case 'dock-expanded':
+      dockExpanded = true; dockOutsideSince = 0;
       sendToAllFrames(dockWin, 'dock-expanded');
+      break;
+    case 'dock-collapsed':
+      dockExpanded = false; dockOutsideSince = 0;
+      break;
+    // El módulo screen no está disponible de forma fiable dentro de un iframe del dock:
+    // la lista de monitores se pide aquí (por eso el desplegable salía vacío).
+    case 'get-displays':
+      event.reply('displays', screen.getAllDisplays().map((d, i) => ({
+        id: d.id, index: i + 1,
+        width: d.size.width, height: d.size.height,
+        primary: d.bounds.x === 0 && d.bounds.y === 0,
+      })));
       break;
     case 'dock-focus':
       checkForUpdatesIfStale();
