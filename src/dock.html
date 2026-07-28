@@ -4,42 +4,22 @@
 <meta charset="utf-8">
 <link rel="stylesheet" href="shared.css">
 <style>
-  /* La ventana cubre toda el área de trabajo, es transparente y deja pasar los clics
-     (setIgnoreMouseEvents) salvo donde hay algo interactivo. Así la posición y tamaño de
-     la barrita, el tamaño del panel y las animaciones son puro CSS, sin redimensionar la
-     ventana (que es lo que hacía que fuese a tirones). */
+  /* Ventana de la BARRITA: cubre toda el área de trabajo, es transparente y deja pasar
+     los clics salvo donde hay algo interactivo. Tiene que ser transparente de verdad, y
+     por eso no puede llevar acrílico. El panel vive en su propia ventana (dock-panel),
+     que sí lo lleva y por eso desenfoca de verdad lo que hay detrás. */
   html, body { width:100%; height:100%; background:transparent !important; overflow:hidden; margin:0; }
   body { -webkit-app-region:no-drag; }
 
   :root {
-    --bar-w:7px; --bar-len:110px; --bar-pos:50%; --bar-offset:4px; --bar-color:#fff; --bar-opacity:.9;
-    --panel-w:460px; --panel-h:460px;
+    --bar-w:7px; --bar-len:110px; --bar-pos:50%; --bar-offset:4px; --bar-color:#fff; --bar-opacity:.3;
+    --panel-w:460px; --panel-h:620px; --panel:#1c1c2a;
   }
 
   .dock-root { position:absolute; inset:0; }
 
-  /* ── Panel ───────────────────────────────────────────────── */
-  .dock-panel {
-    position:absolute;
-    display:flex; flex-direction:column;
-    background:var(--panel, var(--surface));
-    backdrop-filter:blur(30px) saturate(160%);
-    -webkit-backdrop-filter:blur(30px) saturate(160%);
-    border:1px solid color-mix(in srgb, var(--text) 16%, transparent);
-    box-shadow:0 0 42px rgba(0,0,0,.55);
-    overflow:hidden;
-    transition:transform .28s cubic-bezier(.32,.72,0,1);
-  }
-  .a-right .dock-panel { top:0; bottom:0; right:0; width:var(--panel-w); border-radius:16px 0 0 16px; border-right:none; transform:translateX(101%); }
-  .a-left  .dock-panel { top:0; bottom:0; left:0;  width:var(--panel-w); border-radius:0 16px 16px 0; border-left:none;  transform:translateX(-101%); }
-  .a-top    .dock-panel { left:0; right:0; top:0;    height:var(--panel-h); border-radius:0 0 16px 16px; border-top:none;    transform:translateY(-101%); }
-  .a-bottom .dock-panel { left:0; right:0; bottom:0; height:var(--panel-h); border-radius:16px 16px 0 0; border-bottom:none; transform:translateY(101%); }
-  .expanded .dock-panel { transform:none; }
-  .resizing .dock-panel { transition:none; }   /* al arrastrar el tirador, sin rebufo */
-
-  /* ── Barrita flotante ────────────────────────────────────── */
-  /* Solo la barrita, sin franja de fondo. --bar-opacity es cómo se ve EN REPOSO (lo
-     elige el usuario); al acercar el ratón se muestra al máximo y algo más grande. */
+  /* ── Barrita ─────────────────────────────────────────────── */
+  /* --bar-opacity es cómo se ve EN REPOSO; al acercar el ratón se muestra al máximo. */
   .dock-bar {
     position:absolute; cursor:pointer; border-radius:999px;
     background:var(--bar-color);
@@ -53,8 +33,7 @@
   }
   .a-right .dock-bar { right:var(--bar-offset); }
   .a-left  .dock-bar { left:var(--bar-offset); }
-  .a-right .dock-bar.near { transform:translateY(-50%) scaleX(1.6); }
-  .a-left  .dock-bar.near { transform:translateY(-50%) scaleX(1.6); }
+  .a-right .dock-bar.near, .a-left .dock-bar.near { transform:translateY(-50%) scaleX(1.6); }
 
   .a-top .dock-bar, .a-bottom .dock-bar {
     height:var(--bar-w); width:var(--bar-len); left:var(--bar-pos); transform:translateX(-50%);
@@ -63,20 +42,21 @@
   .a-bottom .dock-bar { bottom:var(--bar-offset); }
   .a-top .dock-bar.near, .a-bottom .dock-bar.near { transform:translateX(-50%) scaleY(1.6); }
 
-  /* Mantener pulsado ~2 s "arma" el arrastre: la barrita late para avisar de que va a
-     poder moverse (así un clic normal nunca se confunde con querer moverla). */
+  .expanded .dock-bar { opacity:0; pointer-events:none; }
+  /* ...salvo mientras se ajusta desde Ajustes: ahí hay que verla para saber cómo queda. */
+  .dock-root.expanded.preview-bar .dock-bar { opacity:var(--bar-opacity); pointer-events:auto; }
+  .preview-bar .dock-bar { box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 2px 10px rgba(0,0,0,.35); }
+
+  /* Mantener pulsado un momento "arma" el arrastre: la barrita se ilumina para avisar. */
   .dock-bar.arming { animation:barArming .65s cubic-bezier(.4,0,.6,1) forwards; }
   @keyframes barArming {
     0%   { opacity:var(--bar-opacity); filter:none; }
     100% { opacity:1; filter:brightness(1.5) drop-shadow(0 0 10px var(--bar-color)); }
   }
-  /* Mientras se arrastra va suelta siguiendo al cursor. */
   .dock-bar.dragging {
     transition:none; opacity:1 !important; z-index:20; cursor:grabbing;
     box-shadow:0 6px 26px rgba(0,0,0,.5);
   }
-  /* Al soltar, vuela hasta el borde más cercano y, si cambia de orientación, se estira
-     y se encoge como si fuese líquida. */
   .dock-bar.snapping {
     transition:left .44s cubic-bezier(.2,.9,.25,1), top .44s cubic-bezier(.2,.9,.25,1),
                width .44s cubic-bezier(.2,.9,.25,1), height .44s cubic-bezier(.2,.9,.25,1),
@@ -91,13 +71,7 @@
     100% { transform:translate(-50%,-50%) scale(1, 1); }
   }
 
-  .expanded .dock-bar { opacity:0; pointer-events:none; }   /* desplegado estorba */
-  /* ...salvo mientras se está ajustando la barrita desde Ajustes: ahí hay que verla
-     para saber cómo va quedando, aunque el panel esté abierto encima. */
-  .dock-root.expanded.preview-bar .dock-bar { opacity:var(--bar-opacity); pointer-events:auto; }
-  .preview-bar .dock-bar { box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent), 0 2px 10px rgba(0,0,0,.35); }
-
-  /* ── Botón flotante para esconder, FUERA del panel ──────── */
+  /* ── Botón flotante para esconder, por fuera del panel ────── */
   .dock-hide {
     position:absolute; z-index:12; width:34px; height:34px; border-radius:50%;
     display:flex; align-items:center; justify-content:center; padding:0;
@@ -105,18 +79,19 @@
     border:1px solid color-mix(in srgb, var(--text) 20%, transparent);
     color:var(--text2); cursor:pointer;
     box-shadow:0 4px 18px rgba(0,0,0,.5);
-    opacity:0; transform:scale(.6);
+    opacity:0; transform:scale(.6); pointer-events:none;
     transition:opacity .26s cubic-bezier(.34,1.5,.5,1), transform .26s cubic-bezier(.34,1.5,.5,1),
                background .18s, color .18s, box-shadow .18s;
   }
-  .expanded .dock-hide { opacity:1; transform:scale(1); }
+  .expanded .dock-hide { opacity:1; transform:scale(1); pointer-events:auto; }
   .dock-hide svg { transition:transform .24s cubic-bezier(.34,1.5,.5,1); }
   .dock-hide:hover {
     background:var(--accent2); color:#fff; transform:scale(1.16);
     box-shadow:0 6px 22px color-mix(in srgb, var(--accent2) 60%, transparent);
   }
   .dock-hide:active { transform:scale(.94); }
-  /* Se cuelga por fuera del borde interior del panel (el que mira al centro). */
+  /* Cuelga justo por fuera del borde interior del panel. La flecha apunta SIEMPRE hacia
+     el lado por el que el panel se va al esconderse. */
   .a-right  .dock-hide { top:50%; margin-top:-17px; right:calc(var(--panel-w) + 12px); }
   .a-left   .dock-hide { top:50%; margin-top:-17px; left:calc(var(--panel-w) + 12px); }
   .a-top    .dock-hide { left:50%; margin-left:-17px; top:calc(var(--panel-h) + 12px); }
@@ -128,60 +103,10 @@
   .a-left   .dock-hide:hover svg { transform:scaleX(-1) translateX(2px); }
   .a-top    .dock-hide:hover svg { transform:rotate(-90deg) translateX(2px); }
   .a-bottom .dock-hide:hover svg { transform:rotate(90deg) translateX(2px); }
-
-  /* ── Tirador para redimensionar el panel ─────────────────── */
-  .dock-resize { position:absolute; z-index:5; }
-  .a-right .dock-resize { top:0; bottom:0; left:0;  width:7px; cursor:ew-resize; z-index:4; }
-  .a-left  .dock-resize { top:0; bottom:0; right:0; width:7px; cursor:ew-resize; }
-  .a-top    .dock-resize { left:0; right:0; bottom:0; height:7px; cursor:ns-resize; }
-  .a-bottom .dock-resize { left:0; right:0; top:0;    height:7px; cursor:ns-resize; }
-  .dock-resize:hover { background:var(--accent); opacity:.5; }
-
-  /* ── Navegación ──────────────────────────────────────────── */
-  .dock-nav { flex-shrink:0; display:flex; align-items:center; gap:2px; padding:9px 8px; border-bottom:1px solid var(--border); }
-  .dock-nav-btn {
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
-    background:transparent; border:none; color:var(--text2); cursor:pointer;
-    padding:8px 3px; border-radius:10px; font-size:10.5px; transition:all .13s;
-  }
-  .dock-nav-btn svg { width:18px; height:18px; }
-  .dock-nav-btn:hover { background:var(--bg3); color:var(--text); }
-  .dock-nav-btn.active { background:color-mix(in srgb, var(--accent2) 22%, transparent); color:var(--accent); }
-  .dock-collapse { background:transparent; border:none; color:var(--text2); cursor:pointer; width:30px; height:30px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-  .dock-collapse:hover { background:var(--bg3); color:var(--text); }
-
-  .dock-content { flex:1; min-height:0; position:relative; }
-  .dock-content iframe { position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent; opacity:1; transition:opacity .16s ease; }
-  .dock-content.switching iframe { opacity:0; }
 </style>
 </head>
 <body>
 <div class="dock-root a-right" id="dockRoot">
-  <div class="dock-panel" id="dockPanel">
-    <div class="dock-resize" id="dockResize" title="Arrastra para cambiar el tamaño"></div>
-    <div class="dock-nav">
-      <button class="dock-nav-btn active" data-view="panel" onclick="navTo('panel')" title="Panel">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
-        Panel
-      </button>
-      <button class="dock-nav-btn" data-view="calendar" onclick="navTo('calendar')" title="Calendario">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-        Calendario
-      </button>
-      <button class="dock-nav-btn" data-view="groups" onclick="navTo('groups')" title="Guardadas">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        Guardadas
-      </button>
-      <button class="dock-nav-btn" data-view="settings" onclick="navTo('settings')" title="Ajustes">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        Ajustes
-      </button>
-    </div>
-    <div class="dock-content" id="dockContent">
-      <iframe id="dockFrame" src="main.html?embed=1"></iframe>
-    </div>
-  </div>
-  <!-- Fuera del panel a propósito: el panel tiene overflow:hidden y lo recortaría. -->
   <button class="dock-hide" id="dockHide" onclick="collapse()" title="Esconder">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>
@@ -192,27 +117,17 @@
 <script>
 const { ipcRenderer } = require('electron');
 const root = document.getElementById('dockRoot');
-const frame = document.getElementById('dockFrame');
-const content = document.getElementById('dockContent');
 const bar = document.getElementById('dockBar');
-const resizer = document.getElementById('dockResize');
+const hideBtn = document.getElementById('dockHide');
 
-const VIEW_SRC = { panel:'main.html?embed=1', calendar:'calendar.html?embed=1', groups:'groups.html?embed=1', settings:'settings.html?embed=1' };
 const ANCHORS = ['left','right','top','bottom'];
-const NEAR_PX = 110;   // a qué distancia del ratón se revela la barrita
+const NEAR_PX = 110;      // a qué distancia del ratón se revela la barrita
+const HOLD_MS = 650;      // cuánto hay que mantener pulsado para poder moverla
+const CLICK_SLOP = 6;
 
-let cfg = { anchor:'right', barWidth:7, barLength:110, barPos:50, barOffset:4, panelWidth:460, panelHeight:460, calendarWidth:900 };
-let currentView = 'panel';
+let cfg = { anchor:'right', barWidth:7, barLength:110, barPos:50, barOffset:4, barColor:'#fff', barOpacity:30, panelWidth:460, panelHeight:620 };
 let expanded = false;
-
-function isVertical() { return cfg.anchor === 'left' || cfg.anchor === 'right'; }
-function widthForView(view) { return view === 'calendar' ? cfg.calendarWidth : cfg.panelWidth; }
-
-function applyPanelSize() {
-  const s = document.documentElement.style;
-  if (isVertical()) s.setProperty('--panel-w', widthForView(currentView) + 'px');
-  else s.setProperty('--panel-h', cfg.panelHeight + 'px');
-}
+let barDrag = null;
 
 ipcRenderer.on('dock-config', (_, c) => {
   cfg = c;
@@ -223,20 +138,18 @@ ipcRenderer.on('dock-config', (_, c) => {
   s.setProperty('--bar-offset', c.barOffset + 'px');
   s.setProperty('--bar-color', c.barColor);
   s.setProperty('--bar-opacity', (c.barOpacity / 100).toFixed(2));
+  s.setProperty('--panel-w', c.panelWidth + 'px');
+  s.setProperty('--panel-h', c.panelHeight + 'px');
   ANCHORS.forEach(a => root.classList.remove('a-' + a));
   root.classList.add('a-' + (ANCHORS.includes(c.anchor) ? c.anchor : 'right'));
-  applyPanelSize();
   sendHitRects();
 });
 
+function isVertical() { return cfg.anchor === 'left' || cfg.anchor === 'right'; }
+
 // ---- Zonas "clicables" ----
-// La ventana cubre la pantalla, así que por defecto los clics pasan al escritorio y solo
-// se capturan sobre la barrita o (desplegado) sobre el panel. QUIÉN decide eso es el
-// proceso principal, mirando dónde está el cursor: aquí solo le mandamos los rectángulos.
-// Antes se decidía en esta página con mousemove, pero los eventos del ratón DENTRO de un
-// iframe no llegan al documento que lo contiene, así que si el cursor entraba directo
-// sobre el calendario (sin pasar por la barra de navegación) la ventana se quedaba en
-// "dejar pasar los clics" y no se podía pulsar nada.
+// El proceso principal decide si la ventana captura el ratón mirando dónde está el
+// cursor de verdad; aquí solo se le mandan los rectángulos.
 let lastRectsJson = '';
 function sendHitRects() {
   const rects = [];
@@ -246,33 +159,25 @@ function sendHitRects() {
   };
   if (barDrag && barDrag.dragging) {
     rects.push({ x:0, y:0, w:window.innerWidth, h:window.innerHeight });   // arrastrando: todo
-  } else if (!expanded) push(bar);     // plegado: solo la barrita
-  else {
-    push(document.getElementById('dockPanel'));      // desplegado: el panel...
-    push(document.getElementById('dockHide'));       // ...y el botón, que cuelga fuera
+  } else {
+    push(bar);
+    if (expanded) push(hideBtn);   // el botón cuelga fuera del panel: va aparte
   }
   const json = JSON.stringify(rects);
   if (json === lastRectsJson) return;
   lastRectsJson = json;
   ipcRenderer.send('action', { type:'dock-hit-rects', payload:{ rects } });
 }
-// Se reenvían periódicamente (es barato) para cubrir también el final de las animaciones
-// y cualquier cambio de tamaño que no pase por los eventos de abajo.
 setInterval(sendHitRects, 180);
 
-// Revelado de la barrita al acercar el ratón (esto sí funciona con mousemove: cuando está
-// plegada no hay panel ni iframe por medio).
+// Revelado de la barrita al acercar el ratón.
 document.addEventListener('mousemove', (e) => {
-  if (expanded) return;
+  if (expanded || (barDrag && barDrag.dragging)) return;
   const r = bar.getBoundingClientRect();
   const dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
   const dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
   bar.classList.toggle('near', Math.hypot(dx, dy) < NEAR_PX);
 });
-
-function setActiveNav(view) {
-  document.querySelectorAll('.dock-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-}
 
 function expand() {
   if (expanded) return;
@@ -280,33 +185,34 @@ function expand() {
   root.classList.add('expanded');
   bar.classList.remove('near');
   sendHitRects();
-  ipcRenderer.send('action', { type:'dock-focus' });
-  // La vista de dentro ya es visible: puede arrancar el tutorial si le toca.
-  ipcRenderer.send('action', { type:'dock-expanded' });
+  ipcRenderer.send('action', { type:'dock-expand' });
 }
 function collapse() {
   if (!expanded) return;
   expanded = false;
   root.classList.remove('expanded');
   sendHitRects();
-  ipcRenderer.send('action', { type:'dock-collapsed' });
+  ipcRenderer.send('action', { type:'dock-collapse-panel' });
 }
-// ---- Barrita: clic para desplegar, pulsación larga para moverla de sitio ----
-// Se exige mantener pulsado un poco antes de poder arrastrarla para que un clic normal
-// (que es lo habitual) no la mueva sin querer, pero sin que se haga pesado.
-const HOLD_MS = 650;
-const CLICK_SLOP = 6;      // px de margen para seguir considerándolo un clic
-let barDrag = null;
+ipcRenderer.on('dock-collapse', () => collapse());
+ipcRenderer.on('dock-toggle', () => { expanded ? collapse() : expand(); });
+ipcRenderer.on('dock-expand', () => expand());
 
-function barRectNow() { return bar.getBoundingClientRect(); }
+// Mientras se ajusta la barrita desde Ajustes se enseña aunque el panel esté abierto.
+let barPreviewTimer = null;
+ipcRenderer.on('dock-bar-preview', () => {
+  root.classList.add('preview-bar');
+  clearTimeout(barPreviewTimer);
+  barPreviewTimer = setTimeout(() => root.classList.remove('preview-bar'), 1500);
+});
 
+// ---- Clic para desplegar, pulsación mantenida para moverla de sitio ----
 bar.addEventListener('mousedown', (e) => {
   if (e.button !== 0 || expanded) return;
   e.preventDefault();
-  const r = barRectNow();
+  const r = bar.getBoundingClientRect();
   barDrag = {
     startX: e.clientX, startY: e.clientY, moved: false, dragging: false,
-    // Se agarra por donde se pulsó, para que no dé un salto al empezar a moverse.
     grabDX: e.clientX - (r.left + r.width / 2),
     grabDY: e.clientY - (r.top + r.height / 2),
     holdTimer: setTimeout(() => startBarDrag(e.clientX, e.clientY), HOLD_MS),
@@ -319,15 +225,14 @@ function startBarDrag(x, y) {
   barDrag.dragging = true;
   bar.classList.remove('arming');
   bar.classList.add('dragging');
-  const r = barRectNow();
+  const r = bar.getBoundingClientRect();
   bar.style.width = r.width + 'px';
   bar.style.height = r.height + 'px';
   bar.style.right = 'auto'; bar.style.bottom = 'auto';
   bar.style.transform = 'translate(-50%,-50%)';
   moveBarTo(x, y);
-  sendHitRects();   // mientras se arrastra, la ventana captura toda la pantalla
+  sendHitRects();
 }
-
 function moveBarTo(x, y) {
   bar.style.left = (x - barDrag.grabDX) + 'px';
   bar.style.top = (y - barDrag.grabDY) + 'px';
@@ -337,7 +242,6 @@ document.addEventListener('mousemove', (e) => {
   if (!barDrag) return;
   if (barDrag.dragging) { moveBarTo(e.clientX, e.clientY); return; }
   if (Math.hypot(e.clientX - barDrag.startX, e.clientY - barDrag.startY) > CLICK_SLOP) {
-    // Se ha movido antes de tiempo: no era ni un clic ni un arrastre.
     barDrag.moved = true;
     clearTimeout(barDrag.holdTimer);
     bar.classList.remove('arming');
@@ -351,11 +255,10 @@ document.addEventListener('mouseup', (e) => {
   bar.classList.remove('arming');
   if (d.dragging) { barDrag = null; snapBarToEdge(e.clientX, e.clientY); return; }
   barDrag = null;
-  if (!d.moved) expand();   // pulsación corta = abrir
+  if (!d.moved) expand();
 });
 
-// Encaja la barrita en el borde más cercano al soltarla, respetando la separación del
-// borde configurada, y la anima hasta su sitio.
+// Encaja la barrita en el borde más cercano, respetando la separación configurada.
 function snapBarToEdge(x, y) {
   const W = window.innerWidth, H = window.innerHeight;
   const dist = { left: x, right: W - x, top: y, bottom: H - y };
@@ -364,17 +267,15 @@ function snapBarToEdge(x, y) {
   const wasVertical = isVertical();
   const willBeVertical = anchor === 'left' || anchor === 'right';
   const off = cfg.barOffset || 0, len = cfg.barLength || 110, thick = cfg.barWidth || 7;
+  const half = len / 2;
 
-  // Posición a lo largo del borde, sin que se salga por los extremos.
   let pos, left, top, w, h;
   if (willBeVertical) {
-    const half = len / 2;
     const cy = Math.min(Math.max(y, half), H - half);
     pos = (cy / H) * 100;
     left = anchor === 'left' ? off + thick / 2 : W - off - thick / 2;
     top = cy; w = thick; h = len;
   } else {
-    const half = len / 2;
     const cx = Math.min(Math.max(x, half), W - half);
     pos = (cx / W) * 100;
     top = anchor === 'top' ? off + thick / 2 : H - off - thick / 2;
@@ -385,98 +286,26 @@ function snapBarToEdge(x, y) {
 
   bar.classList.remove('dragging');
   bar.classList.add('snapping');
-  if (wasVertical !== willBeVertical) bar.classList.add('morph');   // cambio de orientación
+  if (wasVertical !== willBeVertical) bar.classList.add('morph');
   requestAnimationFrame(() => {
     bar.style.left = left + 'px'; bar.style.top = top + 'px';
     bar.style.width = w + 'px';  bar.style.height = h + 'px';
   });
 
+  let done = false;
   const finish = () => {
+    if (done) return; done = true;
     bar.classList.remove('snapping', 'morph');
-    // Se devuelve el mando al CSS de anclaje: se limpian los estilos del arrastre.
     ['left','top','right','bottom','width','height','transform'].forEach(k => bar.style.removeProperty(k));
     ANCHORS.forEach(a => root.classList.remove('a-' + a));
     root.classList.add('a-' + anchor);
     document.documentElement.style.setProperty('--bar-pos', pos + '%');
-    applyPanelSize();
     sendHitRects();
     ipcRenderer.send('action', { type:'set-dock-config', payload:{ dockAnchor: anchor, dockBarPos: Math.round(pos) } });
   };
   bar.addEventListener('transitionend', finish, { once: true });
-  setTimeout(finish, 600);   // por si transitionend no llega
+  setTimeout(finish, 600);
 }
-
-function navTo(view) {
-  if (!VIEW_SRC[view]) return;
-  if (!expanded) expand();
-  if (view === currentView) return;
-  currentView = view;
-  setActiveNav(view);
-  applyPanelSize();          // el calendario tiene su propio ancho, más generoso
-  content.classList.add('switching');
-  setTimeout(() => {
-    frame.src = VIEW_SRC[view];
-    frame.addEventListener('load', () => content.classList.remove('switching'), { once: true });
-  }, 130);
-}
-
-// ---- Redimensionar el panel arrastrando su borde interior ----
-let resizeState = null;
-resizer.addEventListener('mousedown', (e) => {
-  e.preventDefault();
-  const vertical = isVertical();
-  resizeState = {
-    vertical,
-    startX: e.clientX, startY: e.clientY,
-    startSize: vertical ? widthForView(currentView) : cfg.panelHeight,
-  };
-  root.classList.add('resizing');
-});
-document.addEventListener('mousemove', (e) => {
-  if (!resizeState) return;
-  let size;
-  if (resizeState.vertical) {
-    // Anclado a la derecha, arrastrar hacia la izquierda agranda (y al revés).
-    const dx = e.clientX - resizeState.startX;
-    const grow = cfg.anchor === 'right' ? -dx : dx;
-    size = Math.max(320, Math.min(window.innerWidth - 40, resizeState.startSize + grow));
-    document.documentElement.style.setProperty('--panel-w', size + 'px');
-  } else {
-    const dy = e.clientY - resizeState.startY;
-    const grow = cfg.anchor === 'bottom' ? -dy : dy;
-    size = Math.max(260, Math.min(window.innerHeight - 40, resizeState.startSize + grow));
-    document.documentElement.style.setProperty('--panel-h', size + 'px');
-  }
-  resizeState.size = size;
-});
-document.addEventListener('mouseup', () => {
-  if (!resizeState) return;
-  const { size, vertical } = resizeState;
-  resizeState = null;
-  root.classList.remove('resizing');
-  if (size == null) return;
-  // Se guarda por separado: el ancho del calendario no pisa el de las demás vistas.
-  const payload = vertical
-    ? (currentView === 'calendar' ? { dockCalendarWidth: size } : { dockPanelWidth: size })
-    : { dockPanelHeight: size };
-  if (vertical) { if (currentView === 'calendar') cfg.calendarWidth = size; else cfg.panelWidth = size; }
-  else cfg.panelHeight = size;
-  ipcRenderer.send('action', { type:'set-dock-config', payload });
-});
-
-// Mientras se mueven los deslizadores de la barrita en Ajustes, se enseña aunque el
-// panel esté desplegado (si no, no habría forma de ver lo que estás cambiando). Se
-// apaga sola al dejar de tocar.
-let barPreviewTimer = null;
-ipcRenderer.on('dock-bar-preview', () => {
-  root.classList.add('preview-bar');
-  clearTimeout(barPreviewTimer);
-  barPreviewTimer = setTimeout(() => root.classList.remove('preview-bar'), 1500);
-});
-
-ipcRenderer.on('dock-navigate', (_, view) => navTo(view));
-ipcRenderer.on('dock-collapse', () => collapse());
-ipcRenderer.on('dock-toggle', () => { expanded ? collapse() : expand(); });
 </script>
 </body>
 </html>

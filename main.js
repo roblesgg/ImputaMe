@@ -73,7 +73,8 @@ let reminderTimer = null;
 let tickTimer = null;
 let syncWin = null;
 let updateWin = null;
-let dockWin = null;              // barra flotante lateral (modo dock, opcional)
+let dockWin = null;              // ventana transparente de la BARRITA (click-through)
+let dockPanelWin = null;         // ventana del PANEL: sin transparencia y con acrílico
 let dockExpanded = false;
 let dockHitRects = [];           // zonas "clicables" del dock, en coords de su ventana
 let dockOutsideSince = 0;        // desde cuándo el cursor está fuera del panel desplegado
@@ -597,6 +598,7 @@ function broadcastTheme() {
   const vars = themeVars();
   [mainWin, calendarWin, groupsWin, settingsWin, widgetWin, syncWin, updateWin, dockWin, splashWin]
     .forEach(w => sendToAllFrames(w, 'theme', vars));
+  sendToAllFrames(dockPanelWin, 'theme', vars);
 }
 
 // Guardado diferido de ajustes: los deslizadores de la barra flotante disparan cambios
@@ -747,18 +749,94 @@ function dockConfig() {
   };
 }
 
-// Toda el área de trabajo de la pantalla elegida.
+// Toda el área de trabajo de la pantalla elegida (ventana de la barrita).
 function computeDockBounds() {
   const work = dockDisplay().workArea;
   return { x: work.x, y: work.y, width: work.width, height: work.height };
 }
 
+// Dónde va el panel: pegado a su borde, ocupando todo el largo de ese borde.
+function computePanelBounds(view) {
+  const work = dockDisplay().workArea;
+  const c = dockConfig();
+  const vertical = c.anchor === 'left' || c.anchor === 'right';
+  if (vertical) {
+    const width = Math.min(view === 'calendar' ? c.calendarWidth : c.panelWidth, work.width);
+    return {
+      x: c.anchor === 'left' ? work.x : work.x + work.width - width,
+      y: work.y, width, height: work.height,
+    };
+  }
+  const height = Math.min(c.panelHeight, work.height);
+  return {
+    x: work.x,
+    y: c.anchor === 'top' ? work.y : work.y + work.height - height,
+    width: work.width, height,
+  };
+}
+
+let dockPanelView = 'panel';
+
+function createDockPanel() {
+  if (dockPanelWin && !dockPanelWin.isDestroyed()) return;
+  dockPanelWin = new BrowserWindow({
+    ...computePanelBounds(dockPanelView),
+    show: false,
+    frame: false, hasShadow: false,
+    // SIN transparent: en Windows el acrílico (lo que difumina el fondo de verdad) se
+    // ignora en ventanas transparentes. Por eso el panel salió de la ventana de la
+    // barrita, que sí tiene que ser transparente para dejar pasar los clics.
+    transparent: false, backgroundColor: '#00000000', backgroundMaterial: 'acrylic',
+    resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true, roundedCorners: true,
+    icon: APP_ICON_PATH,
+    webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true },
+  });
+  dockPanelWin.loadFile(path.join(__dirname, 'src', 'dock-panel.html'));
+  const push = () => {
+    try { dockPanelWin.webContents.send('dock-config', dockConfig()); } catch {}
+    sendStateToWindow(dockPanelWin);
+  };
+  if (dockPanelWin.webContents.isLoading()) dockPanelWin.webContents.once('did-finish-load', push);
+  else push();
+  dockPanelWin.on('blur', () => {
+    if (settings.dockCloseMode === 'clickOutside' && dockExpanded) collapseDockPanel();
+  });
+  dockPanelWin.on('closed', () => { dockPanelWin = null; });
+}
+
+function showDockPanel() {
+  createDockPanel();
+  if (!dockPanelWin || dockPanelWin.isDestroyed()) return;
+  try { dockPanelWin.setBounds(computePanelBounds(dockPanelView)); } catch {}
+  try { dockPanelWin.showInactive(); dockPanelWin.moveTop(); dockPanelWin.focus(); } catch {}
+  dockExpanded = true; dockOutsideSince = 0;
+  const go = () => { try { dockPanelWin.webContents.send('panel-show'); } catch {} };
+  if (dockPanelWin.webContents.isLoading()) dockPanelWin.webContents.once('did-finish-load', go);
+  else go();
+  sendToAllFrames(dockPanelWin, 'dock-expanded');
+}
+
+// Primero se desliza fuera y, cuando termina, se esconde la ventana.
+function collapseDockPanel() {
+  dockExpanded = false; dockOutsideSince = 0;
+  if (dockWin && !dockWin.isDestroyed()) { try { dockWin.webContents.send('dock-collapse'); } catch {} }
+  if (!dockPanelWin || dockPanelWin.isDestroyed()) return;
+  try { dockPanelWin.webContents.send('panel-hide'); } catch {}
+  setTimeout(() => { try { if (dockPanelWin && !dockPanelWin.isDestroyed()) dockPanelWin.hide(); } catch {} }, 300);
+}
+
 // Empuja la config visual al renderer del dock (al crearlo y al cambiar Ajustes).
 function sendDockConfig() {
-  if (!dockWin || dockWin.isDestroyed()) return;
-  const send = () => { try { dockWin.webContents.send('dock-config', dockConfig()); } catch {} };
-  if (dockWin.webContents.isLoading()) dockWin.webContents.once('did-finish-load', send);
-  else send();
+  const cfg = dockConfig();
+  [dockWin, dockPanelWin].forEach(w => {
+    if (!w || w.isDestroyed()) return;
+    const send = () => { try { w.webContents.send('dock-config', cfg); } catch {} };
+    if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send);
+    else send();
+  });
+  if (dockPanelWin && !dockPanelWin.isDestroyed() && dockExpanded) {
+    try { dockPanelWin.setBounds(computePanelBounds(dockPanelView)); } catch {}
+  }
 }
 
 // Decide si el dock captura el ratón o deja pasar los clics al escritorio, mirando dónde
@@ -782,15 +860,24 @@ function updateDockHitTest() {
   const inside = dockHitRects.some(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
   setDockIgnore(!inside);
 
-  // Auto-esconder cuando el cursor lleva un rato fuera del panel abierto.
+  // Auto-esconder cuando el cursor lleva un rato fuera del panel abierto. El panel es
+  // ahora otra ventana, así que "dentro" incluye también sus límites (si no, contaría
+  // como fuera en cuanto el ratón entrase en el propio panel).
   if (dockExpanded && settings.dockCloseMode === 'mouseLeave') {
-    if (inside) dockOutsideSince = 0;
+    let overPanel = false;
+    if (dockPanelWin && !dockPanelWin.isDestroyed() && dockPanelWin.isVisible()) {
+      try {
+        const pb = dockPanelWin.getBounds();
+        overPanel = p.x >= pb.x && p.x <= pb.x + pb.width && p.y >= pb.y && p.y <= pb.y + pb.height;
+      } catch {}
+    }
+    if (inside || overPanel) dockOutsideSince = 0;
     else {
       const now = Date.now();
       if (!dockOutsideSince) dockOutsideSince = now;
       else if (now - dockOutsideSince > (Number(settings.dockCloseSeconds) || 3) * 1000) {
         dockOutsideSince = 0;
-        try { dockWin.webContents.send('dock-collapse'); } catch {}
+        collapseDockPanel();
       }
     }
   } else {
@@ -845,6 +932,8 @@ function createDock() {
 }
 
 function destroyDock() {
+  if (dockPanelWin && !dockPanelWin.isDestroyed()) dockPanelWin.close();
+  dockPanelWin = null;
   if (dockHitTimer) { clearInterval(dockHitTimer); dockHitTimer = null; }
   if (dockWin && !dockWin.isDestroyed()) dockWin.close();
   dockWin = null; dockExpanded = false; dockHitRects = []; dockIgnoring = null;
@@ -892,10 +981,12 @@ function dockNavigate(view) {
   checkForUpdatesIfStale();
   rememberView(view);
   if (!dockWin || dockWin.isDestroyed()) createDock();
-  const send = () => { try { dockWin.webContents.send('dock-navigate', view); } catch {} };
-  if (dockWin.webContents.isLoading()) dockWin.webContents.once('did-finish-load', send);
+  dockPanelView = view;
+  showDockPanel();
+  const send = () => { try { dockPanelWin.webContents.send('dock-navigate', view); } catch {} };
+  if (dockPanelWin.webContents.isLoading()) dockPanelWin.webContents.once('did-finish-load', send);
   else send();
-  try { dockWin.showInactive(); } catch {}
+  if (dockWin && !dockWin.isDestroyed()) { try { dockWin.webContents.send('dock-expand'); } catch {} }
 }
 
 // Aplica el modo dock al cambiarlo en Ajustes (o al arrancar). wasDock = estado anterior.
@@ -1068,7 +1159,7 @@ function broadcastState() {
   updateTrayTitle();
   // dockWin comparte webContents con sus iframes: enviarle el estado llega a la vista
   // embebida (panel/calendario/guardadas) que tenga cargada en ese momento.
-  [widgetWin, mainWin, calendarWin, groupsWin, dockWin].forEach(w => sendStateToWindow(w));
+  [widgetWin, mainWin, calendarWin, groupsWin, dockWin, dockPanelWin].forEach(w => sendStateToWindow(w));
 }
 
 ipcMain.on('action', (event, { type, payload }) => {
@@ -1145,13 +1236,53 @@ ipcMain.on('action', (event, { type, payload }) => {
       dockHitRects = (payload && Array.isArray(payload.rects)) ? payload.rects : [];
       updateDockHitTest();
       break;
-    case 'dock-expanded':
-      dockExpanded = true; dockOutsideSince = 0;
-      sendToAllFrames(dockWin, 'dock-expanded');
+    case 'dock-expand':            // la barrita pide abrir el panel
+      showDockPanel();
       break;
-    case 'dock-collapsed':
-      dockExpanded = false; dockOutsideSince = 0;
+    case 'dock-collapse-panel':     // la barrita (o su botón) pide cerrarlo
+      collapseDockPanel();
       break;
+    case 'dock-view-changed':
+      if (payload && payload.view) {
+        dockPanelView = payload.view;
+        rememberView(payload.view);
+        // El calendario tiene su propio ancho: al cambiar de vista se reajusta.
+        if (dockPanelWin && !dockPanelWin.isDestroyed()) {
+          try { dockPanelWin.setBounds(computePanelBounds(dockPanelView)); } catch {}
+        }
+      }
+      break;
+    case 'dock-panel-resize':
+      if (dockPanelWin && !dockPanelWin.isDestroyed() && payload) {
+        const work = dockDisplay().workArea;
+        const c = dockConfig();
+        const vertical = c.anchor === 'left' || c.anchor === 'right';
+        const size = Number(payload.size) || 0;
+        try {
+          if (vertical) {
+            const width = Math.max(320, Math.min(size, work.width));
+            dockPanelWin.setBounds({ x: c.anchor === 'left' ? work.x : work.x + work.width - width, y: work.y, width, height: work.height });
+          } else {
+            const height = Math.max(260, Math.min(size, work.height));
+            dockPanelWin.setBounds({ x: work.x, y: c.anchor === 'top' ? work.y : work.y + work.height - height, width: work.width, height });
+          }
+        } catch {}
+      }
+      break;
+    case 'dock-panel-resize-end': {
+      // Se recuerda por separado: el ancho del calendario no pisa el del resto.
+      const c = dockConfig();
+      const vertical = c.anchor === 'left' || c.anchor === 'right';
+      const size = Number(payload && payload.size) || 0;
+      if (size > 0) {
+        if (!vertical) settings.dockPanelHeight = size;
+        else if ((payload && payload.view) === 'calendar') settings.dockCalendarWidth = size;
+        else settings.dockPanelWidth = size;
+        saveSettingsSoon();
+        sendDockConfig();   // la barrita necesita el tamaño para colocar su botón
+      }
+      break;
+    }
     // El módulo screen no está disponible de forma fiable dentro de un iframe del dock:
     // la lista de monitores se pide aquí (por eso el desplegable salía vacío).
     case 'get-displays':

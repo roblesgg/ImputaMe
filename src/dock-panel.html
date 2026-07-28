@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Ventana propia del panel de la barra flotante. Va SIN transparencia y con material
+     acrílico, que es la única forma en Windows de que el sistema desenfoque de verdad lo
+     que hay detrás: con transparent:true el acrílico se ignora y solo queda un tinte.
+     Por eso el panel dejó de vivir dentro de la ventana grande de la barrita (esa sí
+     tiene que ser transparente para dejar pasar los clics al escritorio). */
+  html, body { width:100%; height:100%; margin:0; overflow:hidden; background:transparent; }
+  body { -webkit-app-region:no-drag; }
+
+  .panel {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    background:var(--bg);            /* solo tinte: el desenfoque lo pone el acrílico */
+    border:1px solid var(--border);
+    overflow:hidden;
+    transition:transform .28s cubic-bezier(.32,.72,0,1);
+  }
+  /* Entra deslizándose desde su borde. */
+  .s-right  .panel { transform:translateX(101%);  border-radius:16px 0 0 16px; border-right:none; }
+  .s-left   .panel { transform:translateX(-101%); border-radius:0 16px 16px 0; border-left:none; }
+  .s-top    .panel { transform:translateY(-101%); border-radius:0 0 16px 16px; border-top:none; }
+  .s-bottom .panel { transform:translateY(101%);  border-radius:16px 16px 0 0; border-bottom:none; }
+  .shown .panel { transform:none; }
+
+  .resize { position:absolute; z-index:5; }
+  .s-right  .resize { top:0; bottom:0; left:0;  width:7px; cursor:ew-resize; }
+  .s-left   .resize { top:0; bottom:0; right:0; width:7px; cursor:ew-resize; }
+  .s-top    .resize { left:0; right:0; bottom:0; height:7px; cursor:ns-resize; }
+  .s-bottom .resize { left:0; right:0; top:0;   height:7px; cursor:ns-resize; }
+  .resize:hover { background:var(--accent); opacity:.5; }
+
+  .nav { flex-shrink:0; display:flex; align-items:center; gap:2px; padding:9px 8px; border-bottom:1px solid var(--border); }
+  .nav-btn {
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:transparent; border:none; color:var(--text2); cursor:pointer;
+    padding:8px 3px; border-radius:10px; font-size:10.5px; transition:all .13s;
+  }
+  .nav-btn svg { width:18px; height:18px; }
+  .nav-btn:hover { background:var(--bg3); color:var(--text); }
+  .nav-btn.active { background:color-mix(in srgb, var(--accent2) 22%, transparent); color:var(--accent); }
+
+  .content { flex:1; min-height:0; position:relative; }
+  .content iframe { position:absolute; inset:0; width:100%; height:100%; border:none; background:transparent; opacity:1; transition:opacity .16s ease; }
+  .content.switching iframe { opacity:0; }
+</style>
+</head>
+<body>
+<div class="root s-right" id="root">
+  <div class="panel">
+    <div class="resize" id="resize" title="Arrastra para cambiar el tamaño"></div>
+    <div class="nav">
+      <button class="nav-btn active" data-view="panel" onclick="navTo('panel')" title="Panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
+        Panel
+      </button>
+      <button class="nav-btn" data-view="calendar" onclick="navTo('calendar')" title="Calendario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Calendario
+      </button>
+      <button class="nav-btn" data-view="groups" onclick="navTo('groups')" title="Guardadas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Guardadas
+      </button>
+      <button class="nav-btn" data-view="settings" onclick="navTo('settings')" title="Ajustes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Ajustes
+      </button>
+    </div>
+    <div class="content" id="content">
+      <iframe id="frame" src="main.html?embed=1"></iframe>
+    </div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+const { ipcRenderer } = require('electron');
+const root = document.getElementById('root');
+const frame = document.getElementById('frame');
+const content = document.getElementById('content');
+const resizer = document.getElementById('resize');
+
+const VIEW_SRC = { panel:'main.html?embed=1', calendar:'calendar.html?embed=1', groups:'groups.html?embed=1', settings:'settings.html?embed=1' };
+const SIDES = ['left','right','top','bottom'];
+let anchor = 'right';
+let currentView = 'panel';
+
+function setAnchor(a) {
+  anchor = SIDES.includes(a) ? a : 'right';
+  SIDES.forEach(x => root.classList.remove('s-' + x));
+  root.classList.add('s-' + anchor);
+}
+
+ipcRenderer.on('dock-config', (_, cfg) => setAnchor(cfg.anchor));
+
+// El deslizado se hace aquí dentro: la ventana ya está colocada y con su tamaño final,
+// así que no hay que redimensionarla mientras se anima (que es lo que iba a tirones).
+ipcRenderer.on('panel-show', () => requestAnimationFrame(() => root.classList.add('shown')));
+ipcRenderer.on('panel-hide', () => root.classList.remove('shown'));
+
+function setActiveNav(view) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+}
+
+function navTo(view) {
+  if (!VIEW_SRC[view] || view === currentView) return;
+  currentView = view;
+  setActiveNav(view);
+  content.classList.add('switching');
+  setTimeout(() => {
+    frame.src = VIEW_SRC[view];
+    frame.addEventListener('load', () => content.classList.remove('switching'), { once: true });
+  }, 130);
+  ipcRenderer.send('action', { type:'dock-view-changed', payload:{ view } });
+}
+ipcRenderer.on('dock-navigate', (_, view) => navTo(view));
+
+// ---- Redimensionar: se le pide al proceso principal que cambie el tamaño de ESTA ventana
+let resizeState = null;
+resizer.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  resizeState = { x: e.screenX, y: e.screenY, w: window.innerWidth, h: window.innerHeight };
+});
+document.addEventListener('mousemove', (e) => {
+  if (!resizeState) return;
+  let size;
+  if (anchor === 'left' || anchor === 'right') {
+    const dx = e.screenX - resizeState.x;
+    size = Math.max(320, resizeState.w + (anchor === 'right' ? -dx : dx));
+  } else {
+    const dy = e.screenY - resizeState.y;
+    size = Math.max(260, resizeState.h + (anchor === 'bottom' ? -dy : dy));
+  }
+  resizeState.size = size;
+  ipcRenderer.send('action', { type:'dock-panel-resize', payload:{ size, view: currentView } });
+});
+document.addEventListener('mouseup', () => {
+  if (!resizeState) return;
+  const s = resizeState.size; const v = currentView;
+  resizeState = null;
+  if (s != null) ipcRenderer.send('action', { type:'dock-panel-resize-end', payload:{ size: s, view: v } });
+});
+</script>
+</body>
+</html>

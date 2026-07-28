@@ -1,4 +1,4 @@
 {
-  "version": "2.0.5",
-  "notes": "Las actualizaciones se detectan mucho antes: la comprobación de fondo pasa de cada hora a cada 15 minutos, el tiempo mínimo entre comprobaciones baja de 10 minutos a 90 segundos, y cualquier ventana de la app que recupere el foco dispara una comprobación."
+  "version": "2.0.6",
+  "notes": "El panel de la barra flotante ya desenfoca de verdad el fondo. La causa era de fondo: en Windows el efecto acrílico se ignora en ventanas transparentes, y el panel iba dentro de la ventana transparente de la barrita (que tiene que serlo para dejar pasar los clics al escritorio). Ahora el panel tiene su propia ventana con acrílico, así que al bajar la opacidad se ve el escritorio desenfocado con el tinte de tu tema, conservando bordes y esquinas redondeadas."
 }
