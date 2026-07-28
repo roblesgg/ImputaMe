@@ -27,7 +27,7 @@
      comprimen para caber en el alto disponible y, con overflow:hidden, recortan las
      tareas de dentro (se veían cortadas a media línea) en vez de dejar hacer scroll. */
   .group-card { border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);overflow:hidden;flex-shrink:0;transition:outline .1s,background .1s; }
-  .group-card.drop-target { outline:2px dashed var(--accent);outline-offset:-2px;background:rgba(99,102,241,.10); }
+  .group-card.drop-target { outline:2px dashed var(--accent);outline-offset:-2px;background:color-mix(in srgb, var(--accent2) 12%, transparent); }
   .group-header {
     display:flex;align-items:center;gap:9px;padding:13px 14px;cursor:pointer;
     -webkit-app-region:no-drag;

@@ -1,4 +1,4 @@
 {
-  "version": "1.2.38",
-  "notes": "La barra flotante pasa a ser el modo por defecto en instalaciones nuevas, y el tutorial se hace también en ese modo (esperando a que despliegues el panel, para que no se dé por visto sin verlo). Arreglado que Guardadas se abriera sola al iniciar, y que su botón de cerrar solo respondiera en un trocito: quedaba pisado por la esquina redondeada de la ventana, así que se ha separado del borde y agrandado en todas las ventanas."
+  "version": "2.0.0",
+  "notes": "imputa.me 2.0. La barra flotante ahora se puede mover: mantenla pulsada dos segundos y arrástrala donde quieras; al soltarla vuela hasta el borde más cercano respetando la separación que tengas configurada, y si cambia de vertical a horizontal se estira y encoge con una animación líquida. El tema de color se aplica ya a TODA la app (antes quedaban muchos morados fijos que ignoraban el tema elegido), con una estética común más redondeada y con más aire. El calendario usa el mismo zoom en ventana que en la barra flotante. Y la barra flotante es el modo por defecto."
 }

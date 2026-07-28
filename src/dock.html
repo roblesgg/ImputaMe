@@ -63,6 +63,34 @@
   .a-bottom .dock-bar { bottom:var(--bar-offset); }
   .a-top .dock-bar.near, .a-bottom .dock-bar.near { transform:translateX(-50%) scaleY(1.6); }
 
+  /* Mantener pulsado ~2 s "arma" el arrastre: la barrita late para avisar de que va a
+     poder moverse (así un clic normal nunca se confunde con querer moverla). */
+  .dock-bar.arming { animation:barArming 2s cubic-bezier(.4,0,.6,1) forwards; }
+  @keyframes barArming {
+    0%   { opacity:var(--bar-opacity); filter:none; }
+    100% { opacity:1; filter:brightness(1.5) drop-shadow(0 0 10px var(--bar-color)); }
+  }
+  /* Mientras se arrastra va suelta siguiendo al cursor. */
+  .dock-bar.dragging {
+    transition:none; opacity:1 !important; z-index:20; cursor:grabbing;
+    box-shadow:0 6px 26px rgba(0,0,0,.5);
+  }
+  /* Al soltar, vuela hasta el borde más cercano y, si cambia de orientación, se estira
+     y se encoge como si fuese líquida. */
+  .dock-bar.snapping {
+    transition:left .44s cubic-bezier(.2,.9,.25,1), top .44s cubic-bezier(.2,.9,.25,1),
+               width .44s cubic-bezier(.2,.9,.25,1), height .44s cubic-bezier(.2,.9,.25,1),
+               border-radius .44s ease, transform .44s cubic-bezier(.2,.9,.25,1);
+    opacity:1 !important; z-index:20;
+  }
+  .dock-bar.morph { animation:liquidMorph .5s cubic-bezier(.3,1.3,.4,1); }
+  @keyframes liquidMorph {
+    0%   { transform:translate(-50%,-50%) scale(1.2, .8); }
+    40%  { transform:translate(-50%,-50%) scale(.7, 1.35); }
+    70%  { transform:translate(-50%,-50%) scale(1.12, .92); }
+    100% { transform:translate(-50%,-50%) scale(1, 1); }
+  }
+
   .expanded .dock-bar { opacity:0; pointer-events:none; }   /* desplegado estorba */
   /* ...salvo mientras se está ajustando la barrita desde Ajustes: ahí hay que verla
      para saber cómo va quedando, aunque el panel esté abierto encima. */
@@ -183,7 +211,9 @@ function sendHitRects() {
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) rects.push({ x:Math.round(r.left), y:Math.round(r.top), w:Math.round(r.width), h:Math.round(r.height) });
   };
-  if (!expanded) push(bar);            // plegado: solo la barrita
+  if (barDrag && barDrag.dragging) {
+    rects.push({ x:0, y:0, w:window.innerWidth, h:window.innerHeight });   // arrastrando: todo
+  } else if (!expanded) push(bar);     // plegado: solo la barrita
   else push(document.getElementById('dockPanel'));   // desplegado: todo el panel
   const json = JSON.stringify(rects);
   if (json === lastRectsJson) return;
@@ -224,7 +254,120 @@ function collapse() {
   root.classList.remove('expanded');
   sendHitRects();
 }
-bar.addEventListener('click', () => { expanded ? collapse() : expand(); });
+// ---- Barrita: clic para desplegar, pulsación larga para moverla de sitio ----
+// Se exige mantener pulsado ~2 s antes de poder arrastrarla para que un clic normal
+// (que es lo habitual) no la mueva sin querer.
+const HOLD_MS = 2000;
+const CLICK_SLOP = 6;      // px de margen para seguir considerándolo un clic
+let barDrag = null;
+
+function barRectNow() { return bar.getBoundingClientRect(); }
+
+bar.addEventListener('mousedown', (e) => {
+  if (e.button !== 0 || expanded) return;
+  e.preventDefault();
+  const r = barRectNow();
+  barDrag = {
+    startX: e.clientX, startY: e.clientY, moved: false, dragging: false,
+    // Se agarra por donde se pulsó, para que no dé un salto al empezar a moverse.
+    grabDX: e.clientX - (r.left + r.width / 2),
+    grabDY: e.clientY - (r.top + r.height / 2),
+    holdTimer: setTimeout(() => startBarDrag(e.clientX, e.clientY), HOLD_MS),
+  };
+  bar.classList.add('arming');
+});
+
+function startBarDrag(x, y) {
+  if (!barDrag) return;
+  barDrag.dragging = true;
+  bar.classList.remove('arming');
+  bar.classList.add('dragging');
+  const r = barRectNow();
+  bar.style.width = r.width + 'px';
+  bar.style.height = r.height + 'px';
+  bar.style.right = 'auto'; bar.style.bottom = 'auto';
+  bar.style.transform = 'translate(-50%,-50%)';
+  moveBarTo(x, y);
+  sendHitRects();   // mientras se arrastra, la ventana captura toda la pantalla
+}
+
+function moveBarTo(x, y) {
+  bar.style.left = (x - barDrag.grabDX) + 'px';
+  bar.style.top = (y - barDrag.grabDY) + 'px';
+}
+
+document.addEventListener('mousemove', (e) => {
+  if (!barDrag) return;
+  if (barDrag.dragging) { moveBarTo(e.clientX, e.clientY); return; }
+  if (Math.hypot(e.clientX - barDrag.startX, e.clientY - barDrag.startY) > CLICK_SLOP) {
+    // Se ha movido antes de tiempo: no era ni un clic ni un arrastre.
+    barDrag.moved = true;
+    clearTimeout(barDrag.holdTimer);
+    bar.classList.remove('arming');
+  }
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (!barDrag) return;
+  const d = barDrag;
+  clearTimeout(d.holdTimer);
+  bar.classList.remove('arming');
+  if (d.dragging) { barDrag = null; snapBarToEdge(e.clientX, e.clientY); return; }
+  barDrag = null;
+  if (!d.moved) expand();   // pulsación corta = abrir
+});
+
+// Encaja la barrita en el borde más cercano al soltarla, respetando la separación del
+// borde configurada, y la anima hasta su sitio.
+function snapBarToEdge(x, y) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const dist = { left: x, right: W - x, top: y, bottom: H - y };
+  const anchor = Object.keys(dist).reduce((a, b) => (dist[a] <= dist[b] ? a : b));
+
+  const wasVertical = isVertical();
+  const willBeVertical = anchor === 'left' || anchor === 'right';
+  const off = cfg.barOffset || 0, len = cfg.barLength || 110, thick = cfg.barWidth || 7;
+
+  // Posición a lo largo del borde, sin que se salga por los extremos.
+  let pos, left, top, w, h;
+  if (willBeVertical) {
+    const half = len / 2;
+    const cy = Math.min(Math.max(y, half), H - half);
+    pos = (cy / H) * 100;
+    left = anchor === 'left' ? off + thick / 2 : W - off - thick / 2;
+    top = cy; w = thick; h = len;
+  } else {
+    const half = len / 2;
+    const cx = Math.min(Math.max(x, half), W - half);
+    pos = (cx / W) * 100;
+    top = anchor === 'top' ? off + thick / 2 : H - off - thick / 2;
+    left = cx; w = len; h = thick;
+  }
+
+  cfg.anchor = anchor; cfg.barPos = pos;
+
+  bar.classList.remove('dragging');
+  bar.classList.add('snapping');
+  if (wasVertical !== willBeVertical) bar.classList.add('morph');   // cambio de orientación
+  requestAnimationFrame(() => {
+    bar.style.left = left + 'px'; bar.style.top = top + 'px';
+    bar.style.width = w + 'px';  bar.style.height = h + 'px';
+  });
+
+  const finish = () => {
+    bar.classList.remove('snapping', 'morph');
+    // Se devuelve el mando al CSS de anclaje: se limpian los estilos del arrastre.
+    ['left','top','right','bottom','width','height','transform'].forEach(k => bar.style.removeProperty(k));
+    ANCHORS.forEach(a => root.classList.remove('a-' + a));
+    root.classList.add('a-' + anchor);
+    document.documentElement.style.setProperty('--bar-pos', pos + '%');
+    applyPanelSize();
+    sendHitRects();
+    ipcRenderer.send('action', { type:'set-dock-config', payload:{ dockAnchor: anchor, dockBarPos: Math.round(pos) } });
+  };
+  bar.addEventListener('transitionend', finish, { once: true });
+  setTimeout(finish, 600);   // por si transitionend no llega
+}
 
 function navTo(view) {
   if (!VIEW_SRC[view]) return;

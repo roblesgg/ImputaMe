@@ -15,7 +15,7 @@
   --danger: #f87171;
   --success: #34d399;
   --radius: 16px;
-  --radius-sm: 10px;
+  --radius-sm: 12px;
   /* Sin esto, los controles nativos (el desplegable de <select>, las flechas de
      <input type=number>, checkboxes sin marcar...) se dibujan con el tema claro
      del sistema por defecto, y con texto claro sobre fondo claro quedan
@@ -89,10 +89,10 @@ button {
 .btn-primary {
   background: var(--accent2);
   color: #fff;
-  padding: 8px 16px;
+  padding: 9px 17px;
   font-weight: 600;
 }
-.btn-primary:hover { background: #4f52d0; transform: translateY(-1px); }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent2) 85%, #000); transform: translateY(-1px); }
 
 .btn-ghost {
   background: var(--bg2);
@@ -160,8 +160,8 @@ button {
 .task-pill {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 11px;
+  padding: 13px 15px;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -171,7 +171,7 @@ button {
 }
 .task-pill:hover { background: var(--bg3); border-color: var(--accent); }
 .task-pill.active {
-  background: rgba(99,102,241,0.15);
+  background: color-mix(in srgb, var(--accent2) 18%, transparent);
   border-color: var(--accent);
 }
 
@@ -324,7 +324,7 @@ select option { background: var(--surface); color: var(--text); }
 .tut-btn-ghost { background: var(--bg2); color: var(--text); padding: 7px 12px; border: 1px solid var(--border); font-size: 12.5px; }
 .tut-btn-ghost:hover { background: var(--bg3); }
 .tut-btn-primary { background: var(--accent2); color: #fff; padding: 7px 14px; font-weight: 600; font-size: 12.5px; }
-.tut-btn-primary:hover { background: #4f52d0; }
+.tut-btn-primary:hover { background: color-mix(in srgb, var(--accent2) 85%, #000); }
 
 /* Color picker row */
 .colors-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }

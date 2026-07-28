@@ -18,8 +18,8 @@
   .app-subtitle { font-size:12px;color:var(--text2);margin-top:2px; }
 
   .total-banner {
-    background:linear-gradient(135deg,rgba(99,102,241,.22),rgba(129,140,248,.10));
-    border:1px solid rgba(129,140,248,.25);border-radius:var(--radius-sm);
+    background:linear-gradient(135deg, color-mix(in srgb, var(--accent2) 24%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));
+    border:1px solid color-mix(in srgb, var(--accent) 28%, transparent);border-radius:14px;
     padding:14px 18px;display:flex;justify-content:space-between;align-items:center;
   }
   .total-label { font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
@@ -77,12 +77,12 @@
   /* Barra roja de actualización (solo visible si hay una versión nueva) */
   .update-bar {
     display:none;align-items:center;justify-content:center;gap:8px;width:100%;
-    background:#ef4444;color:#fff;font-size:13px;font-weight:600;padding:10px 12px;
+    background:var(--danger);color:#1a1a24;font-size:13px;font-weight:700;padding:11px 12px;
     border-radius:var(--radius-sm);cursor:pointer;-webkit-app-region:no-drag;border:none;
     animation:updatePulse 2s ease-in-out infinite;
   }
-  .update-bar:hover { background:#dc2626; }
-  @keyframes updatePulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)} 70%{box-shadow:0 0 0 7px rgba(239,68,68,0)} }
+  .update-bar:hover { background:color-mix(in srgb, var(--danger) 82%, #000);color:#fff; }
+  @keyframes updatePulse { 0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent)} 70%{box-shadow:0 0 0 7px transparent} }
 </style>
 </head>
 <body>

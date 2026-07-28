@@ -10,7 +10,7 @@
   /* Alto de cada hora. Lo fija el JS con el valor real de ROW_H (ver más abajo); esto es
      solo el valor por defecto hasta que lo haga. CSS y JS deben usar SIEMPRE el mismo,
      porque si no las etiquetas de horas y la rejilla se desalinean de los bloques. */
-  :root { --row-h: 66px; }
+  :root { --row-h: 96px; }
 
   /* padding-top: deja una franja limpia arriba para el asa de arrastre. En las demás
      ventanas el asa cae sobre el padding vacío del contenedor y funciona; aquí caía
@@ -57,7 +57,7 @@
   }
   .mini-day:hover { background:var(--bg3); }
   .mini-day.other-month { color:var(--text2);opacity:.35; }
-  .mini-day.in-week { background:rgba(99,102,241,.16); }
+  .mini-day.in-week { background:color-mix(in srgb, var(--accent2) 18%, transparent); }
   .mini-day.today { color:var(--accent);font-weight:700; }
   .mini-day.selected { background:var(--accent2);color:#fff;font-weight:700; }
   .mini-day .dot { position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--accent); }
@@ -100,8 +100,8 @@
   .pqa-btn.pqa-danger:hover { background:rgba(248,113,113,.28); }
   .pqa-btn.pqa-success { background:rgba(52,211,153,.15);color:var(--success);border-color:rgba(52,211,153,.3); }
   .pqa-btn.pqa-success:hover { background:rgba(52,211,153,.28); }
-  .pqa-btn.pqa-accent { background:rgba(99,102,241,.16);color:var(--accent);border-color:rgba(99,102,241,.32); }
-  .pqa-btn.pqa-accent:hover { background:rgba(99,102,241,.28); }
+  .pqa-btn.pqa-accent { background:color-mix(in srgb, var(--accent2) 18%, transparent);color:var(--accent);border-color:color-mix(in srgb, var(--accent2) 34%, transparent); }
+  .pqa-btn.pqa-accent:hover { background:color-mix(in srgb, var(--accent2) 30%, transparent); }
 
   /* Popup de confirmación con el estilo de la app (en vez del confirm() nativo de Windows).
      Va encima del popup de editar entrada, que se queda debajo (mismo z-index+1). */
@@ -129,7 +129,7 @@
   .day-header { flex:1;text-align:center;padding:8px 4px;font-size:12.5px;color:var(--text2);cursor:pointer;border-radius:8px 8px 0 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;-webkit-app-region:no-drag; }
   .day-header .dh-num { font-size:18px;font-weight:700;color:var(--text);display:block; }
   .day-header.today .dh-num { color:var(--accent); }
-  .day-header.today { background:rgba(99,102,241,.10); }
+  .day-header.today { background:color-mix(in srgb, var(--accent2) 12%, transparent); }
   /* Día seleccionado (el que se resume en "Tareas de..." de la barra lateral): distinto
      de "hoy", para que se note incluso si coinciden. */
   .day-header.selected { box-shadow:inset 0 -3px 0 var(--accent); }
@@ -148,8 +148,8 @@
     background-image: repeating-linear-gradient(to bottom, transparent, transparent calc(var(--row-h) - 1px), var(--border) calc(var(--row-h) - 1px), var(--border) var(--row-h));
     cursor:crosshair;-webkit-app-region:no-drag;
   }
-  .day-col.today { background-color:rgba(99,102,241,.06); }
-  .day-col.selected { box-shadow:inset 0 0 0 2px rgba(99,102,241,.35); }
+  .day-col.today { background-color:color-mix(in srgb, var(--accent2) 8%, transparent); }
+  .day-col.selected { box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--accent2) 38%, transparent); }
 
   .task-block {
     position:absolute;left:2px;right:2px;border-radius:6px;padding:8px 7px;
@@ -270,7 +270,7 @@
     display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px;
   }
   .tp-item:hover { background:var(--bg3); }
-  .tp-item.selected { background:rgba(99,102,241,.28);outline:1px solid var(--accent); }
+  .tp-item.selected { background:color-mix(in srgb, var(--accent2) 30%, transparent);outline:1px solid var(--accent); }
   .tp-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
   .tp-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
   .tp-new { color:var(--accent);font-weight:600; }
@@ -438,7 +438,7 @@ const { ipcRenderer, shell } = require('electron');
 // Alto de cada hora en la cuadrícula. Dentro de la barra flotante se usa más zoom
 // vertical: el panel es más estrecho, así que las tareas cortas quedaban minúsculas
 // (y para moverse por el día ya está el scroll).
-const ROW_H = IS_EMBEDDED ? 96 : 66;
+const ROW_H = 96;   // mismo zoom en ventana y en barra flotante
 // El CSS (alto de cada celda de hora y las líneas de la rejilla) tiene que usar el mismo
 // valor que los cálculos de JS; si no, los bloques quedan desplazados respecto a las horas.
 document.documentElement.style.setProperty('--row-h', ROW_H + 'px');
