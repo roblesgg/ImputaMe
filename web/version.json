@@ -1,4 +1,4 @@
 {
-  "version": "2.0.4",
-  "notes": "AHORA SÍ HAY DESENFOQUE DE VERDAD. En Windows el efecto acrílico se ignora si la ventana se crea como transparente, y así estaba: lo que veías era solo un tinte con alfa, sin blur, por transparente que lo pusieras. Corregido, así que ahora al bajar la opacidad se ve el escritorio desenfocado con el tinte de tu tema. La barrita flotante se puede arrastrar manteniéndola pulsada mucho menos tiempo (0,65 s en vez de 2 s), y la flecha del botón de esconder apunta hacia el lado por el que se va el panel."
+  "version": "2.0.5",
+  "notes": "Las actualizaciones se detectan mucho antes: la comprobación de fondo pasa de cada hora a cada 15 minutos, el tiempo mínimo entre comprobaciones baja de 10 minutos a 90 segundos, y cualquier ventana de la app que recupere el foco dispara una comprobación."
 }

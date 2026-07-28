@@ -685,6 +685,7 @@ function makeWindow(file, w, h, opts = {}) {
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   win.__sizeSpec = { minWidth: designMinW, minHeight: designMinH, maxWidth: designMaxW, maxHeight: designMaxH };
+  win.on('focus', () => checkForUpdatesIfStale());   // volver a la app = buen momento para mirar
   win.on('move', debounce(() => adaptWindowToItsDisplay(win), 200));
   win.loadFile(path.join(__dirname, 'src', file));
   applyTranslucency(win);
@@ -1383,7 +1384,7 @@ function startTick() {
 let autoUpdater = null;
 let manualCheck = false;   // true cuando el usuario pulsa "Buscar actualizaciones…"
 let lastAutoCheckAt = 0;
-const AUTO_CHECK_THROTTLE_MS = 10 * 60 * 1000;   // como mucho una comprobación automática cada 10 min
+const AUTO_CHECK_THROTTLE_MS = 90 * 1000;   // como mucho una comprobación automática cada 90 s
 
 // Comprueba actualizaciones si ha pasado un rato desde la última vez (se llama al
 // volver al panel): así, si estaba abierta de fondo cuando salió una versión nueva,
@@ -1447,7 +1448,7 @@ function setupAutoUpdate() {
 
   checkForUpdates(false);                              // al arrancar
   setTimeout(() => checkForUpdates(false), 15000);     // reintento por si la red aún no estaba lista (p.ej. arranque con Windows)
-  setInterval(() => checkForUpdates(false), 60 * 60 * 1000);  // y cada hora mientras esté abierta
+  setInterval(() => checkForUpdates(false), 15 * 60 * 1000);  // y cada 15 min mientras esté abierta
 }
 
 function checkForUpdates(manual) {
