@@ -24,6 +24,7 @@ function applyThemeVars(t) {
   s.setProperty('--accent', t.accent);
   s.setProperty('--accent2', t.accent2);
   s.setProperty('--surface', t.surface);
+  s.setProperty('--panel', t.panel || t.surface);
   s.setProperty('color-scheme', t.scheme);
   document.documentElement.dataset.theme = t.key || '';
 }

@@ -539,11 +539,10 @@ function scheduleWidgetAutoHide() {
 // aparece el "gris" de togglear el material en caliente.
 function bgAlphaFromOpacity(op) {
   const x = Math.max(0, Math.min(100, op == null ? 50 : Number(op))) / 100;
-  // Rango más amplio que antes (era 0.20..0.92): abajo del todo se ve de verdad a través
-  // y arriba queda prácticamente sólido. El blur no depende de esto: en las ventanas lo
-  // pone el material acrílico y en el panel del dock un backdrop-filter, así que se
-  // mantiene en todo el recorrido.
-  return (0.06 + x * 0.91).toFixed(3);
+  // Un poco más de recorrido que el original (0.20..0.92) pero sin llegar a dejar la
+  // ventana ilegible por abajo. El blur no depende de esto: lo pone el material acrílico
+  // (y en el panel del dock, un backdrop-filter), así que se mantiene en todo el rango.
+  return (0.18 + x * 0.78).toFixed(3);
 }
 
 function applyTranslucency(win) {
@@ -562,10 +561,21 @@ function applyTranslucencyAll() {
 // Paleta actual, ya resuelta (incluye el --bg con la opacidad elegida). Se manda a los
 // renderers, que la aplican como variables CSS: así llega también a las vistas del dock,
 // que van en iframes (insertCSS solo alcanzaría al frame principal).
+function hexToRgb(hex) {
+  const h = String(hex || '').replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+
 function themeVars() {
   const t = THEMES[settings.theme] || THEMES[DEFAULT_THEME];
   const acc = ACCENTS[settings.accent];   // si no hay elegido, manda el del tema
   const light = t.scheme === 'light';
+  // El panel del dock lleva el contenido, así que su fondo sigue al deslizador pero con
+  // un suelo bastante alto: con el alfa general (que puede bajar mucho) se transparentaba
+  // tanto que no se leía nada y se perdían los bordes.
+  const x = Math.max(0, Math.min(100, settings.bgOpacity == null ? 50 : Number(settings.bgOpacity))) / 100;
+  const panelAlpha = (0.66 + x * 0.32).toFixed(3);
   return {
     key: settings.theme,
     bg: `rgba(${t.base},${bgAlphaFromOpacity(settings.bgOpacity)})`,
@@ -578,6 +588,7 @@ function themeVars() {
     accent2: acc ? acc.accent2 : t.accent2,
     accentKey: settings.accent || null,
     surface: t.surface,
+    panel: `rgba(${hexToRgb(t.surface)},${panelAlpha})`,
     scheme: t.scheme,
   };
 }

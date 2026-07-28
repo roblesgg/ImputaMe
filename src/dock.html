@@ -22,11 +22,11 @@
   .dock-panel {
     position:absolute;
     display:flex; flex-direction:column;
-    background:var(--bg);
+    background:var(--panel, var(--surface));
     backdrop-filter:blur(30px) saturate(160%);
     -webkit-backdrop-filter:blur(30px) saturate(160%);
-    border:1px solid var(--border);
-    box-shadow:0 0 40px rgba(0,0,0,.5);
+    border:1px solid color-mix(in srgb, var(--text) 16%, transparent);
+    box-shadow:0 0 42px rgba(0,0,0,.55);
     overflow:hidden;
     transition:transform .28s cubic-bezier(.32,.72,0,1);
   }
