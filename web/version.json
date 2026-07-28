@@ -1,4 +1,4 @@
 {
-  "version": "1.2.33",
-  "notes": "IMPORTANTE: arregla el calendario, que desde la 1.2.31 mostraba las tareas a horas equivocadas (el alto de cada hora había quedado descuadrado entre el dibujo y los cálculos). Además: el color de acento (botones y resaltados) se elige aparte del fondo, así que puedes tener fondo gris o negro con el acento que quieras; nuevo control para separar la barrita flotante del borde de la pantalla; y la opacidad que se ajusta pasa a ser la de reposo — al acercar el ratón la barrita se ve siempre al máximo."
+  "version": "1.2.34",
+  "notes": "Arreglado que la app dejara de avisar de nuevas versiones al usarla: desde la 1.2.32, abrir la app por la última vista o usar la barra flotante ya no disparaba la comprobación (solo quedaba el temporizador de fondo). Ahora se comprueba al volver a la app por cualquier vía, incluido desplegar la barrita. Además, el aviso de actualización se pone por delante de la barra flotante para que no quede tapado."
 }

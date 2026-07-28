@@ -786,6 +786,7 @@ function rememberView(view) {
 
 // Abre la app por donde se quedó la última vez (panel, calendario o guardadas).
 function openLastView() {
+  checkForUpdatesIfStale();
   const v = settings.lastView;
   if (settings.dockMode) { dockNavigate(v && v !== 'settings' ? v : 'panel'); return; }
   if (v === 'calendar') openCalendar();
@@ -795,6 +796,7 @@ function openLastView() {
 
 // Enseña una vista dentro del dock (en vez de abrir una ventana suelta).
 function dockNavigate(view) {
+  checkForUpdatesIfStale();
   rememberView(view);
   if (!dockWin || dockWin.isDestroyed()) createDock();
   const send = () => { try { dockWin.webContents.send('dock-navigate', view); } catch {} };
@@ -869,6 +871,7 @@ function showSplashThenMain() {
 
 function openCalendar() {
   if (settings.dockMode) { dockNavigate('calendar'); return; }
+  checkForUpdatesIfStale();
   rememberView('calendar');
   if (calendarWin && !calendarWin.isDestroyed()) { calendarWin.show(); calendarWin.focus(); sendStateToWindow(calendarWin); return; }
   calendarWin = makeWindow('calendar.html', 1280, 760, {
@@ -892,6 +895,7 @@ function openSettings() {
 
 function openGroups() {
   if (settings.dockMode) { dockNavigate('groups'); return; }
+  checkForUpdatesIfStale();
   rememberView('groups');
   if (groupsWin && !groupsWin.isDestroyed()) { groupsWin.show(); groupsWin.focus(); sendStateToWindow(groupsWin); return; }
   groupsWin = makeWindow('groups.html', 420, 620, {
@@ -920,6 +924,7 @@ function openUpdateWindow() {
   });
   updateWin.once('ready-to-show', () => {
     updateWin.show(); updateWin.focus();
+    try { updateWin.moveTop(); } catch {}
     if (pendingUpdateState) updateWin.webContents.send('update-state', pendingUpdateState);
   });
   updateWin.on('closed', () => { updateWin = null; });
@@ -1049,6 +1054,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       }
       break;
     case 'dock-focus':
+      checkForUpdatesIfStale();
       if (dockWin && !dockWin.isDestroyed()) { try { dockWin.focus(); } catch {} }
       break;
     // Vista previa en vivo mientras se toquetea la barra en Ajustes (sin darle a Guardar).
