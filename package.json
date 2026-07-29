@@ -1,6 +1,6 @@
 {
   "name": "imputa-me",
-  "version": "2.0.15",
+  "version": "2.0.16",
   "description": "imputa.me — registra y consulta tus horas por tarea",
   "main": "main.js",
   "author": "imputa.me",

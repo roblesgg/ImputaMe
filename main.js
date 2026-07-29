@@ -796,6 +796,7 @@ function computePanelBounds(view) {
 }
 
 let dockPanelView = 'panel';
+let dockPanelShownAt = 0;   // cuándo se mostró el panel (ver el blur de clic-fuera)
 
 function createDockPanel() {
   if (dockPanelWin && !dockPanelWin.isDestroyed()) return;
@@ -819,8 +820,19 @@ function createDockPanel() {
   };
   if (dockPanelWin.webContents.isLoading()) dockPanelWin.webContents.once('did-finish-load', push);
   else push();
+  // Clic fuera = el panel pierde el foco. Con dos salvaguardas, porque si no el panel se
+  // cerraba justo al abrirse: (1) un margen desde que se muestra, porque al aparecer aún
+  // no tiene el foco asentado y salta un blur; y (2) si el foco ha ido a otra ventana de
+  // la propia app (Ajustes, el aviso de actualización...), eso no es "clicar fuera".
   dockPanelWin.on('blur', () => {
-    if (settings.dockCloseMode === 'clickOutside' && dockExpanded) collapseDockPanel();
+    if (settings.dockCloseMode !== 'clickOutside' || !dockExpanded) return;
+    if (Date.now() - dockPanelShownAt < 700) return;
+    setTimeout(() => {
+      if (settings.dockCloseMode !== 'clickOutside' || !dockExpanded) return;
+      const f = BrowserWindow.getFocusedWindow();
+      if (f && !f.isDestroyed()) return;   // el foco sigue dentro de la app
+      collapseDockPanel();
+    }, 140);
   });
   dockPanelWin.on('closed', () => { dockPanelWin = null; });
 }
@@ -866,7 +878,7 @@ function showDockPanel() {
     if (!wasVisible) dockPanelWin.setBounds(offscreenPanelBounds(target, anchor));
     dockPanelWin.showInactive(); dockPanelWin.moveTop(); dockPanelWin.focus();
   } catch {}
-  dockExpanded = true; dockOutsideSince = 0;
+  dockExpanded = true; dockOutsideSince = 0; dockPanelShownAt = Date.now();
   if (wasVisible) { try { dockPanelWin.setBounds(target); } catch {} }
   else animateWindowBounds(dockPanelWin, target, 240);
   sendToAllFrames(dockPanelWin, 'dock-expanded');
@@ -962,13 +974,8 @@ function createDock() {
   dockWin.loadFile(path.join(__dirname, 'src', 'dock.html'));
   sendDockConfig();
   dockWin.once('ready-to-show', () => { if (dockWin && !dockWin.isDestroyed()) dockWin.showInactive(); });
-  // Clic fuera = la ventana del dock pierde el foco. Es más limpio que capturar toda la
-  // pantalla para detectar el clic (eso se comería el clic destinado a la otra app).
-  dockWin.on('blur', () => {
-    if (settings.dockCloseMode === 'clickOutside' && dockExpanded) {
-      try { dockWin.webContents.send('dock-collapse'); } catch {}
-    }
-  });
+  // El clic fuera se detecta en la ventana del PANEL (ver createDockPanel): esta ventana
+  // es la de la barrita y no tiene foco propio.
   dockWin.on('closed', () => {
     if (dockHitTimer) { clearInterval(dockHitTimer); dockHitTimer = null; }
     dockWin = null; dockExpanded = false; dockHitRects = []; dockIgnoring = null;
