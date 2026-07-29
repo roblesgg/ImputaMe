@@ -409,6 +409,10 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 4.2 2.8c-.8.4-1.3 1.1-1.3 2"/><path d="M12 17h.01"/></svg>
         Ver tutorial
       </button>
+      <button class="big-btn" onclick="showWhatsNew()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3"/></svg>
+        Ver novedades
+      </button>
       <button class="big-btn" onclick="checkUpdates()">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-9m0 0l-4 4m4-4l4 4"/><path d="M20 12a8 8 0 1 0-16 0"/></svg>
         Actualizaciones
@@ -745,6 +749,7 @@ function showToast(text) {
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
 function startTutorial() { ipcRenderer.send('action', { type:'reset-tutorial' }); cancel(); }
 function checkUpdates() { ipcRenderer.send('action', { type:'check-for-updates' }); }
+function showWhatsNew() { ipcRenderer.send('action', { type:'show-whats-new' }); }
 
 // ---------- Copia de seguridad ----------
 async function exportBackup() {

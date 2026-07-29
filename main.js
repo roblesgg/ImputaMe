@@ -35,6 +35,28 @@ const THEMES = {
 };
 const DEFAULT_THEME = 'indigo';
 
+// Recorrido de novedades que se muestra UNA vez al actualizar. Solo para quien va por el
+// canal estable: en el de prueba las versiones se suceden a diario y sería un incordio.
+const WHATS_NEW = {
+  '2.2.0': {
+    title: 'Novedades de imputa.me 2.2',
+    steps: [
+      { icon:'cursor', title:'Se acabó el parpadeo del cursor',
+        text:'Al pasar el ratón por botones, campos y agarradores el cursor se quedaba parpadeando entre la flecha y la mano. Ya no: ahora se mantiene estable mientras mueves el ratón.' },
+      { icon:'calendar', title:'Las tareas ya no se pisan',
+        text:'Al estirar una tarea por sus extremos en el calendario, ahora hace tope justo donde llega la de al lado. Si la arrastras a fondo, una acaba exactamente cuando empieza la otra.' },
+      { icon:'calendar', title:'Horas legibles en cada tarea',
+        text:'La duración baja a su propia línea, así que la hora de inicio y la de fin se leen enteras sin cortarse.' },
+      { icon:'screen', title:'Mejor con varios monitores',
+        text:'Al esconder el panel flotante ya no asoma un instante en la pantalla de al lado: ahora entra y sale con un desvanecido sin salir nunca de su monitor.' },
+      { icon:'spark', title:'Se esconde a tu ritmo',
+        text:'Si usas "esconder cuando el ratón sale", puedes ajustar el retardo en medios segundos, e incluso ponerlo a cero para que se esconda al instante.' },
+      { icon:'bell', title:'Actualizaciones sin sorpresas',
+        text:'Cuando haya una versión nueva te avisa sola con una notificación, pero no se descarga ni se instala nada sin que tú lo decidas.' },
+    ],
+  },
+};
+
 // Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el
 // suyo por defecto, pero se puede cambiar sin tocar los grises/negros/blancos del fondo.
 const ACCENTS = {
@@ -73,6 +95,7 @@ let reminderTimer = null;
 let tickTimer = null;
 let syncWin = null;
 let updateWin = null;
+let whatsNewWin = null;
 let dockWin = null;              // ventana transparente de la BARRITA (click-through)
 let dockPanelWin = null;         // ventana del PANEL: sin transparencia y con acrílico
 let dockHideWin = null;          // ventanita del botón de esconder, que flota junto al panel
@@ -127,6 +150,7 @@ let settings = {
   // (las de prueba van marcadas como "prerelease" en GitHub); sin él, solo las marcadas
   // como estables.
   betaUpdates: false,
+  lastSeenVersion: null,    // última versión cuyas novedades ya se han visto
   dockCalendarWidth: 1180, // el calendario se abre bastante más ancho (y se puede estirar)
   lastView: 'panel',    // última vista abierta: la app vuelve a abrirse por donde la dejaste
 };
@@ -1296,6 +1320,32 @@ function openUpdateWindow() {
   updateWin.on('closed', () => { updateWin = null; });
 }
 
+// ── Novedades al actualizar ───────────────────────────────────────────────────
+function openWhatsNew() {
+  if (whatsNewWin && !whatsNewWin.isDestroyed()) { whatsNewWin.show(); whatsNewWin.focus(); return; }
+  whatsNewWin = makeWindow('whatsnew.html', 440, 430, {
+    alwaysOnTop: true, resizable: false,
+    minWidth: 400, minHeight: 380, maxWidth: 520, maxHeight: 520,
+  });
+  whatsNewWin.once('ready-to-show', () => {
+    whatsNewWin.show(); whatsNewWin.focus();
+    try { whatsNewWin.moveTop(); } catch {}
+  });
+  whatsNewWin.on('closed', () => { whatsNewWin = null; });
+}
+
+// Se enseña una sola vez por versión y SOLO en el canal estable: en el de prueba salen
+// versiones a diario y sería un incordio verlo cada vez.
+function maybeShowWhatsNew() {
+  const v = app.getVersion();
+  if (settings.lastSeenVersion === v) return;
+  const notes = WHATS_NEW[v];
+  settings.lastSeenVersion = v;      // se marca aunque no haya notas, para no reintentarlo
+  saveSettings();
+  if (!notes || settings.betaUpdates) return;
+  setTimeout(() => openWhatsNew(), 1200);   // tras el arranque, sin pisar al splash
+}
+
 function sendUpdateState(state) {
   pendingUpdateState = state;
   if (updateWin && !updateWin.isDestroyed()) updateWin.webContents.send('update-state', state);
@@ -1537,6 +1587,16 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     }
     case 'get-theme':     event.reply('theme', themeVars()); break;
+    case 'get-whats-new': {
+      const v = app.getVersion();
+      const notes = WHATS_NEW[v];
+      event.reply('whats-new', { version: v, title: notes && notes.title, steps: (notes && notes.steps) || [] });
+      break;
+    }
+    case 'show-whats-new': openWhatsNew(); break;   // botón "Ver novedades" de Ajustes
+    case 'close-whats-new':
+      if (whatsNewWin && !whatsNewWin.isDestroyed()) whatsNewWin.close();
+      break;
     case 'set-theme':
       if (payload && payload.theme !== undefined) {
         settings.theme = THEMES[payload.theme] ? payload.theme : DEFAULT_THEME;
@@ -1872,6 +1932,7 @@ app.whenReady().then(() => {
     showSplashThenMain();
   }
   setupAutoUpdate();
+  maybeShowWhatsNew();
 });
 
 app.on('window-all-closed', e => e.preventDefault());

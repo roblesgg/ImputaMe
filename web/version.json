@@ -1,4 +1,4 @@
 {
-  "version": "2.1.4",
-  "notes": "Versión de prueba (canal betatester). Con dos monitores, al esconder el panel este asomaba un momento en la pantalla de al lado antes de desaparecer: se iba deslizando por el borde y acababa entrando en el otro monitor. Ahora entra y sale con un desvanecido y un desplazamiento corto hacia dentro, así que nunca sale de su pantalla. Y el retardo de \"esconder cuando el ratón sale\" admite ya medios segundos y el valor 0, que lo esconde al instante."
+  "version": "2.2.0",
+  "notes": "imputa.me 2.2. Al actualizar verás un recorrido con las novedades (y puedes repasarlo cuando quieras desde Ajustes → Ver novedades). Se acabó el parpadeo del cursor al pasar el ratón por botones y campos. En el calendario, al estirar una tarea hace tope donde llega la de al lado, sin solaparse, y las horas de inicio y fin se leen enteras. Con varios monitores, el panel flotante ya no asoma en la pantalla de al lado al esconderse. El retardo de \"esconder cuando el ratón sale\" admite medios segundos y hasta cero. Y cuando hay versión nueva te avisa con una notificación, sin descargar ni instalar nada sin tu permiso."
 }
