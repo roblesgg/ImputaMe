@@ -86,7 +86,6 @@ const root = document.getElementById('dockRoot');
 const bar = document.getElementById('dockBar');
 
 const ANCHORS = ['left','right','top','bottom'];
-const NEAR_PX = 110;      // a qué distancia del ratón se revela la barrita
 const HOLD_MS = 650;      // cuánto hay que mantener pulsado para poder moverla
 const CLICK_SLOP = 6;
 
@@ -127,20 +126,21 @@ function sendHitRects() {
   } else {
     push(bar);   // el botón de esconder vive ahora en la ventana del panel
   }
-  const json = JSON.stringify(rects);
+  const br = bar.getBoundingClientRect();
+  const barRect = { x:Math.round(br.left), y:Math.round(br.top), w:Math.round(br.width), h:Math.round(br.height) };
+  const json = JSON.stringify([rects, barRect]);
   if (json === lastRectsJson) return;
   lastRectsJson = json;
-  ipcRenderer.send('action', { type:'dock-hit-rects', payload:{ rects } });
+  ipcRenderer.send('action', { type:'dock-hit-rects', payload:{ rects, barRect } });
 }
 setInterval(sendHitRects, 180);
 
-// Revelado de la barrita al acercar el ratón.
-document.addEventListener('mousemove', (e) => {
-  if (expanded || (barDrag && barDrag.dragging)) return;
-  const r = bar.getBoundingClientRect();
-  const dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
-  const dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
-  bar.classList.toggle('near', Math.hypot(dx, dy) < NEAR_PX);
+// Revelado de la barrita al acercar el ratón: lo decide el proceso principal, que sigue
+// el cursor. Aquí ya no se puede con mousemove, porque la ventana dejó de pedir que se le
+// reenviaran los movimientos (ese reenvío era lo que hacía parpadear el cursor).
+ipcRenderer.on('dock-bar-near', (_, near) => {
+  if (barDrag && barDrag.dragging) return;
+  bar.classList.toggle('near', !!near && !expanded);
 });
 
 function expand() {

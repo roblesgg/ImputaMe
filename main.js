@@ -80,6 +80,8 @@ let dockExpanded = false;
 let dockHitRects = [];           // zonas "clicables" del dock, en coords de su ventana
 let dockOutsideSince = 0;        // desde cuándo el cursor está fuera del panel desplegado
 let lastBarRaiseAt = 0;          // para no reordenar ventanas en cada evento (ver 'set-dock-config')
+let dockBarRect = null;          // rectángulo de la barrita, para saber si el ratón se acerca
+let dockBarNear = null;
 let dockHitTimer = null;
 let dockIgnoring = null;
 let pendingUpdateState = null;   // último estado enviado a la ventana de actualización
@@ -1004,7 +1006,7 @@ function setDockIgnore(ignore) {
   if (ignore === dockIgnoring) return;
   dockIgnoring = ignore;
   if (dockWin && !dockWin.isDestroyed()) {
-    try { dockWin.setIgnoreMouseEvents(ignore, { forward: true }); } catch {}
+    try { dockWin.setIgnoreMouseEvents(ignore); } catch {}
   }
 }
 
@@ -1015,6 +1017,16 @@ function updateDockHitTest() {
   const x = p.x - b.x, y = p.y - b.y;
   const inside = dockHitRects.some(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
   setDockIgnore(!inside);
+
+  // Revelado de la barrita al acercarse: se calcula aquí porque la ventana ya no recibe
+  // los movimientos del ratón (ese reenvío era lo que hacía parpadear el cursor).
+  const near = !dockExpanded && !!dockBarRect &&
+    Math.hypot(Math.max(dockBarRect.x - x, 0, x - (dockBarRect.x + dockBarRect.w)),
+               Math.max(dockBarRect.y - y, 0, y - (dockBarRect.y + dockBarRect.h))) < 110;
+  if (near !== dockBarNear) {
+    dockBarNear = near;
+    try { dockWin.webContents.send('dock-bar-near', near); } catch {}
+  }
 
   // Auto-esconder cuando el cursor lleva un rato fuera del panel abierto. El panel es
   // ahora otra ventana, así que "dentro" incluye también sus límites (si no, contaría
@@ -1073,7 +1085,7 @@ function createDock() {
   // decisión deja de actualizarse, así que forzamos click-through (y si ha muerto del
   // todo, salimos del modo dock) para no dejar la pantalla bloqueada.
   dockWin.webContents.on('unresponsive', () => {
-    try { dockWin.setIgnoreMouseEvents(true, { forward: true }); } catch {}
+    try { dockWin.setIgnoreMouseEvents(true); } catch {}
   });
   dockWin.webContents.on('render-process-gone', () => {
     destroyDock();
@@ -1409,6 +1421,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     case 'dock-hit-rects':
       dockHitRects = (payload && Array.isArray(payload.rects)) ? payload.rects : [];
+      dockBarRect = (payload && payload.barRect) || null;
       updateDockHitTest();
       break;
     case 'dock-expand':            // la barrita pide abrir el panel
