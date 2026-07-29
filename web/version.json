@@ -1,4 +1,4 @@
 {
-  "version": "2.0.14",
-  "notes": "Versión de prueba (canal betatester). El botón de esconder ya sigue al borde del panel en tiempo real mientras lo redimensionas: recibía el tamaño nuevo, pero cada actualización reiniciaba su animación de 0,34 s y siempre iba por detrás. Ahora, mientras arrastras, se mueve sin animación; al cambiar de pestaña sigue animándose, al mismo ritmo que la ventana."
+  "version": "2.0.15",
+  "notes": "Versión de prueba (canal betatester). Arreglado el panel gris que se quedaba detrás durante la animación: ahora se desliza la ventana entera en vez de solo su contenido, así que no queda ningún rectángulo a la vista. Y el botón de esconder pasa a vivir dentro del propio panel, en su borde interior: así siempre se ve y siempre está alineado, sin depender de sincronizar dos ventanas."
 }

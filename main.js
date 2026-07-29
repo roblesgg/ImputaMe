@@ -780,15 +780,14 @@ function computePanelBounds(view) {
   const work = dockDisplay().workArea;
   const c = dockConfig();
   const vertical = c.anchor === 'left' || c.anchor === 'right';
-  const ROOM_FOR_HIDE_BTN = 58;   // hueco que se reserva para el botón flotante de esconder
   if (vertical) {
-    const width = Math.min(view === 'calendar' ? c.calendarWidth : c.panelWidth, work.width - ROOM_FOR_HIDE_BTN);
+    const width = Math.min(view === 'calendar' ? c.calendarWidth : c.panelWidth, work.width);
     return {
       x: c.anchor === 'left' ? work.x : work.x + work.width - width,
       y: work.y, width, height: work.height,
     };
   }
-  const height = Math.min(c.panelHeight, work.height - ROOM_FOR_HIDE_BTN);
+  const height = Math.min(c.panelHeight, work.height);
   return {
     x: work.x,
     y: c.anchor === 'top' ? work.y : work.y + work.height - height,
@@ -855,38 +854,32 @@ function animateWindowBounds(win, target, ms = 190) {
   }, 16);
 }
 
-// live=true mientras se está arrastrando para redimensionar: en ese caso el botón debe
-// seguir al borde AL INSTANTE (con la transición puesta, cada mensaje reiniciaba una
-// animación de 0,34 s y el botón iba siempre por detrás).
-function sendPanelSizeToBar(live) {
-  if (!dockWin || dockWin.isDestroyed()) return;
-  let b = null;
-  try { b = computePanelBounds(dockPanelView); } catch {}
-  if (dockPanelWin && !dockPanelWin.isDestroyed()) { try { b = dockPanelWin.getBounds(); } catch {} }
-  if (!b) return;
-  try { dockWin.webContents.send('dock-panel-size', { width: b.width, height: b.height, live: !!live }); } catch {}
-}
-
+// Entra deslizando LA VENTANA desde fuera de la pantalla. Animar solo el contenido
+// dejaba a la vista el rectángulo acrílico de la ventana (el "panel gris" de detrás).
 function showDockPanel() {
   createDockPanel();
   if (!dockPanelWin || dockPanelWin.isDestroyed()) return;
-  try { dockPanelWin.setBounds(computePanelBounds(dockPanelView)); } catch {}
-  try { dockPanelWin.showInactive(); dockPanelWin.moveTop(); dockPanelWin.focus(); } catch {}
+  const target = computePanelBounds(dockPanelView);
+  const anchor = dockConfig().anchor;
+  const wasVisible = dockPanelWin.isVisible();
+  try {
+    if (!wasVisible) dockPanelWin.setBounds(offscreenPanelBounds(target, anchor));
+    dockPanelWin.showInactive(); dockPanelWin.moveTop(); dockPanelWin.focus();
+  } catch {}
   dockExpanded = true; dockOutsideSince = 0;
-  sendPanelSizeToBar();
-  const go = () => { try { dockPanelWin.webContents.send('panel-show'); } catch {} };
-  if (dockPanelWin.webContents.isLoading()) dockPanelWin.webContents.once('did-finish-load', go);
-  else go();
+  if (wasVisible) { try { dockPanelWin.setBounds(target); } catch {} }
+  else animateWindowBounds(dockPanelWin, target, 240);
   sendToAllFrames(dockPanelWin, 'dock-expanded');
 }
 
-// Primero se desliza fuera y, cuando termina, se esconde la ventana.
+// Sale deslizando la ventana entera y, al terminar, se esconde.
 function collapseDockPanel() {
   dockExpanded = false; dockOutsideSince = 0;
   if (dockWin && !dockWin.isDestroyed()) { try { dockWin.webContents.send('dock-collapse'); } catch {} }
-  if (!dockPanelWin || dockPanelWin.isDestroyed()) return;
-  try { dockPanelWin.webContents.send('panel-hide'); } catch {}
-  setTimeout(() => { try { if (dockPanelWin && !dockPanelWin.isDestroyed()) dockPanelWin.hide(); } catch {} }, 300);
+  if (!dockPanelWin || dockPanelWin.isDestroyed() || !dockPanelWin.isVisible()) return;
+  let b; try { b = dockPanelWin.getBounds(); } catch { return; }
+  animateWindowBounds(dockPanelWin, offscreenPanelBounds(b, dockConfig().anchor), 220);
+  setTimeout(() => { try { if (dockPanelWin && !dockPanelWin.isDestroyed()) dockPanelWin.hide(); } catch {} }, 250);
 }
 
 // Empuja la config visual al renderer del dock (al crearlo y al cambiar Ajustes).
@@ -1336,7 +1329,6 @@ ipcMain.on('action', (event, { type, payload }) => {
         if (dockPanelWin && !dockPanelWin.isDestroyed()) {
           animateWindowBounds(dockPanelWin, computePanelBounds(dockPanelView));
         }
-        sendPanelSizeToBar();   // el botón de esconder se recoloca con su propia transición
       }
       break;
     case 'dock-panel-resize':
@@ -1354,7 +1346,6 @@ ipcMain.on('action', (event, { type, payload }) => {
             dockPanelWin.setBounds({ x: work.x, y: c.anchor === 'top' ? work.y : work.y + work.height - height, width: work.width, height });
           }
         } catch {}
-        sendPanelSizeToBar(true);   // sin animación: tiene que ir pegado al borde
       }
       break;
     case 'dock-panel-resize-end': {

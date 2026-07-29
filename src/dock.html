@@ -13,7 +13,7 @@
 
   :root {
     --bar-w:7px; --bar-len:110px; --bar-pos:50%; --bar-offset:4px; --bar-color:#fff; --bar-opacity:.3;
-    --panel-w:460px; --panel-h:620px; --panel:#1c1c2a;
+    --panel:#1c1c2a;
   }
 
   .dock-root { position:absolute; inset:0; }
@@ -72,49 +72,10 @@
     100% { transform:translate(-50%,-50%) scale(1, 1); }
   }
 
-  /* ── Botón flotante para esconder, por fuera del panel ────── */
-  .dock-hide {
-    position:absolute; z-index:12; width:34px; height:34px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; padding:0;
-    background:var(--panel, var(--surface));
-    border:1px solid color-mix(in srgb, var(--text) 20%, transparent);
-    color:var(--text2); cursor:pointer;
-    box-shadow:0 4px 18px rgba(0,0,0,.5);
-    opacity:0; transform:scale(.6); pointer-events:none; will-change:transform, opacity;
-    transition:opacity .26s cubic-bezier(.34,1.5,.5,1), transform .26s cubic-bezier(.34,1.5,.5,1),
-               right .19s cubic-bezier(.32,.72,0,1), left .19s cubic-bezier(.32,.72,0,1),
-               top .19s cubic-bezier(.32,.72,0,1), bottom .19s cubic-bezier(.32,.72,0,1),
-               background .18s, color .18s, box-shadow .18s;
-  }
-  .expanded .dock-hide { opacity:1; transform:scale(1); pointer-events:auto; }
-  /* Al arrastrar para redimensionar, el botón sigue al borde sin animación de por medio. */
-  .no-anim .dock-hide { transition:opacity .26s ease, transform .26s cubic-bezier(.34,1.5,.5,1), background .18s, color .18s, box-shadow .18s; }
-  .dock-hide svg { transition:transform .24s cubic-bezier(.34,1.5,.5,1); }
-  .dock-hide:hover {
-    background:var(--accent2); color:#fff; transform:scale(1.16);
-    box-shadow:0 6px 22px color-mix(in srgb, var(--accent2) 60%, transparent);
-  }
-  .dock-hide:active { transform:scale(.94); }
-  /* Cuelga justo por fuera del borde interior del panel. La flecha apunta SIEMPRE hacia
-     el lado por el que el panel se va al esconderse. */
-  .a-right  .dock-hide { top:50%; margin-top:-17px; right:min(calc(var(--panel-w) + 12px), calc(100vw - 48px)); }
-  .a-left   .dock-hide { top:50%; margin-top:-17px; left:min(calc(var(--panel-w) + 12px), calc(100vw - 48px)); }
-  .a-top    .dock-hide { left:50%; margin-left:-17px; top:min(calc(var(--panel-h) + 12px), calc(100vh - 48px)); }
-  .a-bottom .dock-hide { left:50%; margin-left:-17px; bottom:min(calc(var(--panel-h) + 12px), calc(100vh - 48px)); }
-  .a-left   .dock-hide svg { transform:scaleX(-1); }
-  .a-top    .dock-hide svg { transform:rotate(-90deg); }
-  .a-bottom .dock-hide svg { transform:rotate(90deg); }
-  .a-right  .dock-hide:hover svg { transform:translateX(2px); }
-  .a-left   .dock-hide:hover svg { transform:scaleX(-1) translateX(2px); }
-  .a-top    .dock-hide:hover svg { transform:rotate(-90deg) translateX(2px); }
-  .a-bottom .dock-hide:hover svg { transform:rotate(90deg) translateX(2px); }
 </style>
 </head>
 <body>
 <div class="dock-root a-right" id="dockRoot">
-  <button class="dock-hide" id="dockHide" onclick="collapse()" title="Esconder">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-  </button>
   <div class="dock-bar" id="dockBar" title="imputa.me — clic para desplegar"></div>
 </div>
 
@@ -123,7 +84,6 @@
 const { ipcRenderer } = require('electron');
 const root = document.getElementById('dockRoot');
 const bar = document.getElementById('dockBar');
-const hideBtn = document.getElementById('dockHide');
 
 const ANCHORS = ['left','right','top','bottom'];
 const NEAR_PX = 110;      // a qué distancia del ratón se revela la barrita
@@ -136,22 +96,6 @@ let barDrag = null;
 
 // Tamaño REAL del panel ahora mismo (el calendario es mucho más ancho): sin esto el
 // botón de esconder se colocaba según el ancho "normal" y quedaba detrás del panel.
-let liveResizeTimer = null;
-ipcRenderer.on('dock-panel-size', (_, sz) => {
-  if (!sz) return;
-  const s = document.documentElement.style;
-  // Mientras se arrastra el borde, sin transición: si no, cada mensaje reinicia la
-  // animación y el botón se queda atrás en vez de seguir al panel.
-  if (sz.live) {
-    root.classList.add('no-anim');
-    clearTimeout(liveResizeTimer);
-    liveResizeTimer = setTimeout(() => root.classList.remove('no-anim'), 220);
-  }
-  s.setProperty('--panel-w', sz.width + 'px');
-  s.setProperty('--panel-h', sz.height + 'px');
-  sendHitRects();
-});
-
 ipcRenderer.on('dock-config', (_, c) => {
   cfg = c;
   const s = document.documentElement.style;
@@ -161,8 +105,6 @@ ipcRenderer.on('dock-config', (_, c) => {
   s.setProperty('--bar-offset', c.barOffset + 'px');
   s.setProperty('--bar-color', c.barColor);
   s.setProperty('--bar-opacity', (c.barOpacity / 100).toFixed(2));
-  // OJO: --panel-w/--panel-h NO se tocan aquí. Los fija 'dock-panel-size' con el tamaño
-  // real de la ventana del panel, que cambia según la pestaña (el calendario es más ancho).
   ANCHORS.forEach(a => root.classList.remove('a-' + a));
   root.classList.add('a-' + (ANCHORS.includes(c.anchor) ? c.anchor : 'right'));
   sendHitRects();
@@ -183,8 +125,7 @@ function sendHitRects() {
   if (barDrag && barDrag.dragging) {
     rects.push({ x:0, y:0, w:window.innerWidth, h:window.innerHeight });   // arrastrando: todo
   } else {
-    push(bar);
-    if (expanded) push(hideBtn);   // el botón cuelga fuera del panel: va aparte
+    push(bar);   // el botón de esconder vive ahora en la ventana del panel
   }
   const json = JSON.stringify(rects);
   if (json === lastRectsJson) return;
