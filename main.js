@@ -883,12 +883,16 @@ function animateWindowBounds(win, target, ms = 190, fromOverride, onFrame) {
   setTimeout(() => { if (!win.__boundsTween) land(); }, ms + 120);
 }
 
-const HIDE_BTN = 44;   // lado de la ventanita del botón (el círculo mide 34)
+// La ventanita es MUCHO más grande que el círculo a propósito: su sombra difumina 18px y,
+// si la ventana va justa, se recorta contra el borde y se ve el canto cuadrado de la
+// ventana. Con este margen la sombra se desvanece dentro y no delata ninguna forma.
+const HIDE_BTN = 34;    // círculo visible
+const HIDE_WIN = 84;    // lado de la ventana que lo contiene
 
 function createDockHide() {
   if (dockHideWin && !dockHideWin.isDestroyed()) return;
   dockHideWin = new BrowserWindow({
-    width: HIDE_BTN, height: HIDE_BTN, show: false,
+    width: HIDE_WIN, height: HIDE_WIN, show: false,
     frame: false, transparent: true, hasShadow: false, backgroundColor: '#00000000',
     resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
     // focusable:false a propósito: si robara el foco, el panel lo perdería y con el modo
@@ -909,14 +913,22 @@ function positionDockHide(panelBounds) {
   if (!dockHideWin || dockHideWin.isDestroyed()) return;
   const b = panelBounds || (dockPanelWin && !dockPanelWin.isDestroyed() ? dockPanelWin.getBounds() : null);
   if (!b) return;
-  const gap = 10, half = Math.round(HIDE_BTN / 2);
+  // Las cuentas van sobre el CÍRCULO (lo que se ve), no sobre la ventana: se calcula dónde
+  // debe quedar su centro y de ahí se deduce la esquina de la ventana, que es bastante
+  // mayor para que la sombra quepa entera.
+  const gap = 12, r = HIDE_BTN / 2, off = Math.round(HIDE_WIN / 2);
   const anchor = dockConfig().anchor;
-  let x, y;
-  if (anchor === 'right')       { x = b.x - gap - HIDE_BTN;      y = b.y + Math.round(b.height / 2) - half; }
-  else if (anchor === 'left')   { x = b.x + b.width + gap;       y = b.y + Math.round(b.height / 2) - half; }
-  else if (anchor === 'top')    { y = b.y + b.height + gap;      x = b.x + Math.round(b.width / 2) - half; }
-  else                          { y = b.y - gap - HIDE_BTN;      x = b.x + Math.round(b.width / 2) - half; }
-  try { dockHideWin.setBounds({ x, y, width: HIDE_BTN, height: HIDE_BTN }); } catch {}
+  let cx, cy;
+  if (anchor === 'right')       { cx = b.x - gap - r;            cy = b.y + b.height / 2; }
+  else if (anchor === 'left')   { cx = b.x + b.width + gap + r;  cy = b.y + b.height / 2; }
+  else if (anchor === 'top')    { cy = b.y + b.height + gap + r; cx = b.x + b.width / 2; }
+  else                          { cy = b.y - gap - r;            cx = b.x + b.width / 2; }
+  try {
+    dockHideWin.setBounds({
+      x: Math.round(cx) - off, y: Math.round(cy) - off,
+      width: HIDE_WIN, height: HIDE_WIN,
+    });
+  } catch {}
 }
 
 function showDockHide() {

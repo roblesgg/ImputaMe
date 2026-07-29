@@ -1,4 +1,4 @@
 {
-  "version": "2.0.20",
-  "notes": "Versión de prueba (canal betatester). El botón de esconder vuelve a flotar por fuera del panel, pero manteniendo el ajuste instantáneo: ahora tiene su propia ventanita, que se coloca junto al panel en coordenadas de pantalla y lo sigue incluso durante la animación de apertura, al cambiar de pestaña y mientras arrastras el borde para redimensionarlo."
+  "version": "2.0.21",
+  "notes": "Versión de prueba (canal betatester). Quitado el canto cuadrado que se veía detrás del botón de esconder: su sombra difumina 18 píxeles y la ventanita que lo contiene iba justa, así que la sombra se cortaba en seco contra el borde y delataba la forma de la ventana. Ahora la ventanita es bastante más grande que el círculo y la sombra se desvanece dentro."
 }
