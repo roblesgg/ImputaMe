@@ -842,17 +842,30 @@ function createDockPanel() {
 // Anima el cambio de tamaño/posición de una ventana. Hace falta porque al pasar del
 // panel normal al calendario (mucho más ancho) la ventana daba un salto seco; Electron
 // solo sabe animar bounds en macOS, así que se interpola a mano.
-function animateWindowBounds(win, target, ms = 190) {
+function animateWindowBounds(win, target, ms = 190, fromOverride) {
   if (!win || win.isDestroyed()) return;
-  let from;
-  try { from = win.getBounds(); } catch { return; }
+  // OJO: el punto de partida se pasa explícitamente cuando lo sabemos. Leerlo con
+  // getBounds() justo después de un setBounds era una carrera: si Windows aún no lo había
+  // aplicado devolvía la posición vieja, se creía que ya estaba en destino y no animaba
+  // nada... dejando la ventana fuera de la pantalla y el panel invisible.
+  let from = fromOverride;
+  if (!from) { try { from = win.getBounds(); } catch { return; } }
   if (win.__boundsTween) { clearInterval(win.__boundsTween); win.__boundsTween = null; }
-  if (from.x === target.x && from.y === target.y && from.width === target.width && from.height === target.height) return;
+  // Cada animación lleva su marca: así el salvavidas de abajo no puede colocar la ventana
+  // en el destino de una animación ya sustituida por otra (p. ej. abrir justo tras cerrar).
+  const token = (win.__boundsToken = (win.__boundsToken || 0) + 1);
+  const same = from.x === target.x && from.y === target.y && from.width === target.width && from.height === target.height;
+  // Red de seguridad: pase lo que pase con la animación, la ventana acaba en su sitio.
+  const land = () => {
+    if (win.__boundsToken !== token) return;
+    try { if (win && !win.isDestroyed()) win.setBounds(target); } catch {}
+  };
+  if (same) { land(); return; }
 
   const start = Date.now();
   const ease = (t) => 1 - Math.pow(1 - t, 3);   // suave al final, como el resto de la app
   win.__boundsTween = setInterval(() => {
-    if (!win || win.isDestroyed()) { clearInterval(win.__boundsTween); return; }
+    if (!win || win.isDestroyed() || win.__boundsToken !== token) { clearInterval(win.__boundsTween); return; }
     const t = Math.min(1, (Date.now() - start) / ms);
     const k = ease(t);
     const b = {
@@ -862,8 +875,9 @@ function animateWindowBounds(win, target, ms = 190) {
       height: Math.round(from.height + (target.height - from.height) * k),
     };
     try { win.setBounds(b); } catch {}
-    if (t >= 1) { clearInterval(win.__boundsTween); win.__boundsTween = null; }
+    if (t >= 1) { clearInterval(win.__boundsTween); win.__boundsTween = null; land(); }
   }, 16);
+  setTimeout(() => { if (!win.__boundsTween) land(); }, ms + 120);
 }
 
 // Entra deslizando LA VENTANA desde fuera de la pantalla. Animar solo el contenido
@@ -874,13 +888,14 @@ function showDockPanel() {
   const target = computePanelBounds(dockPanelView);
   const anchor = dockConfig().anchor;
   const wasVisible = dockPanelWin.isVisible();
+  const from = offscreenPanelBounds(target, anchor);
   try {
-    if (!wasVisible) dockPanelWin.setBounds(offscreenPanelBounds(target, anchor));
+    if (!wasVisible) dockPanelWin.setBounds(from);
     dockPanelWin.showInactive(); dockPanelWin.moveTop(); dockPanelWin.focus();
   } catch {}
   dockExpanded = true; dockOutsideSince = 0; dockPanelShownAt = Date.now();
   if (wasVisible) { try { dockPanelWin.setBounds(target); } catch {} }
-  else animateWindowBounds(dockPanelWin, target, 240);
+  else animateWindowBounds(dockPanelWin, target, 240, from);
   sendToAllFrames(dockPanelWin, 'dock-expanded');
 }
 
