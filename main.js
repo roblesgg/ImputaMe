@@ -1724,9 +1724,15 @@ app.whenReady().then(() => {
   startTick();
   resetReminderTimer();
   applyLoginItem();                         // sincroniza el registro con el ajuste guardado
-  // Si arranca solo por el inicio de sesión de Windows (--hidden), vamos directos
-  // a la bandeja sin abrir el panel; en un arranque normal sí mostramos el panel.
-  if (!process.argv.includes('--hidden')) showSplashThenMain();
+  // Si arranca solo por el inicio de sesión de Windows (--hidden), no se abre el panel.
+  // PERO en modo barra flotante la barrita ES la presencia de la app (ya es discreta de
+  // por sí), así que hay que crearla igualmente: si no, arrancar con Windows dejaba la
+  // app sin nada visible salvo el icono de la bandeja.
+  if (process.argv.includes('--hidden')) {
+    if (settings.dockMode) createDock();
+  } else {
+    showSplashThenMain();
+  }
   setupAutoUpdate();
 });
 

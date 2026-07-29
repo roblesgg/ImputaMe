@@ -1,4 +1,4 @@
 {
-  "version": "2.0.16",
-  "notes": "Versión de prueba (canal betatester). Arreglado que con la opción \"esconder al clicar fuera\" el panel pudiera cerrarse solo justo al abrirse: al aparecer, la ventana aún no tiene el foco asentado y eso contaba como clic fuera. Ahora hay un margen desde que se muestra y, además, si el foco pasa a otra ventana de la propia app (Ajustes, el aviso de actualización) ya no se considera un clic fuera."
+  "version": "2.0.17",
+  "notes": "Versión de prueba (canal betatester). Arreglado que el modo barra flotante no apareciera cuando la app arranca sola con Windows: en ese arranque se salta la apertura de ventanas para ir directa a la bandeja, y con ello tampoco se creaba la barrita, que en ese modo es la única presencia visible de la app. Ahora la barrita se crea igualmente (el panel sigue sin abrirse, como debe ser)."
 }
