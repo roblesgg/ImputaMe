@@ -855,13 +855,16 @@ function animateWindowBounds(win, target, ms = 190) {
   }, 16);
 }
 
-function sendPanelSizeToBar() {
+// live=true mientras se está arrastrando para redimensionar: en ese caso el botón debe
+// seguir al borde AL INSTANTE (con la transición puesta, cada mensaje reiniciaba una
+// animación de 0,34 s y el botón iba siempre por detrás).
+function sendPanelSizeToBar(live) {
   if (!dockWin || dockWin.isDestroyed()) return;
   let b = null;
   try { b = computePanelBounds(dockPanelView); } catch {}
   if (dockPanelWin && !dockPanelWin.isDestroyed()) { try { b = dockPanelWin.getBounds(); } catch {} }
   if (!b) return;
-  try { dockWin.webContents.send('dock-panel-size', { width: b.width, height: b.height }); } catch {}
+  try { dockWin.webContents.send('dock-panel-size', { width: b.width, height: b.height, live: !!live }); } catch {}
 }
 
 function showDockPanel() {
@@ -1351,7 +1354,7 @@ ipcMain.on('action', (event, { type, payload }) => {
             dockPanelWin.setBounds({ x: work.x, y: c.anchor === 'top' ? work.y : work.y + work.height - height, width: work.width, height });
           }
         } catch {}
-        sendPanelSizeToBar();
+        sendPanelSizeToBar(true);   // sin animación: tiene que ir pegado al borde
       }
       break;
     case 'dock-panel-resize-end': {

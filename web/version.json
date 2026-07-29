@@ -1,4 +1,4 @@
 {
-  "version": "2.0.13",
-  "notes": "Versión de prueba (canal betatester). Las actualizaciones ya no se descargan ni se instalan solas: cuando hay una versión nueva solo se avisa, y tú eliges entre \"Más tarde\" o \"Descargar ahora\". Una vez descargada, tampoco se reinicia sola: decides cuándo instalarla (y si lo dejas para luego, se instala sola la próxima vez que cierres la app)."
+  "version": "2.0.14",
+  "notes": "Versión de prueba (canal betatester). El botón de esconder ya sigue al borde del panel en tiempo real mientras lo redimensionas: recibía el tamaño nuevo, pero cada actualización reiniciaba su animación de 0,34 s y siempre iba por detrás. Ahora, mientras arrastras, se mueve sin animación; al cambiar de pestaña sigue animándose, al mismo ritmo que la ventana."
 }
