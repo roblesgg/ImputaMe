@@ -1,4 +1,4 @@
 {
-  "version": "2.0.19",
-  "notes": "Versión de prueba (canal betatester). Arregla el error de JavaScript al abrir el panel flotante que introdujo la 2.0.18: en una limpieza de código se borró sin querer una función necesaria para colocar el panel. Además, a partir de ahora todas las versiones pasan una comprobación automática que detecta exactamente este tipo de fallo (funciones usadas pero no definidas) antes de publicarse."
+  "version": "2.0.20",
+  "notes": "Versión de prueba (canal betatester). El botón de esconder vuelve a flotar por fuera del panel, pero manteniendo el ajuste instantáneo: ahora tiene su propia ventanita, que se coloca junto al panel en coordenadas de pantalla y lo sigue incluso durante la animación de apertura, al cambiar de pestaña y mientras arrastras el borde para redimensionarlo."
 }

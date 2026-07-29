@@ -23,34 +23,8 @@
   .s-top    .panel { border-radius:0 0 16px 16px; border-top:none; }
   .s-bottom .panel { border-radius:16px 16px 0 0; border-bottom:none; }
 
-  /* ── Botón para esconder, en el borde que mira al centro de la pantalla ──── */
-  /* Vive en ESTA ventana (no en la de la barrita) para que esté siempre alineado con el
-     panel, sin depender de sincronizar coordenadas ni del orden entre ventanas. */
-  .hide-btn {
-    position:absolute; z-index:20; width:34px; height:34px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; padding:0;
-    background:var(--bg2); border:1px solid color-mix(in srgb, var(--text) 22%, transparent);
-    color:var(--text2); cursor:pointer;
-    box-shadow:0 4px 16px rgba(0,0,0,.45);
-    transition:background .18s, color .18s, transform .22s cubic-bezier(.34,1.5,.5,1), box-shadow .18s;
-  }
-  .hide-btn svg { transition:transform .22s cubic-bezier(.34,1.5,.5,1); }
-  .hide-btn:hover {
-    background:var(--accent2); color:#fff; transform:scale(1.14);
-    box-shadow:0 6px 20px color-mix(in srgb, var(--accent2) 60%, transparent);
-  }
-  .hide-btn:active { transform:scale(.94); }
-  .s-right  .hide-btn { top:50%; margin-top:-17px; left:10px; }
-  .s-left   .hide-btn { top:50%; margin-top:-17px; right:10px; }
-  .s-top    .hide-btn { left:50%; margin-left:-17px; bottom:10px; }
-  .s-bottom .hide-btn { left:50%; margin-left:-17px; top:10px; }
-  /* La flecha apunta hacia el lado por el que se va el panel al esconderse. */
-  .s-left   .hide-btn svg { transform:scaleX(-1); }
-  .s-top    .hide-btn svg { transform:rotate(-90deg); }
-  .s-bottom .hide-btn svg { transform:rotate(90deg); }
 
   .resize { position:absolute; z-index:5; }
-  .hide-btn + .resize, .resize { pointer-events:auto; }
   .s-right  .resize { top:0; bottom:0; left:0;  width:7px; cursor:ew-resize; }
   .s-left   .resize { top:0; bottom:0; right:0; width:7px; cursor:ew-resize; }
   .s-top    .resize { left:0; right:0; bottom:0; height:7px; cursor:ns-resize; }
@@ -96,9 +70,6 @@
 <div class="root s-right" id="root">
   <div class="panel">
     <div class="resize" id="resize" title="Arrastra para cambiar el tamaño"></div>
-    <button class="hide-btn" id="hideBtn" onclick="hidePanel()" title="Esconder">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-    </button>
     <div class="nav">
       <button class="nav-btn active" data-view="panel" onclick="navTo('panel')" title="Panel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
@@ -146,7 +117,6 @@ ipcRenderer.on('dock-config', (_, cfg) => setAnchor(cfg.anchor));
 
 // El deslizado lo hace la propia ventana (main.js): si se animaba solo el contenido, el
 // rectángulo acrílico de la ventana se quedaba a la vista detrás durante la animación.
-function hidePanel() { ipcRenderer.send('action', { type:'dock-collapse-panel' }); }
 
 function setActiveNav(view) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
