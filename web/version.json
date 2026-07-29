@@ -1,4 +1,4 @@
 {
-  "version": "2.0.12",
-  "notes": "Versión de prueba (canal betatester). Cuatro arreglos: el botón de esconder ya no se sale de la pantalla y siempre queda sitio para él; el cursor deja de parpadear entre mano y flecha al mover los deslizadores de Ajustes; el cambio de tamaño y las animaciones van más finas; y en el calendario dos tareas seguidas ya no se pisan visualmente (una que acaba a las 2:15 y otra que empieza a las 2:15 quedan pegadas, no solapadas)."
+  "version": "2.0.13",
+  "notes": "Versión de prueba (canal betatester). Las actualizaciones ya no se descargan ni se instalan solas: cuando hay una versión nueva solo se avisa, y tú eliges entre \"Más tarde\" o \"Descargar ahora\". Una vez descargada, tampoco se reinicia sola: decides cuándo instalarla (y si lo dejas para luego, se instala sola la próxima vez que cierres la app)."
 }

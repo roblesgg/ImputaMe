@@ -1635,9 +1635,11 @@ function setupAutoUpdate() {
     autoUpdater = null;                 // dependencia no instalada aún
     return;
   }
-  // Se descarga sola en cuanto hay versión nueva: así, cuando toque instalar, es
-  // instantáneo y no hay que esperar la descarga ni cerrar y abrir la app a mano.
-  autoUpdater.autoDownload = true;
+  // Nada se descarga ni se instala sin permiso: al detectar una versión nueva solo se
+  // avisa, y el usuario decide si descargarla ("Descargar ahora") o dejarlo para luego.
+  autoUpdater.autoDownload = false;
+  // Si ya se descargó y la app se cierra por su cuenta, se aprovecha para instalarla
+  // (no interrumpe nada, porque el usuario ya estaba saliendo).
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowPrerelease = !!settings.betaUpdates;   // canal betatester
 
@@ -1659,18 +1661,9 @@ function setupAutoUpdate() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
+    // Descargada, pero NO se instala sola: se avisa y el usuario elige cuándo reiniciar.
     openUpdateWindow();
     sendUpdateState({ phase: 'downloaded', version: info.version });
-    // Instalación automática (la app se reinicia sola). Solo si NO hay una tarea en
-    // marcha: al salir se pausaría la que estuviera corriendo y el usuario perdería el
-    // cronómetro sin enterarse. Con tarea activa se deja el aviso y decide él.
-    if (!state.activeTaskId) {
-      setTimeout(() => {
-        if (state.activeTaskId) return;   // ha arrancado una tarea mientras tanto
-        try { saveData(); saveSettings(); } catch {}
-        setImmediate(() => autoUpdater.quitAndInstall());
-      }, 6000);
-    }
   });
 
   autoUpdater.on('error', (err) => {

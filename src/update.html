@@ -78,10 +78,10 @@ function render() {
       <div class="u-icon">${ICONS.download}</div>
       <div class="u-title">Hay una actualización disponible</div>
       <div class="u-versions">Tu versión <b>${esc(state.current)}</b> → nueva <b>${esc(state.version)}</b></div>
-      <div class="u-sub">¿Quieres descargarla e instalarla ahora?</div>
+      <div class="u-sub">No se descarga nada hasta que tú lo digas.</div>
       <div class="u-actions">
-        <button class="btn-ghost" onclick="closeWin()">Ahora no</button>
-        <button class="btn-primary" onclick="act('update-download')">Actualizar</button>
+        <button class="btn-ghost" onclick="closeWin()">Más tarde</button>
+        <button class="btn-primary" onclick="act('update-download')">Descargar ahora</button>
       </div>`;
   } else if (p === 'downloading') {
     const pct = state.percent || 0;
@@ -99,7 +99,7 @@ function render() {
       <div class="u-icon ok">${ICONS.rocket}</div>
       <div class="u-title">Actualización lista para instalar</div>
       <div class="u-versions">Versión <b>${esc(state.version)}</b> descargada</div>
-      <div class="u-sub">La app se reiniciará para instalarla. No perderás ninguna tarea ni tiempo.</div>
+      <div class="u-sub">Se instalará cuando tú quieras. No perderás ninguna tarea ni tiempo; si lo dejas para luego, se instalará sola la próxima vez que cierres la app.</div>
       <div class="u-actions">
         <button class="btn-ghost" onclick="closeWin()">Más tarde</button>
         <button class="btn-primary" onclick="act('update-install')">Reiniciar e instalar</button>
