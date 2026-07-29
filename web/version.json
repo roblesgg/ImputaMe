@@ -1,4 +1,4 @@
 {
-  "version": "2.1.1",
-  "notes": "Versión de prueba (canal betatester). Arreglado el parpadeo del cursor entre la flecha y la mano al pasar por encima de botones y agarradores: el cuerpo entero de cada pantalla estaba declarado como zona para arrastrar la ventana, y cada botón se salía de ella uno a uno, así que Windows recalculaba sin parar y cambiaba el cursor. Ahora solo son arrastrables las asas de siempre. Además, cuando hay una versión nueva salta el aviso solo y una notificación de Windows, sin tener que cerrar la app ni pulsar \"Buscar actualizaciones\" (y sigue sin instalarse nada sin tu permiso)."
+  "version": "2.1.2",
+  "notes": "Versión de prueba (canal betatester). En el calendario, al estirar una tarea por sus extremos ya no puede pisar a las de al lado: hace tope justo donde llega la vecina, así que si la arrastras a fondo una acaba exactamente cuando empieza la otra, sin solaparse ni dejar hueco. Y dentro de cada tarea la duración baja a su propia línea, para que la hora de inicio y la de fin se lean enteras sin cortarse."
 }

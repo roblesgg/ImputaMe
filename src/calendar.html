@@ -160,7 +160,8 @@
   .task-block .tb-name {
     font-weight:600;overflow:hidden;white-space:normal;overflow-wrap:anywhere;
   }
-  .task-block .tb-time { display:flex;align-items:baseline;gap:6px;opacity:.85;font-size:11px; }
+  .task-block .tb-time { display:flex;flex-direction:column;align-items:flex-start;gap:1px;opacity:.85;font-size:11px;min-width:0; }
+  .task-block .tb-time-top { display:flex;align-items:center;gap:5px;min-width:0;max-width:100%; }
   .task-block .tb-note-icon { flex-shrink:0;align-self:center; }
   .task-block .tb-note-preview {
     display:flex;align-items:flex-start;gap:5px;margin-top:3px;
@@ -171,8 +172,8 @@
     overflow:hidden;text-overflow:ellipsis;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
   }
-  .task-block .tb-time-range { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0; }
-  .task-block .tb-time-dur { flex-shrink:0;margin-left:auto;font-weight:700; }
+  .task-block .tb-time-range { white-space:nowrap;min-width:0; }
+  .task-block .tb-time-dur { flex-shrink:0;font-weight:700; }
   .task-block.ghost { opacity:.55;background:var(--accent2)!important;pointer-events:none; }
   .task-block.running { outline:1.5px solid var(--danger);outline-offset:1px; }
 
@@ -742,7 +743,7 @@ function renderDayEntries(col, date) {
       const notePreview = (entry.note && blockH >= 56)
         ? `<div class="tb-note-preview">${noteIcon}<span>${entry.note}</span></div>`
         : '';
-      block.innerHTML = `<div class="tb-name">${entryName}</div><div class="tb-time">${notePreview ? '' : noteIcon}<span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span><span class="tb-time-dur">${formatDur(durMs)}</span></div>${notePreview}`;
+      block.innerHTML = `<div class="tb-name">${entryName}</div><div class="tb-time"><span class="tb-time-top">${notePreview ? '' : noteIcon}<span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span></span><span class="tb-time-dur">${formatDur(durMs)}</span></div>${notePreview}`;
       block.onclick = (ev) => {
         ev.stopPropagation();
         // Tras redimensionar no abrimos el popup, pero solo por un instante. Antes un
@@ -779,6 +780,27 @@ function renderDayEntries(col, date) {
   });
 }
 
+// Hasta dónde se puede estirar una entrada sin pisar a las de al lado: devuelve el fin
+// de la entrada anterior y el inicio de la siguiente. Así el borde hace tope y, si se
+// arrastra a fondo, una acaba justo cuando empieza la otra (sin solaparse ni dejar hueco).
+function neighbourLimits(task, idx, entry, dayStart) {
+  const dayEnd = dayStart + 86400000;
+  const myStart = entry.start;
+  const myEnd = entry.end || Date.now();
+  let lower = dayStart, upper = dayEnd;
+  (currentState.tasks || []).forEach(t => {
+    if (hiddenTaskIds.has(t.id)) return;   // si no se ve, no debe estorbar
+    t.entries.forEach((e, i) => {
+      if (t.id === task.id && i === idx) return;   // la que se está moviendo
+      const s = e.start, en = e.end || Date.now();
+      if (en <= dayStart || s >= dayEnd) return;   // de otro día
+      if (en <= myStart) lower = Math.max(lower, en);      // queda por encima
+      if (s >= myEnd)    upper = Math.min(upper, s);       // queda por debajo
+    });
+  });
+  return { lower, upper };
+}
+
 function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
   handleEl.addEventListener('mousedown', (e) => {
     e.stopPropagation();
@@ -787,6 +809,7 @@ function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
     const wasOngoing = entry.end == null;
     let newStart = entry.start;
     let newEnd = wasOngoing ? Date.now() : entry.end;
+    const limits = neighbourLimits(task, idx, entry, dayStart);
     handleEl.classList.add('resizing');
     resizeState = { edge };
 
@@ -794,8 +817,9 @@ function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
       const rect = col.getBoundingClientRect();
       const hour = snapHour(clamp((ev.clientY - rect.top) / ROW_H, 0, 24));
       const ms = dayStart + hour * 3600000;
-      if (edge === 'start') newStart = Math.min(ms, newEnd - 5 * 60000);
-      else newEnd = Math.max(ms, newStart + 5 * 60000);
+      // Tope contra la entrada vecina: no se puede pasar de donde llega la de al lado.
+      if (edge === 'start') newStart = Math.max(limits.lower, Math.min(ms, newEnd - 5 * 60000));
+      else newEnd = Math.min(limits.upper, Math.max(ms, newStart + 5 * 60000));
       // Se recorta al día visible: si la entrada viene de un día anterior (o sigue al
       // siguiente), sin recortar el bloque saltaba fuera de la columna al arrastrar.
       const startH = (Math.max(newStart, dayStart) - dayStart) / 3600000;
