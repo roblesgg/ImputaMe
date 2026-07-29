@@ -38,6 +38,25 @@ const DEFAULT_THEME = 'indigo';
 // Recorrido de novedades que se muestra UNA vez al actualizar. Solo para quien va por el
 // canal estable: en el de prueba las versiones se suceden a diario y sería un incordio.
 const WHATS_NEW = {
+  '2.2.1': {
+    title: 'Novedades de imputa.me 2.2',
+    steps: [
+      { icon:'cursor', title:'Se acabó el parpadeo del cursor',
+        text:'Al pasar el ratón por botones, campos y agarradores el cursor se quedaba parpadeando entre la flecha y la mano. Ya no: ahora se mantiene estable mientras mueves el ratón.' },
+      { icon:'calendar', title:'Las tareas ya no se pisan',
+        text:'Al estirar una tarea por sus extremos en el calendario, ahora hace tope justo donde llega la de al lado. Si la arrastras a fondo, una acaba exactamente cuando empieza la otra.' },
+      { icon:'calendar', title:'Horas legibles en cada tarea',
+        text:'La duración baja a su propia línea, así que la hora de inicio y la de fin se leen enteras sin cortarse.' },
+      { icon:'screen', title:'Mejor con varios monitores',
+        text:'Al esconder el panel flotante ya no asoma un instante en la pantalla de al lado: ahora entra y sale con un desvanecido sin salir nunca de su monitor.' },
+      { icon:'spark', title:'Se esconde a tu ritmo',
+        text:'Si usas "esconder cuando el ratón sale", puedes ajustar el retardo en medios segundos, e incluso ponerlo a cero para que se esconda al instante.' },
+      { icon:'bell', title:'Actualizaciones sin sorpresas',
+        text:'Cuando haya una versión nueva te avisa sola con una notificación, pero no se descarga ni se instala nada sin que tú lo decidas.' },
+      { icon:'spark', title:'Esto que estás viendo',
+        text:'A partir de ahora, cada versión estable te recibe con un recorrido como este. Puedes repasarlo cuando quieras desde Ajustes → Ver novedades.' },
+    ],
+  },
   '2.2.0': {
     title: 'Novedades de imputa.me 2.2',
     steps: [
@@ -1339,10 +1358,14 @@ function openWhatsNew() {
 function maybeShowWhatsNew() {
   const v = app.getVersion();
   if (settings.lastSeenVersion === v) return;
+  // Lo que decide si hay recorrido es que ESA versión tenga novedades escritas, y solo
+  // las estables las tienen. Antes se descartaba además a quien tuviera Betatester
+  // activado, y eso también le ocultaba las novedades de las estables, que es justo lo
+  // que había que enseñar.
   const notes = WHATS_NEW[v];
   settings.lastSeenVersion = v;      // se marca aunque no haya notas, para no reintentarlo
   saveSettings();
-  if (!notes || settings.betaUpdates) return;
+  if (!notes) return;
   setTimeout(() => openWhatsNew(), 1200);   // tras el arranque, sin pisar al splash
 }
 
