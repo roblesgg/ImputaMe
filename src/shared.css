@@ -27,7 +27,11 @@ body {
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
-  -webkit-app-region: drag;
+  /* NO-DRAG por defecto. Antes el cuerpo entero era zona de arrastre de ventana y cada
+     botón se salía de ella uno a uno; al pasar el ratón por encima, Windows recalculaba
+     sin parar si estaba dentro o fuera de esa zona y el cursor parpadeaba entre la flecha
+     y la mano. Ahora solo son arrastrables las asas declaradas expresamente. */
+  -webkit-app-region: no-drag;
   user-select: none;
   overflow: hidden;
 }

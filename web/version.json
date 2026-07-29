@@ -1,4 +1,4 @@
 {
-  "version": "2.1.0",
-  "notes": "imputa.me 2.1 — la barra flotante, a punto. El panel ahora desenfoca de verdad el fondo con el tinte de tu tema, entra y sale deslizándose, cambia de tamaño con animación al pasar al calendario y tiene un botón redondo flotando junto a su borde que lo sigue al instante. Puedes elegir cómo se esconde: con el botón, al clicar fuera, o cuando el ratón lleva fuera los segundos que digas. Las actualizaciones ya no se instalan solas: cuando hay una nueva eliges entre \"Más tarde\" o \"Descargar ahora\". Nueva opción Betatester en Ajustes para recibir las versiones de prueba. Todos los ajustes se aplican al momento, con un aviso de \"Cambios aplicados\". Y en el calendario, dos tareas seguidas ya no se pisan visualmente."
+  "version": "2.1.1",
+  "notes": "Versión de prueba (canal betatester). Arreglado el parpadeo del cursor entre la flecha y la mano al pasar por encima de botones y agarradores: el cuerpo entero de cada pantalla estaba declarado como zona para arrastrar la ventana, y cada botón se salía de ella uno a uno, así que Windows recalculaba sin parar y cambiaba el cursor. Ahora solo son arrastrables las asas de siempre. Además, cuando hay una versión nueva salta el aviso solo y una notificación de Windows, sin tener que cerrar la app ni pulsar \"Buscar actualizaciones\" (y sigue sin instalarse nada sin tu permiso)."
 }

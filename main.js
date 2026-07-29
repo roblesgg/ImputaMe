@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog, nativeTheme } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog, nativeTheme, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -1706,7 +1706,7 @@ function startTick() {
 let autoUpdater = null;
 let manualCheck = false;   // true cuando el usuario pulsa "Buscar actualizaciones…"
 let lastAutoCheckAt = 0;
-const AUTO_CHECK_THROTTLE_MS = 90 * 1000;   // como mucho una comprobación automática cada 90 s
+const AUTO_CHECK_THROTTLE_MS = 60 * 1000;   // como mucho una comprobación automática cada minuto
 
 // Comprueba actualizaciones si ha pasado un rato desde la última vez (se llama al
 // volver al panel): así, si estaba abierta de fondo cuando salió una versión nueva,
@@ -1736,10 +1736,14 @@ function setupAutoUpdate() {
 
   autoUpdater.on('update-available', (info) => {
     manualCheck = false;
+    const isNew = !updateInfo || updateInfo.version !== info.version;
     updateInfo = { version: info.version };
     broadcastState();                    // muestra el botón rojo "Actualizar" en el panel
     openUpdateWindow();
     sendUpdateState({ phase: 'available', current: app.getVersion(), version: info.version });
+    // Notificación del sistema, para enterarse aunque se esté en otra aplicación. Solo la
+    // primera vez que se detecta esa versión, para no repetirla en cada comprobación.
+    if (isNew) notifyUpdateAvailable(info.version);
   });
 
   autoUpdater.on('download-progress', (p) => {
@@ -1764,7 +1768,21 @@ function setupAutoUpdate() {
 
   checkForUpdates(false);                              // al arrancar
   setTimeout(() => checkForUpdates(false), 15000);     // reintento por si la red aún no estaba lista (p.ej. arranque con Windows)
-  setInterval(() => checkForUpdates(false), 15 * 60 * 1000);  // y cada 15 min mientras esté abierta
+  setInterval(() => checkForUpdates(false), 5 * 60 * 1000);   // y cada 5 min mientras esté abierta
+}
+
+function notifyUpdateAvailable(version) {
+  try {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({
+      title: 'imputa.me · actualización disponible',
+      body: `Versión ${version} lista para descargar. Tú decides cuándo.`,
+      icon: APP_ICON_PATH,
+      silent: false,
+    });
+    n.on('click', () => { openUpdateWindow(); });
+    n.show();
+  } catch {}
 }
 
 function checkForUpdates(manual) {
