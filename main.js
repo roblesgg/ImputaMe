@@ -78,6 +78,7 @@ let dockPanelWin = null;         // ventana del PANEL: sin transparencia y con a
 let dockExpanded = false;
 let dockHitRects = [];           // zonas "clicables" del dock, en coords de su ventana
 let dockOutsideSince = 0;        // desde cuándo el cursor está fuera del panel desplegado
+let lastBarRaiseAt = 0;          // para no reordenar ventanas en cada evento (ver 'set-dock-config')
 let dockHitTimer = null;
 let dockIgnoring = null;
 let pendingUpdateState = null;   // último estado enviado a la ventana de actualización
@@ -779,14 +780,15 @@ function computePanelBounds(view) {
   const work = dockDisplay().workArea;
   const c = dockConfig();
   const vertical = c.anchor === 'left' || c.anchor === 'right';
+  const ROOM_FOR_HIDE_BTN = 58;   // hueco que se reserva para el botón flotante de esconder
   if (vertical) {
-    const width = Math.min(view === 'calendar' ? c.calendarWidth : c.panelWidth, work.width);
+    const width = Math.min(view === 'calendar' ? c.calendarWidth : c.panelWidth, work.width - ROOM_FOR_HIDE_BTN);
     return {
       x: c.anchor === 'left' ? work.x : work.x + work.width - width,
       y: work.y, width, height: work.height,
     };
   }
-  const height = Math.min(c.panelHeight, work.height);
+  const height = Math.min(c.panelHeight, work.height - ROOM_FOR_HIDE_BTN);
   return {
     x: work.x,
     y: c.anchor === 'top' ? work.y : work.y + work.height - height,
@@ -829,7 +831,7 @@ function createDockPanel() {
 // Anima el cambio de tamaño/posición de una ventana. Hace falta porque al pasar del
 // panel normal al calendario (mucho más ancho) la ventana daba un salto seco; Electron
 // solo sabe animar bounds en macOS, así que se interpola a mano.
-function animateWindowBounds(win, target, ms = 260) {
+function animateWindowBounds(win, target, ms = 190) {
   if (!win || win.isDestroyed()) return;
   let from;
   try { from = win.getBounds(); } catch { return; }
@@ -1387,7 +1389,11 @@ ipcMain.on('action', (event, { type, payload }) => {
       if (settings.dockMode) { createDock(); positionDock(); }
       // Con el panel abierto la barrita se oculta; al ajustarla hay que verla.
       if (preview && dockWin && !dockWin.isDestroyed()) {
-        try { dockWin.moveTop(); } catch {}   // si no, queda debajo de la ventana del panel
+        const now = Date.now();
+        if (now - lastBarRaiseAt > 1500) {
+          lastBarRaiseAt = now;
+          try { dockWin.moveTop(); } catch {}   // si no, queda debajo de la ventana del panel
+        }
         try { dockWin.webContents.send('dock-bar-preview'); } catch {}
       }
       break;

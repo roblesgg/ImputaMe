@@ -1,4 +1,4 @@
 {
-  "version": "2.0.11",
-  "notes": "Versión de prueba (canal betatester). El panel flotante ahora cambia de tamaño con animación al pasar del panel al calendario y viceversa, en vez de dar un salto seco. Y al aplicar ajustes aparece un aviso animado de \"Cambios aplicados\"; las copias de seguridad usan ese mismo aviso en lugar de ventanas emergentes."
+  "version": "2.0.12",
+  "notes": "Versión de prueba (canal betatester). Cuatro arreglos: el botón de esconder ya no se sale de la pantalla y siempre queda sitio para él; el cursor deja de parpadear entre mano y flecha al mover los deslizadores de Ajustes; el cambio de tamaño y las animaciones van más finas; y en el calendario dos tareas seguidas ya no se pisan visualmente (una que acaba a las 2:15 y otra que empieza a las 2:15 quedan pegadas, no solapadas)."
 }

@@ -718,8 +718,12 @@ function renderDayEntries(col, date) {
       const endH = (to - dayStart) / 3600000;
       const block = document.createElement('div');
       block.className = 'task-block' + (entry.end == null ? ' running' : '');
-      // Altura mínima algo mayor: las entradas cortas eran casi imposibles de pulsar.
-      const blockH = Math.max(24, (endH - startH) * ROW_H);
+      // Alto real de la entrada, menos un pelo de separación para que dos seguidas no
+      // se pisen visualmente. El mínimo solo evita que una entrada de un par de minutos
+      // quede impulsable, sin llegar a invadir la siguiente.
+      const BLOCK_GAP = 2, MIN_BLOCK_H = 13;
+      const rawH = (endH - startH) * ROW_H;
+      const blockH = Math.max(MIN_BLOCK_H, rawH - BLOCK_GAP);
       block.style.top = (startH*ROW_H)+'px';
       block.style.height = blockH + 'px';
       block.style.background = task.color;
@@ -797,7 +801,7 @@ function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
       const startH = (Math.max(newStart, dayStart) - dayStart) / 3600000;
       const endH = (Math.min(newEnd, dayStart + 86400000) - dayStart) / 3600000;
       block.style.top = (startH * ROW_H) + 'px';
-      block.style.height = Math.max(24, (endH - startH) * ROW_H) + 'px';
+      block.style.height = Math.max(13, (endH - startH) * ROW_H - 2) + 'px';
       const rangeEl = block.querySelector('.tb-time-range');
       const durEl = block.querySelector('.tb-time-dur');
       const liveEndForLabel = wasOngoing && edge === 'start' ? null : newEnd;

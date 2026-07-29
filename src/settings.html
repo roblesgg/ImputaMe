@@ -77,8 +77,14 @@
   .unit { font-size:12px;color:var(--text2);flex-shrink:0; }
 
   input[type=range] {
-    width:100%;accent-color:var(--accent2);-webkit-app-region:no-drag;cursor:pointer;height:20px;
+    width:100%;accent-color:var(--accent2);-webkit-app-region:no-drag;height:20px;
+    cursor:pointer;
   }
+  /* Sin esto, al pasar por encima del tirador el cursor alternaba entre mano y flecha. */
+  input[type=range]::-webkit-slider-runnable-track { cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb { cursor:pointer; }
+  input[type=range]:active { cursor:grabbing; }
+  input[type=range]:active::-webkit-slider-thumb { cursor:grabbing; }
   .range-row { display:flex;align-items:center;gap:12px; }
   .range-row .unit { min-width:38px;text-align:right;font-variant-numeric:tabular-nums; }
 
