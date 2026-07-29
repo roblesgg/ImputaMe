@@ -1,4 +1,4 @@
 {
-  "version": "2.0.18",
-  "notes": "Versión de prueba (canal betatester). ARREGLO IMPORTANTE: al pulsar la barrita desaparecía y no aparecía el panel. Desde la 2.0.15 el panel entra deslizándose desde fuera de la pantalla, y la animación consultaba la posición de la ventana justo después de moverla; si Windows todavía no la había aplicado, daba por hecho que ya estaba en su sitio y no animaba nada, dejando la ventana fuera de la pantalla. Ahora se le indica el punto de partida y, pase lo que pase con la animación, la ventana siempre acaba colocada donde debe."
+  "version": "2.0.19",
+  "notes": "Versión de prueba (canal betatester). Arregla el error de JavaScript al abrir el panel flotante que introdujo la 2.0.18: en una limpieza de código se borró sin querer una función necesaria para colocar el panel. Además, a partir de ahora todas las versiones pasan una comprobación automática que detecta exactamente este tipo de fallo (funciones usadas pero no definidas) antes de publicarse."
 }

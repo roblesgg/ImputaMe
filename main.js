@@ -880,6 +880,15 @@ function animateWindowBounds(win, target, ms = 190, fromOverride) {
   setTimeout(() => { if (!win.__boundsTween) land(); }, ms + 120);
 }
 
+// Igual que computePanelBounds pero desplazado fuera de la pantalla por su borde: es
+// desde donde entra el panel y hacia donde sale al esconderse.
+function offscreenPanelBounds(b, anchor) {
+  if (anchor === 'right')  return { ...b, x: b.x + b.width };
+  if (anchor === 'left')   return { ...b, x: b.x - b.width };
+  if (anchor === 'bottom') return { ...b, y: b.y + b.height };
+  return { ...b, y: b.y - b.height };   // top
+}
+
 // Entra deslizando LA VENTANA desde fuera de la pantalla. Animar solo el contenido
 // dejaba a la vista el rectángulo acrílico de la ventana (el "panel gris" de detrás).
 function showDockPanel() {
