@@ -1,4 +1,4 @@
 {
-  "version": "2.1.3",
-  "notes": "Versión de prueba (canal betatester). Arreglado del todo el parpadeo del cursor al mover el ratón por encima de botones y campos de texto. La ventana transparente de la barrita, que cubre toda la pantalla, tenía activado el reenvío de los movimientos del ratón: en cada movimiento la app fijaba un cursor y Windows fijaba otro, y se peleaban a la velocidad del ratón (por eso quieto se veía bien y moviéndolo parpadeaba). Ese reenvío ya no hace falta: el revelado de la barrita al acercarte lo calcula ahora el proceso principal, que ya sigue la posición del cursor."
+  "version": "2.1.4",
+  "notes": "Versión de prueba (canal betatester). Con dos monitores, al esconder el panel este asomaba un momento en la pantalla de al lado antes de desaparecer: se iba deslizando por el borde y acababa entrando en el otro monitor. Ahora entra y sale con un desvanecido y un desplazamiento corto hacia dentro, así que nunca sale de su pantalla. Y el retardo de \"esconder cuando el ratón sale\" admite ya medios segundos y el valor 0, que lo esconde al instante."
 }

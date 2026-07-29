@@ -375,7 +375,7 @@
         </div>
         <div id="dockCloseSecondsRow" style="display:none;flex-direction:column;gap:6px">
           <span class="sub-label">Segundos con el ratón fuera · <span id="dockCloseSecondsLabel">3s</span></span>
-          <input type="range" id="dockCloseSeconds" min="1" max="15" step="1" value="3">
+          <input type="range" id="dockCloseSeconds" min="0" max="15" step="0.5" value="3">
         </div>
 
         <span class="row-desc">El tamaño del panel se cambia arrastrando su borde interior cuando está desplegado.</span>
@@ -579,8 +579,9 @@ function setCloseMode(mode) {
   document.getElementById('dockCloseSecondsRow').style.display = mode === 'mouseLeave' ? 'flex' : 'none';
   previewDock();
 }
+function fmtCloseSecs(v) { return (Number(v) === 0 ? 'al instante' : Number(v) + 's'); }
 document.getElementById('dockCloseSeconds').addEventListener('input', (e) => {
-  document.getElementById('dockCloseSecondsLabel').textContent = e.target.value + 's';
+  document.getElementById('dockCloseSecondsLabel').textContent = fmtCloseSecs(e.target.value);
   previewDock();
 });
 
@@ -621,7 +622,7 @@ function previewDock() {
     dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 30,
     dockDisplayId: sel ? Number(sel) : null,
     dockCloseMode,
-    dockCloseSeconds: parseInt(document.getElementById('dockCloseSeconds').value) || 3,
+    dockCloseSeconds: parseFloat(document.getElementById('dockCloseSeconds').value),
     // Hace que la barrita se vea aunque el panel esté abierto, para poder ir viendo
     // el cambio mientras se arrastra el deslizador.
     preview: true,
@@ -695,7 +696,7 @@ ipcRenderer.on('settings', (_, s) => {
   });
   const closeSecs = s.dockCloseSeconds == null ? 3 : s.dockCloseSeconds;
   document.getElementById('dockCloseSeconds').value = closeSecs;
-  document.getElementById('dockCloseSecondsLabel').textContent = closeSecs + 's';
+  document.getElementById('dockCloseSecondsLabel').textContent = fmtCloseSecs(closeSecs);
   setCloseModeUI(s.dockCloseMode || 'button');
   populateDisplays(s.dockDisplayId);
   updateDockOptionsVisibility();
@@ -725,7 +726,7 @@ function save() {
     dockBarOffset: parseInt(document.getElementById('dockBarOffset').value) || 0,
     dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 30,
     dockCloseMode,
-    dockCloseSeconds: parseInt(document.getElementById('dockCloseSeconds').value) || 3,
+    dockCloseSeconds: parseFloat(document.getElementById('dockCloseSeconds').value),
   } });
   showToast('Cambios aplicados');
 }

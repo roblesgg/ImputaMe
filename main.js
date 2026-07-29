@@ -121,7 +121,7 @@ let settings = {
   dockPanelWidth: 460,  // ancho del panel en las vistas normales (anclajes laterales)
   dockPanelHeight: 620, // alto del panel cuando se ancla arriba/abajo (más generoso: hay ancho de sobra)
   dockCloseMode: 'button',  // 'button' | 'clickOutside' | 'mouseLeave'
-  dockCloseSeconds: 3,      // con 'mouseLeave', segundos fuera antes de esconderse
+  dockCloseSeconds: 3,      // con 'mouseLeave', segundos fuera antes de esconderse (admite decimales y 0)
   blurEnabled: true,        // difuminado del fondo (acrílico de Windows) sí/no
   // Canal de actualizaciones. Con betaUpdates, llegan TODAS las versiones que se publican
   // (las de prueba van marcadas como "prerelease" en GitHub); sin él, solo las marcadas
@@ -769,7 +769,7 @@ function dockConfig() {
     panelHeight: Math.max(260, Math.min(1400, Number(settings.dockPanelHeight) || 620)),
     calendarWidth: Math.max(420, Math.min(1900, Number(settings.dockCalendarWidth) || 1180)),
     closeMode: ['button','clickOutside','mouseLeave'].includes(settings.dockCloseMode) ? settings.dockCloseMode : 'button',
-    closeSeconds: Math.max(1, Math.min(30, Number(settings.dockCloseSeconds) || 3)),
+    closeSeconds: Math.max(0, Math.min(30, Number(settings.dockCloseSeconds) ?? 3)),
   };
 }
 
@@ -879,7 +879,7 @@ function animateWindowBounds(win, target, ms = 190, fromOverride, onFrame) {
       height: Math.round(from.height + (target.height - from.height) * k),
     };
     try { win.setBounds(b); } catch {}
-    if (onFrame) { try { onFrame(b); } catch {} }
+    if (onFrame) { try { onFrame(b, k); } catch {} }
     if (t >= 1) { clearInterval(win.__boundsTween); win.__boundsTween = null; land(); }
   }, 16);
   setTimeout(() => { if (!win.__boundsTween) land(); }, ms + 120);
@@ -942,13 +942,16 @@ function hideDockHide() {
   if (dockHideWin && !dockHideWin.isDestroyed()) { try { dockHideWin.hide(); } catch {} }
 }
 
-// Igual que computePanelBounds pero desplazado fuera de la pantalla por su borde: es
-// desde donde entra el panel y hacia donde sale al esconderse.
+// Punto de partida al abrir y de llegada al cerrar. Es un desplazamiento CORTO y HACIA
+// DENTRO de la pantalla, no hacia fuera: sacándolo por el borde, con dos monitores la
+// ventana asomaba un instante en el monitor de al lado antes de esconderse. La sensación
+// de entrar/salir la da el desvanecido que lo acompaña.
+const PANEL_SLIDE = 54;
 function offscreenPanelBounds(b, anchor) {
-  if (anchor === 'right')  return { ...b, x: b.x + b.width };
-  if (anchor === 'left')   return { ...b, x: b.x - b.width };
-  if (anchor === 'bottom') return { ...b, y: b.y + b.height };
-  return { ...b, y: b.y - b.height };   // top
+  if (anchor === 'right')  return { ...b, x: b.x - PANEL_SLIDE };
+  if (anchor === 'left')   return { ...b, x: b.x + PANEL_SLIDE };
+  if (anchor === 'bottom') return { ...b, y: b.y - PANEL_SLIDE };
+  return { ...b, y: b.y + PANEL_SLIDE };   // top
 }
 
 // Entra deslizando LA VENTANA desde fuera de la pantalla. Animar solo el contenido
@@ -966,8 +969,16 @@ function showDockPanel() {
   } catch {}
   dockExpanded = true; dockOutsideSince = 0; dockPanelShownAt = Date.now();
   createDockHide();
-  if (wasVisible) { try { dockPanelWin.setBounds(target); } catch {} positionDockHide(target); }
-  else animateWindowBounds(dockPanelWin, target, 240, from, (b) => positionDockHide(b));
+  if (wasVisible) {
+    try { dockPanelWin.setBounds(target); dockPanelWin.setOpacity(1); } catch {}
+    positionDockHide(target);
+  } else {
+    try { dockPanelWin.setOpacity(0); } catch {}
+    animateWindowBounds(dockPanelWin, target, 240, from, (b, k) => {
+      try { dockPanelWin.setOpacity(k); } catch {}
+      positionDockHide(b);
+    });
+  }
   showDockHide();
   sendToAllFrames(dockPanelWin, 'dock-expanded');
 }
@@ -979,8 +990,14 @@ function collapseDockPanel() {
   if (dockWin && !dockWin.isDestroyed()) { try { dockWin.webContents.send('dock-collapse'); } catch {} }
   if (!dockPanelWin || dockPanelWin.isDestroyed() || !dockPanelWin.isVisible()) return;
   let b; try { b = dockPanelWin.getBounds(); } catch { return; }
-  animateWindowBounds(dockPanelWin, offscreenPanelBounds(b, dockConfig().anchor), 220);
-  setTimeout(() => { try { if (dockPanelWin && !dockPanelWin.isDestroyed()) dockPanelWin.hide(); } catch {} }, 250);
+  animateWindowBounds(dockPanelWin, offscreenPanelBounds(b, dockConfig().anchor), 200, b, (_, k) => {
+    try { dockPanelWin.setOpacity(1 - k); } catch {}
+  });
+  setTimeout(() => {
+    try {
+      if (dockPanelWin && !dockPanelWin.isDestroyed()) { dockPanelWin.hide(); dockPanelWin.setOpacity(1); }
+    } catch {}
+  }, 230);
 }
 
 // Empuja la config visual al renderer del dock (al crearlo y al cambiar Ajustes).
@@ -1043,7 +1060,7 @@ function updateDockHitTest() {
     else {
       const now = Date.now();
       if (!dockOutsideSince) dockOutsideSince = now;
-      else if (now - dockOutsideSince > (Number(settings.dockCloseSeconds) || 3) * 1000) {
+      else if (now - dockOutsideSince >= (Number(settings.dockCloseSeconds) ?? 3) * 1000) {
         dockOutsideSince = 0;
         collapseDockPanel();
       }
