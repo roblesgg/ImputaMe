@@ -755,7 +755,10 @@ function renderDayEntries(col, date) {
       // El nombre que se ve es el que tenía la tarea CUANDO SE HIZO esta entrada
       // (entry.nameAtTime), no el actual: si luego renombras la tarea, el calendario
       // ya hecho no cambia solo.
-      const entryName = entry.nameAtTime || task.name;
+      // Si la entrada era de una subtarea, se ve "Tarea · subtarea". El nombre de la
+      // subtarea también es el de entonces: borrarla no reescribe el historial.
+      const entryName = (entry.nameAtTime || task.name) +
+        (entry.subNameAtTime ? ` · ${entry.subNameAtTime}` : '');
       block.title = entry.note ? `${entryName}\nNota: ${entry.note}` : entryName;
       const durMs = (entry.end || Date.now()) - entry.start;
       const noteIcon = entry.note
@@ -1151,7 +1154,10 @@ function renderPopupQuickActions(task, entryIndex, entry) {
     label.textContent = 'Reanudar esta tarea:';
     wrap.appendChild(label);
     wrap.appendChild(mkBtn(PQA_ICON_PLAY, 'Nueva entrada desde ahora', 'pqa-success', () => {
-      ipcRenderer.send('action', { type:'switch-task', payload:{ taskId: task.id } });
+      // Se reanuda en la misma subtarea en la que estaba, si la entrada era de una y
+      // esa subtarea sigue existiendo.
+      const sub = entry.subId && (task.subtasks || []).some(x => x.id === entry.subId) ? entry.subId : undefined;
+      ipcRenderer.send('action', { type:'switch-task', payload:{ taskId: task.id, subId: sub } });
       closePopup();
     }));
     wrap.appendChild(mkBtn(PQA_ICON_EXTEND, 'Alargar esta hasta ahora', 'pqa-accent', () => {
@@ -1294,7 +1300,8 @@ function buildCSV(fromMs, toMsExcl) {
   const names = {};   // nombre a mostrar por cada agrupación (el nameAtTime de la entrada)
   currentState.tasks.forEach(task => {
     task.entries.forEach(entry => {
-      const entryName = entry.nameAtTime || task.name;
+      const entryName = (entry.nameAtTime || task.name) +
+        (entry.subNameAtTime ? ` · ${entry.subNameAtTime}` : '');
       let cur = startOfDay(new Date(entry.start));
       const end = startOfDay(new Date(entry.end || Date.now()));
       while (cur <= end) {

@@ -154,9 +154,10 @@ try { sync = require('./sync'); } catch {}
 
 // ── Estado ──────────────────────────────────────────────────────────────────
 let state = {
-  tasks: [],           // { id, name, color, entries: [{start, end}], archived, groupId }
+  tasks: [],           // { id, name, color, subtasks: [{id,name}], entries: [{start, end, subId}], archived, groupId }
   groups: [],          // { id, name }
   activeTaskId: null,
+  activeSubId: null,   // subtarea en marcha dentro de la tarea activa (null = la tarea a secas)
 };
 
 let settings = {
@@ -231,6 +232,7 @@ function loadData() {
     // pone el nombre que tiene ahora mismo como punto de partida; a partir de aquí
     // cada entrada nueva guarda el suyo propio y ya no cambia si renombras la tarea.
     t.entries.forEach(e => { if (e.nameAtTime === undefined) e.nameAtTime = t.name; });
+    if (!Array.isArray(t.subtasks)) t.subtasks = [];
   });
   try {
     if (fs.existsSync(SETTINGS_FILE)) settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) };
@@ -276,6 +278,19 @@ function todaySecondsForTask(task) {
     if (entryEnd < startOfDay.getTime()) continue;
     const from = Math.max(entry.start, startOfDay.getTime());
     total += Math.max(0, entryEnd - from);
+  }
+  return Math.floor(total / 1000);
+}
+
+// Segundos de UNA subtarea (o de la tarea "a secas", con subId null): mismo cálculo
+// que el de la tarea, filtrando por la subtarea a la que se apuntó cada entrada.
+function secondsForSub(task, subId, desde) {
+  let total = 0;
+  for (const entry of task.entries) {
+    if ((entry.subId || null) !== (subId || null)) continue;
+    const fin = entry.end || Date.now();
+    if (desde != null && fin < desde) continue;
+    total += Math.max(0, fin - (desde != null ? Math.max(entry.start, desde) : entry.start));
   }
   return Math.floor(total / 1000);
 }
@@ -340,16 +355,21 @@ function toggleDockMode() {
 }
 
 // ── Acciones ─────────────────────────────────────────────────────────────────
-function startTask(taskId, backMinutes) {
+function startTask(taskId, backMinutes, subId) {
   pauseActive();
   const task = state.tasks.find(t => t.id === taskId);
   if (!task) return;
+  const sub = subId ? (task.subtasks || []).find(x => x.id === subId) : null;
   state.activeTaskId = taskId;
+  state.activeSubId = sub ? sub.id : null;
   const start = backMinutes ? Date.now() - backMinutes * 60000 : Date.now();
   // nameAtTime: "foto" del nombre de la tarea al crear la entrada. El calendario es
   // un registro de lo que pasó, así que si luego renombras la tarea esta entrada no
-  // cambia con ella (solo las que se creen después, con el nombre nuevo).
-  task.entries.push({ start, end: null, nameAtTime: task.name });
+  // cambia con ella (solo las que se creen después, con el nombre nuevo). La subtarea
+  // guarda el suyo por lo mismo: borrarla no debe reescribir el historial.
+  const entry = { start, end: null, nameAtTime: task.name };
+  if (sub) { entry.subId = sub.id; entry.subNameAtTime = sub.name; }
+  task.entries.push(entry);
   saveData(); broadcastState(); resetReminderTimer();
 }
 
@@ -366,6 +386,7 @@ function pauseActive() {
     }
   }
   state.activeTaskId = null;
+  state.activeSubId = null;
   saveData(); broadcastState();
 }
 
@@ -382,9 +403,44 @@ function setActiveEntryNote(note) {
   saveData(); broadcastState();
 }
 
-function switchTask(taskId, backMinutes) {
-  if (state.activeTaskId === taskId) pauseActive();
-  else startTask(taskId, backMinutes);
+function switchTask(taskId, backMinutes, subId) {
+  // Pulsar el play de lo que ya está corriendo lo pausa; si es otra tarea u otra
+  // subtarea de la misma tarea, se cambia a ella.
+  const mismaSub = (state.activeSubId || null) === (subId || null);
+  if (state.activeTaskId === taskId && mismaSub) pauseActive();
+  else startTask(taskId, backMinutes, subId);
+}
+
+// ── Subtareas ────────────────────────────────────────────────────────────────
+// Viven dentro de la tarea ("Cocina" → horno, frigorífico...) y no son tareas aparte:
+// cada entrada del calendario apunta a la suya, así que el tiempo de la tarea sigue
+// siendo la suma de todo lo que se ha hecho dentro, sin cambiar nada de lo de antes.
+function addSubtask(taskId, name) {
+  const task = state.tasks.find(t => t.id === taskId);
+  const n = (name || '').trim();
+  if (!task || !n) return;
+  if (!Array.isArray(task.subtasks)) task.subtasks = [];
+  task.subtasks.push({ id: `${Date.now()}-${task.subtasks.length}`, name: n.slice(0, 120) });
+  saveData(); broadcastState();
+}
+
+function renameSubtask(taskId, subId, name) {
+  const task = state.tasks.find(t => t.id === taskId);
+  const sub = task && (task.subtasks || []).find(x => x.id === subId);
+  const n = (name || '').trim();
+  if (!sub || !n) return;
+  sub.name = n.slice(0, 120);   // las entradas ya hechas conservan su subNameAtTime
+  saveData(); broadcastState();
+}
+
+// Quitarla de la lista NO borra su historial: las entradas guardan el nombre que tenía
+// y se siguen viendo en el calendario, igual que al eliminar una tarea.
+function deleteSubtask(taskId, subId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task.subtasks = (task.subtasks || []).filter(x => x.id !== subId);
+  if (state.activeTaskId === taskId && state.activeSubId === subId) pauseActive();
+  saveData(); broadcastState();
 }
 
 // Cierra la sesión en curso de la tarea activa (como al pausar) y arranca ENSEGUIDA
@@ -396,7 +452,10 @@ function restartActiveTaskWithNote(note) {
   if (!task) return;
   const last = task.entries[task.entries.length - 1];
   if (last && !last.end) { last.end = Date.now(); }   // la nota de esa sesión se conserva en su entrada
+  // Reiniciar con otra nota se queda en la misma subtarea: sigues en lo mismo.
   const entry = { start: Date.now(), end: null, nameAtTime: task.name };
+  const sub = state.activeSubId ? (task.subtasks || []).find(x => x.id === state.activeSubId) : null;
+  if (sub) { entry.subId = sub.id; entry.subNameAtTime = sub.name; }
   const n = (note || '').trim().slice(0, 500);
   if (n) entry.note = n;
   task.entries.push(entry);
@@ -1640,14 +1699,25 @@ function sendUpdateState(state) {
 // ── IPC ───────────────────────────────────────────────────────────────────────
 function getSerializableState() {
   return {
-    tasks: state.tasks.map(t => ({
-      ...t,
-      todaySecs: todaySecondsForTask(t),
-      totalSecs: totalSecondsForTask(t),
-      inTrash: isInTrash(t),   // para la sección "Papelera" de Guardadas
-    })),
+    tasks: state.tasks.map(t => {
+      const hoy0 = new Date(); hoy0.setHours(0, 0, 0, 0);
+      return {
+        ...t,
+        todaySecs: todaySecondsForTask(t),
+        totalSecs: totalSecondsForTask(t),
+        inTrash: isInTrash(t),   // para la sección "Papelera" de Guardadas
+        subtasks: (t.subtasks || []).map(sub => ({
+          ...sub,
+          todaySecs: secondsForSub(t, sub.id, hoy0.getTime()),
+          totalSecs: secondsForSub(t, sub.id, null),
+        })),
+        // Tiempo apuntado a la tarea sin subtarea ninguna, para que la suma cuadre.
+        ownTodaySecs: secondsForSub(t, null, hoy0.getTime()),
+      };
+    }),
     groups: sortedGroups(),
     activeTaskId: state.activeTaskId,
+    activeSubId: state.activeSubId || null,
     todayTotal: totalTodaySeconds(),
     settings,
     updateAvailable: updateInfo,
@@ -1682,9 +1752,12 @@ function broadcastState() {
 
 ipcMain.on('action', (event, { type, payload }) => {
   switch (type) {
-    case 'start-task':    startTask(payload.taskId, payload.backMinutes); break;
+    case 'start-task':    startTask(payload.taskId, payload.backMinutes, payload.subId); break;
+    case 'add-subtask':    addSubtask(payload.taskId, payload.name); break;
+    case 'rename-subtask': renameSubtask(payload.taskId, payload.subId, payload.name); break;
+    case 'delete-subtask': deleteSubtask(payload.taskId, payload.subId); break;
     case 'pause':         pauseActive(); break;
-    case 'switch-task':   switchTask(payload.taskId, payload.backMinutes); break;
+    case 'switch-task':   switchTask(payload.taskId, payload.backMinutes, payload.subId); break;
     case 'restart-task-with-note': restartActiveTaskWithNote(payload && payload.note); break;
     case 'resume-entry':  resumeEntry(payload.taskId, payload.entryIndex); break;
     case 'create-task': {
