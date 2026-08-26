@@ -1,4 +1,4 @@
 {
-  "version": "2.3.2",
-  "notes": "imputa.me 2.3.2 (beta). Panel reorganizado: la tarea en marcha ocupa el sitio de honor, con su cronómetro en grande, su nota y el botón de pausar; el total del día baja a una línea fina y la lista de abajo ya no la repite. Nuevo apartado 'Descansa la vista' con la regla 20-20-20 que recomiendan los oftalmólogos: cada 20 minutos aparecen unos ojos flotantes con una cuenta atrás de 20 segundos para que mires a lo lejos; puedes elegir cada cuánto, cuánto dura, en qué esquina salen y de qué tamaño, y un clic los quita hasta el siguiente aviso. Y renombrar deja de ser doble clic en ningún sitio: está el lápiz."
+  "version": "2.3.3",
+  "notes": "imputa.me 2.3.3 (beta). En 'Hora de salida' hay una opción nueva: cerrar las tareas automáticamente. Si la marcas, al llegar tu hora paro yo la tarea que siga en marcha y te aviso de que lo he hecho; si la dejas apagada, sigue funcionando como hasta ahora, avisándote para que decidas tú."
 }

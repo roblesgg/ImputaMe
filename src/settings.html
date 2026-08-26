@@ -278,6 +278,11 @@
       </div>
       <div class="row-sub" id="leaveOptionsWrap">
         <div class="day-row">
+          <span class="day-name" style="font-weight:600">Cerrar las tareas automáticamente</span>
+          <input type="checkbox" class="day-check" id="leaveAutoStop">
+        </div>
+        <span class="sub-label" style="margin:-4px 0 4px">Si lo marcas, a esa hora paro yo la tarea que siga en marcha y te lo digo. Si no, solo te aviso y decides tú.</span>
+        <div class="day-row">
           <span class="day-name" style="font-weight:600">Todos los días</span>
           <input type="checkbox" class="day-check" id="leaveSameEveryDay">
         </div>
@@ -686,10 +691,11 @@ function applyLeave() {
     leaveSameEveryDay: document.getElementById('leaveSameEveryDay').checked,
     leaveTime: document.getElementById('leaveTime').value || '18:00',
     leaveDays,
+    leaveAutoStop: document.getElementById('leaveAutoStop').checked,
   } });
 }
 
-['leaveEnabled','leaveSameEveryDay'].forEach(id => {
+['leaveEnabled','leaveSameEveryDay','leaveAutoStop'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => { updateLeaveVisibility(); applyLeave(); });
 });
 document.getElementById('leaveTime').addEventListener('change', applyLeave);
@@ -877,6 +883,7 @@ ipcRenderer.on('settings', (_, s) => {
 
   document.getElementById('leaveEnabled').checked = !!s.leaveEnabled;
   document.getElementById('leaveSameEveryDay').checked = s.leaveSameEveryDay !== false;
+  document.getElementById('leaveAutoStop').checked = !!s.leaveAutoStop;
   document.getElementById('leaveTime').value = s.leaveTime || '18:00';
   if (s.leaveDays) leaveDays = { ...leaveDays, ...s.leaveDays };
   buildLeaveDays();

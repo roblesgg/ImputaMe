@@ -170,6 +170,7 @@ let settings = {
   leaveSameEveryDay: true,      // una sola hora para toda la semana
   leaveTime: '18:00',
   leaveDays: { 1:'18:00', 2:'18:00', 3:'18:00', 4:'18:00', 5:'18:00', 6:null, 0:null },
+  leaveAutoStop: false,   // además de avisar, parar sola la tarea que siga en marcha
   // ── Regla 20-20-20 ──────────────────────────────────────────────────────────
   // Cada 20 minutos, mirar 20 segundos a algo que esté a unos 6 metros. Apagada por
   // defecto: es un aviso que interrumpe, y eso se pide, no se impone.
@@ -680,18 +681,25 @@ function checkLeaveTime() {
   if (retraso < 0 || retraso > 60 * 60000) return;
 
   leaveNotifiedOn = hoy;
-  notifyLeaveTime();
+  // Se lee la tarea ANTES de pararla: si no, el aviso no sabría de qué hablar.
+  const task = state.tasks.find(t => t.id === state.activeTaskId);
+  if (settings.leaveAutoStop) {
+    pauseActive();
+    saveData(); broadcastState(); updateTrayTitle();
+  }
+  notifyLeaveTime(task, settings.leaveAutoStop);
 }
 
-function notifyLeaveTime() {
-  const task = state.tasks.find(t => t.id === state.activeTaskId);
+function notifyLeaveTime(task, parada) {
   const nombre = task ? task.name : 'una tarea';
   const llevas = task ? fmtDuration(todaySecondsForTask(task)) : '';
   try {
     if (!Notification.isSupported()) return;
     const n = new Notification({
       title: 'imputa.me · hora de salida',
-      body: `Sigues con "${nombre}"${llevas ? ` (${llevas} hoy)` : ''}. ¿La paras antes de irte?`,
+      body: parada
+        ? `He parado "${nombre}"${llevas ? ` (${llevas} hoy)` : ''}. Hasta mañana.`
+        : `Sigues con "${nombre}"${llevas ? ` (${llevas} hoy)` : ''}. ¿La paras antes de irte?`,
       icon: APP_ICON_PATH,
       silent: false,
     });
@@ -1716,6 +1724,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       settings.leaveSameEveryDay = p.leaveSameEveryDay !== false;
       if (typeof p.leaveTime === 'string') settings.leaveTime = p.leaveTime;
       if (p.leaveDays && typeof p.leaveDays === 'object') settings.leaveDays = p.leaveDays;
+      settings.leaveAutoStop = !!p.leaveAutoStop;
       leaveNotifiedOn = null;   // cambiar la hora vuelve a habilitar el aviso de hoy
       saveSettings(); broadcastState();
       startLeaveWatcher();
