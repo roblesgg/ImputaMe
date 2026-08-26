@@ -151,6 +151,7 @@ let settings = {
   dockBarLength: 110,  // largo de la barrita (px)
   dockBarPos: 50,      // posición a lo largo del borde, en % (0 = arriba/izq, 100 = abajo/der)
   dockBarOffset: 4,    // cuánto se despega del borde hacia el centro (px)
+  dockNearDistance: 45, // a cuántos px del ratón se enciende la barrita (antes 110, fijo)
   dockBarOpacity: 30,  // opacidad de la barrita EN REPOSO (al acercar el ratón va al máximo)
   dockBarColor: '#ffffff',
   dockPanelWidth: 460,  // ancho del panel en las vistas normales (anclajes laterales)
@@ -1147,9 +1148,10 @@ function updateDockHitTest() {
 
   // Revelado de la barrita al acercarse: se calcula aquí porque la ventana ya no recibe
   // los movimientos del ratón (ese reenvío era lo que hacía parpadear el cursor).
+  const radio = Math.max(10, Math.min(200, Number(settings.dockNearDistance) || 45));
   const near = !dockExpanded && !!dockBarRect &&
     Math.hypot(Math.max(dockBarRect.x - x, 0, x - (dockBarRect.x + dockBarRect.w)),
-               Math.max(dockBarRect.y - y, 0, y - (dockBarRect.y + dockBarRect.h))) < 110;
+               Math.max(dockBarRect.y - y, 0, y - (dockBarRect.y + dockBarRect.h))) < radio;
   if (near !== dockBarNear) {
     dockBarNear = near;
     try { dockWin.webContents.send('dock-bar-near', near); } catch {}

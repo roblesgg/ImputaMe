@@ -1,4 +1,4 @@
 {
-  "version": "2.2.3",
-  "notes": "imputa.me 2.2.3 (beta). Arreglado el tutorial en páginas largas como Ajustes: los pasos que quedaban más abajo del scroll no se veían, porque el recuadro y el foco se colocaban fuera de la ventana y no había forma de pulsar Siguiente. Ahora la página se desplaza sola hasta el elemento del que se está hablando y el recuadro nunca se sale de la ventana. Los pasos de los interruptores señalan la fila entera en vez de la casilla invisible."
+  "version": "2.2.4",
+  "notes": "imputa.me 2.2.4 (beta). La barra flotante se encendía en cuanto el ratón entraba en un radio de 110 px, que era demasiado lejos: ahora reacciona a 45 px, con el ratón ya al lado. Y si prefieres otra distancia, hay un deslizador nuevo en Ajustes → Barra flotante para ajustarla entre 10 y 200 px, en tiempo real."
 }

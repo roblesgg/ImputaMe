@@ -361,6 +361,10 @@
         <span class="sub-label">Separación del borde · <span id="dockBarOffsetLabel">4px</span></span>
         <input type="range" id="dockBarOffset" min="0" max="120" step="1" value="4">
 
+        <span class="sub-label">Se enciende a · <span id="dockNearDistanceLabel">45px</span> del ratón</span>
+        <input type="range" id="dockNearDistance" min="10" max="200" step="5" value="45">
+      </div>
+      <div class="row-sub">
         <span class="sub-label">Opacidad en reposo · <span id="dockBarOpacityLabel">30%</span></span>
         <input type="range" id="dockBarOpacity" min="5" max="100" step="1" value="30">
 
@@ -624,6 +628,7 @@ function previewDock() {
     dockBarPos: parseInt(document.getElementById('dockBarPos').value),
     dockBarOffset: parseInt(document.getElementById('dockBarOffset').value) || 0,
     dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 30,
+    dockNearDistance: parseInt(document.getElementById('dockNearDistance').value) || 45,
     dockDisplayId: sel ? Number(sel) : null,
     dockCloseMode,
     dockCloseSeconds: parseFloat(document.getElementById('dockCloseSeconds').value),
@@ -634,7 +639,7 @@ function previewDock() {
 }
 
 const PCT_SLIDERS = new Set(['dockBarOpacity','dockBarPos']);
-['dockBarWidth','dockBarLength','dockBarPos','dockBarOffset','dockBarOpacity'].forEach(id => {
+['dockBarWidth','dockBarLength','dockBarPos','dockBarOffset','dockBarOpacity','dockNearDistance'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => {
     const v = document.getElementById(id).value;
     document.getElementById(id + 'Label').textContent = v + (PCT_SLIDERS.has(id) ? '%' : 'px');
@@ -695,6 +700,7 @@ ipcRenderer.on('settings', (_, s) => {
     dockBarPos: s.dockBarPos == null ? 50 : s.dockBarPos,
     dockBarOffset: s.dockBarOffset == null ? 4 : s.dockBarOffset,
     dockBarOpacity: s.dockBarOpacity == null ? 30 : s.dockBarOpacity,
+    dockNearDistance: s.dockNearDistance == null ? 45 : s.dockNearDistance,
   };
   Object.entries(vals).forEach(([id, v]) => {
     document.getElementById(id).value = v;
@@ -731,6 +737,7 @@ function save() {
     dockBarPos: parseInt(document.getElementById('dockBarPos').value),
     dockBarOffset: parseInt(document.getElementById('dockBarOffset').value) || 0,
     dockBarOpacity: parseInt(document.getElementById('dockBarOpacity').value) || 30,
+    dockNearDistance: parseInt(document.getElementById('dockNearDistance').value) || 45,
     dockCloseMode,
     dockCloseSeconds: parseFloat(document.getElementById('dockCloseSeconds').value),
   } });
