@@ -60,6 +60,7 @@
   <div class="foot">
     <div class="dots" id="dots"></div>
     <button class="btn-ghost" id="prevBtn" onclick="go(-1)">Atrás</button>
+    <button class="btn-ghost" id="skipBtn" onclick="closeWin()" style="display:none">Ahora no</button>
     <button class="btn-primary" id="nextBtn" onclick="go(1)">Siguiente</button>
   </div>
 </div>
@@ -101,14 +102,22 @@ function render() {
   document.getElementById('dots').innerHTML =
     steps.map((_, n) => `<span class="dot${n === i ? ' on' : ''}"></span>`).join('');
   document.getElementById('prevBtn').style.visibility = i === 0 ? 'hidden' : 'visible';
-  document.getElementById('nextBtn').textContent = i === steps.length - 1 ? 'Entendido' : 'Siguiente';
+  // El último paso no cierra y ya: encadena con el recorrido guiado, que es el que
+  // señala de verdad dónde está cada cosa en vez de contarlo de palabra.
+  const ultimo = i === steps.length - 1;
+  document.getElementById('skipBtn').style.display = ultimo ? '' : 'none';
+  document.getElementById('nextBtn').textContent = ultimo ? 'Enséñame dónde está' : 'Siguiente';
 }
 
 function go(d) {
   if (i + d < 0) return;
-  if (i + d >= steps.length) { closeWin(); return; }
+  if (i + d >= steps.length) { empezarRecorrido(); return; }
   i += d;
   render();
+}
+
+function empezarRecorrido() {
+  ipcRenderer.send('action', { type:'start-whats-new-tour' });
 }
 
 function closeWin() { ipcRenderer.send('action', { type:'close-whats-new' }); }

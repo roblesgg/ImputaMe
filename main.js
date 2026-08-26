@@ -102,11 +102,27 @@ const NOVEDADES_2_4 = {
   ],
 };
 
+// La 2.4 contaba las novedades y ya: un resumen leído, sin enseñar dónde estaba nada.
+// Este es corto a propósito, porque lo que explica de verdad viene después: el
+// recorrido guiado, que va señalando cada cosa en su sitio.
+const NOVEDADES_2_4_1 = {
+  title: 'Novedades de imputa.me 2.4',
+  steps: [
+    { icon:'guide', title:'Ahora te lo enseño, no te lo cuento',
+      text:'Hasta ahora las novedades eran una presentación que leías y cerrabas, y luego tocaba buscarse la vida. A partir de aquí, el recorrido va por la app señalando cada cosa nueva en el sitio donde está.' },
+    { icon:'lista', title:'Lo que trae la 2.4',
+      text:'Subtareas dentro de cada tarea, el Panel reorganizado con lo que estás haciendo en grande, accesos rápidos, hora de salida, la regla 20-20-20 para descansar la vista, un botón para imputar y los totales de semana y mes en el calendario.' },
+    { icon:'spark', title:'Tú solo dale a Siguiente',
+      text:'El recorrido empieza en el Panel y te lleva solo al Calendario, a Guardadas y a Ajustes. Solo verás lo que sea nuevo para ti, y puedes dejarlo a medias cuando quieras: lo visto queda visto. Lo tienes siempre en Ajustes → Ver tutorial.' },
+  ],
+};
+
 const WHATS_NEW = {
   '2.2.0': NOVEDADES_2_2,
   '2.2.1': NOVEDADES_2_2,
   '2.3.0': NOVEDADES_2_3,
   '2.4.0': NOVEDADES_2_4,
+  '2.4.1': NOVEDADES_2_4_1,
 };
 
 // Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el
@@ -1812,6 +1828,15 @@ function getSerializableState() {
 // sub-frames se quedaban con el estado del momento en que cargaron: las acciones se
 // ejecutaban de verdad pero la interfaz no se refrescaba nunca (parecía que restaurar,
 // eliminar de la papelera o reanudar una tarea "no hacían nada").
+// Avisa a TODAS las vistas de que hay un recorrido en marcha. Hace falta además de la
+// respuesta a 'am-i-visible' porque, si la vista de destino ya era la que estaba
+// abierta, el iframe no se recarga y esa página nunca llega a preguntar.
+function broadcastTourFlag() {
+  [dockPanelWin, mainWin, calendarWin, groupsWin, settingsWin].forEach(w => {
+    if (w && !w.isDestroyed()) sendToAllFrames(w, 'tutorial-tour');
+  });
+}
+
 function sendToAllFrames(win, channel, payload) {
   if (!win || win.isDestroyed()) return;
   try { win.webContents.send(channel, payload); } catch {}
@@ -1953,6 +1978,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       saveSettings(); broadcastState();
       tourActive = true;   // el recorrido empieza por el Panel y de ahí va solo
       openMain();
+      setTimeout(broadcastTourFlag, 400);
       break;
     // Una vista recién cargada pregunta si el usuario la está viendo ya. Hace falta
     // porque al cambiar de pestaña el iframe se recarga y se pierde el aviso 'dock-expanded'.
@@ -2099,6 +2125,14 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     }
     case 'show-whats-new': openWhatsNew(); break;   // botón "Ver novedades" de Ajustes
+    // Del resumen de novedades al recorrido guiado: los pasos del tutorial llevan la
+    // versión en la que se añadieron, así que los pendientes son justo los de lo nuevo.
+    case 'start-whats-new-tour':
+      if (whatsNewWin && !whatsNewWin.isDestroyed()) whatsNewWin.close();
+      tourActive = true;
+      openMain();
+      setTimeout(broadcastTourFlag, 400);   // por si el Panel ya era la vista abierta
+      break;
     case 'close-whats-new':
       if (whatsNewWin && !whatsNewWin.isDestroyed()) whatsNewWin.close();
       break;

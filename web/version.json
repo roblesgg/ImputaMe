@@ -1,4 +1,4 @@
 {
-  "version": "2.4.0",
-  "notes": "imputa.me 2.4. Subtareas dentro de cada tarea, con su propio tiempo y sus notas. Panel reorganizado: la tarea en marcha en grande, y una cuadrícula de accesos rápidos con un botón para reanudar la última. Hora de salida, que te avisa (o te para la tarea sola) al terminar la jornada. La regla 20-20-20 para descansar la vista, con unos ojos flotantes y su cuenta atrás. Enlace para imputar: pega dónde metes las horas de verdad y tendrás un botón que te lleva desde el Panel y el Calendario. En el calendario, totales de la semana y del mes, y la subtarea de cada rato. Y la barra flotante ya sobrevive a desconectar el monitor donde la tenías puesta."
+  "version": "2.4.1",
+  "notes": "imputa.me 2.4.1. Las novedades dejan de ser una presentación que lees y cierras: ahora enlazan con un recorrido guiado que va por la app señalando cada cosa nueva en el sitio donde está, del Panel al Calendario y a Ajustes, y solo te enseña lo que sea nuevo para ti. Pasos nuevos para las subtareas del calendario, el botón de reanudar, el de imputar y los tres apartados nuevos de Ajustes."
 }
