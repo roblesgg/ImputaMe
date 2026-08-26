@@ -1,4 +1,4 @@
 {
-  "version": "2.3.7",
-  "notes": "imputa.me 2.3.7 (beta). Arreglado que el + de subtarea del calendario no hiciera nada: usaba la ventana de texto del navegador, que en Electron no existe y se queda en nada. Ahora hay una propia con el aspecto de la app, que arregla de paso el renombrado de tareas y subtareas y el 'reiniciar con otra nota' del calendario, que llevaban rotos por lo mismo. Y apartado nuevo en Ajustes, 'Enlace para imputar': pega ahí la dirección donde metes las horas de verdad y aparece un botón Imputar en el Panel y en el Calendario que te lleva."
+  "version": "2.4.0",
+  "notes": "imputa.me 2.4. Subtareas dentro de cada tarea, con su propio tiempo y sus notas. Panel reorganizado: la tarea en marcha en grande, y una cuadrícula de accesos rápidos con un botón para reanudar la última. Hora de salida, que te avisa (o te para la tarea sola) al terminar la jornada. La regla 20-20-20 para descansar la vista, con unos ojos flotantes y su cuenta atrás. Enlace para imputar: pega dónde metes las horas de verdad y tendrás un botón que te lleva desde el Panel y el Calendario. En el calendario, totales de la semana y del mes, y la subtarea de cada rato. Y la barra flotante ya sobrevive a desconectar el monitor donde la tenías puesta."
 }

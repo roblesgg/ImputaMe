@@ -80,10 +80,33 @@ const NOVEDADES_2_3 = {
   ],
 };
 
+const NOVEDADES_2_4 = {
+  title: 'Novedades de imputa.me 2.4',
+  steps: [
+    { icon:'lista', title:'Subtareas',
+      text:'Dentro de una tarea puedes crear subtareas: en "Cocina", el horno y el frigorífico. La flechita de cada tarea del Panel las despliega, cada una lleva su propio tiempo y su play, y todo lo que hagas dentro suma en la tarea. Sus notas van como siempre, una por sesión.' },
+    { icon:'spark', title:'El Panel, reorganizado',
+      text:'Lo que estás haciendo ahora ocupa el sitio de honor: una tarjeta grande con su cronómetro, su nota y el botón de pausar. El total del día baja a una línea fina y la lista de abajo ya no repite la tarea que está arriba.' },
+    { icon:'guide', title:'Accesos rápidos',
+      text:'Bajo la lista de tareas tienes cuatro botones: Calendario, Guardadas, Ajustes, y uno que vuelve a poner en marcha la última tarea que estuviste haciendo, con su nombre puesto.' },
+    { icon:'enlace', title:'Botón para imputar',
+      text:'En Ajustes → Enlace para imputar pega la dirección del sitio donde metes las horas de verdad. Aparecerá un botón "Imputar" en el Panel y en el Calendario que te lleva ahí de un clic.' },
+    { icon:'reloj', title:'Hora de salida',
+      text:'Dile a qué hora terminas y, si a esa hora sigue habiendo una tarea en marcha, te aviso. La misma hora toda la semana o una distinta cada día, con los que no trabajes cancelados. Y si quieres, que te la pare yo sola.' },
+    { icon:'ojo', title:'Descansa la vista',
+      text:'La regla 20-20-20 que recomiendan los oftalmólogos: cada 20 minutos, mira 20 segundos a algo que esté a unos 6 metros. Salen unos ojos flotantes con la cuenta atrás; eliges cada cuánto, cuánto duran, dónde y de qué tamaño, y un clic los quita hasta la próxima.' },
+    { icon:'calendar', title:'Tu semana y tu mes',
+      text:'En el calendario, debajo de las tareas del día están ahora las de la semana y las del mes, cada bloque con el tiempo de cada tarea y su total. Y en cada rato puedes elegir a qué subtarea fue.' },
+    { icon:'screen', title:'La barra y tus monitores',
+      text:'Si desconectas la pantalla donde tenías la barra flotante, se pasa sola a la que quede, y al volver a conectarla se va otra vez a ella. La reconoce por sus medidas, porque Windows le cambia el identificador al reconectarla.' },
+  ],
+};
+
 const WHATS_NEW = {
   '2.2.0': NOVEDADES_2_2,
   '2.2.1': NOVEDADES_2_2,
   '2.3.0': NOVEDADES_2_3,
+  '2.4.0': NOVEDADES_2_4,
 };
 
 // Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el

@@ -146,6 +146,12 @@ const TUTORIAL_STEPS = [
     title:'La barra flotante', text:'Es el modo por defecto: una barra discreta en el borde. Aquí ajustas su borde, color, largo, grosor, transparencia, monitor y cuándo se cierra sola.' },
   { id:'set-beta',       window:'settings', version:'2.2.2', selector:'.row:has(#betaUpdates)',
     title:'Versiones de prueba', text:'Enciéndelo y recibirás las versiones nada más publicarse, antes que nadie. Apagado, solo llegan las estables.' },
+  { id:'set-impute',     window:'settings', version:'2.4.0', selector:'#imputeUrl',
+    title:'Enlace para imputar', text:'Pega aquí la dirección del sitio donde metes las horas de verdad. En cuanto la pongas, sale un botón "Imputar" en el Panel y en el Calendario que te lleva ahí.' },
+  { id:'set-leave',      window:'settings', version:'2.4.0', selector:'.row:has(#leaveEnabled)',
+    title:'Hora de salida', text:'Dile a qué hora terminas y te aviso si sigue habiendo una tarea en marcha. Puedes poner la misma hora toda la semana o una distinta cada día, cancelar los que no trabajes, y hasta que te pare la tarea sola.' },
+  { id:'set-eyecare',    window:'settings', version:'2.4.0', selector:'.row:has(#eyeCareEnabled)',
+    title:'Descansa la vista', text:'La regla 20-20-20: cada 20 minutos, 20 segundos mirando a lo lejos. Salen unos ojos con la cuenta atrás, y aquí eliges cada cuánto, cuánto duran, dónde aparecen y de qué tamaño.' },
   { id:'set-actions',    window:'settings', version:'2.2.2', selector:'.btn-grid',
     title:'Copias de seguridad y más', text:'Exporta tus datos a un archivo y restáuralos cuando quieras. Aquí también repites este tutorial, revisas las novedades y buscas actualizaciones.' },
 ];
