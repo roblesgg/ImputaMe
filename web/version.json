@@ -1,4 +1,4 @@
 {
-  "version": "2.3.6",
-  "notes": "imputa.me 2.3.6 (beta). Desde el popup de una tarea en el calendario ya se puede elegir a qué subtarea fue ese rato, y crear, renombrar o borrar subtareas sin salir de ahí. Y arreglado el recuadro de los ojos: se le veían las esquinas negras cuadradas por fuera del redondeo, porque su sombra se pintaba dentro de la ventana y se recortaba contra el borde."
+  "version": "2.3.7",
+  "notes": "imputa.me 2.3.7 (beta). Arreglado que el + de subtarea del calendario no hiciera nada: usaba la ventana de texto del navegador, que en Electron no existe y se queda en nada. Ahora hay una propia con el aspecto de la app, que arregla de paso el renombrado de tareas y subtareas y el 'reiniciar con otra nota' del calendario, que llevaban rotos por lo mismo. Y apartado nuevo en Ajustes, 'Enlace para imputar': pega ahí la dirección donde metes las horas de verdad y aparece un botón Imputar en el Panel y en el Calendario que te lleva."
 }

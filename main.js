@@ -162,6 +162,9 @@ let state = {
 
 let settings = {
   reminderMinutes: 10,
+  // Enlace a donde imputas de verdad las horas (el portal de tu empresa, una hoja...).
+  // Si está puesto, aparece un botón "Imputar" en el Panel y en el Calendario.
+  imputeUrl: '',
   // ── Hora de salida ──────────────────────────────────────────────────────────
   // Aviso al terminar la jornada para que no se quede una tarea corriendo toda la
   // noche. Viene apagado: la hora de salida es cosa de cada uno, no hay defecto que
@@ -788,6 +791,25 @@ function startLeaveWatcher() {
   if (leaveTimer) clearInterval(leaveTimer);
   leaveTimer = setInterval(checkLeaveTime, 30000);
   checkLeaveTime();
+}
+
+// ── Enlace para imputar ──────────────────────────────────────────────────────
+// Se acepta lo que el usuario pegue: si no trae esquema, se le pone https://. Solo
+// http y https, para que un enlace guardado no pueda acabar abriendo otra cosa.
+function normalizeUrl(url) {
+  if (!url) return '';
+  const conEsquema = /^[a-zA-Z][\w+.-]*:\/\//.test(url) ? url : `https://${url}`;
+  try {
+    const u = new URL(conEsquema);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return u.toString();
+  } catch { return ''; }
+}
+
+function openImputeUrl() {
+  const url = normalizeUrl(settings.imputeUrl);
+  if (!url) return;
+  try { require('electron').shell.openExternal(url); } catch {}
 }
 
 // ── Regla 20-20-20 ───────────────────────────────────────────────────────────
@@ -1840,6 +1862,13 @@ ipcMain.on('action', (event, { type, payload }) => {
       startLeaveWatcher();
       break;
     }
+    case 'set-impute-url': {
+      const url = String((payload && payload.url) || '').trim().slice(0, 2000);
+      settings.imputeUrl = normalizeUrl(url);
+      saveSettings(); broadcastState();
+      break;
+    }
+    case 'open-impute-url': openImputeUrl(); break;
     case 'set-group-sort':
       settings.groupSort = ['alpha', 'created', 'custom'].includes(payload && payload.sort) ? payload.sort : 'created';
       saveSettings(); broadcastState();

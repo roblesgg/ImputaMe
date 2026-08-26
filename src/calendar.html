@@ -117,7 +117,13 @@
   }
   .day-total-time { font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
 
-  .sidebar-footer { margin-top:auto; }
+  .sidebar-footer { margin-top:auto;display:flex;flex-direction:column;gap:8px; }
+  .impute-btn {
+    background:color-mix(in srgb, var(--accent2) 22%, transparent) !important;
+    border-color:color-mix(in srgb, var(--accent) 42%, transparent) !important;
+    color:var(--text) !important;
+  }
+  .impute-btn:hover { background:color-mix(in srgb, var(--accent2) 34%, transparent) !important; }
   .export-btn { width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:13px;padding:9px 0;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px; }
   .export-btn:hover { background:var(--bg3); }
 
@@ -354,6 +360,10 @@
     </div>
 
     <div class="sidebar-footer">
+      <button class="export-btn impute-btn" id="imputeBtn" style="display:none" onclick="abrirImpute()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+        Imputar
+      </button>
       <button class="export-btn" onclick="exportCSV()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 21h16"/></svg>
         Exportar CSV
@@ -601,8 +611,13 @@ function renderTotalsInto(listId, totals, vacio) {
   list.appendChild(suma);
 }
 
+function abrirImpute() { ipcRenderer.send('action', { type:'open-impute-url' }); }
+
 function renderDayTotals() {
   if (!currentState) return;
+  // El botón de imputar solo existe si hay enlace puesto en Ajustes.
+  const imp = document.getElementById('imputeBtn');
+  if (imp) imp.style.display = (currentState.settings && currentState.settings.imputeUrl) ? 'flex' : 'none';
   const day = startOfDay(selectedDate || today0);
 
   // Día
@@ -1152,8 +1167,13 @@ function renderPopupSubtasks(task, entry) {
 
   sel.onchange = () => { popupSubId = sel.value; actualizarBotonesSub(task); };
 
-  document.getElementById('popupSubAdd').onclick = () => {
-    const nombre = prompt(`Nueva subtarea dentro de "${task.name}":`, '');
+  document.getElementById('popupSubAdd').onclick = async () => {
+    const nombre = await askText({
+      title: 'Nueva subtarea',
+      text: `Se creará dentro de "${task.name}".`,
+      placeholder: 'horno, frigorífico...',
+      okLabel: 'Crear', maxLength: 120,
+    });
     if (nombre === null) return;
     const n = nombre.trim();
     if (!n) return;
@@ -1162,10 +1182,10 @@ function renderPopupSubtasks(task, entry) {
     ipcRenderer.send('action', { type:'add-subtask', payload:{ taskId: task.id, name: n } });
   };
 
-  document.getElementById('popupSubEdit').onclick = () => {
+  document.getElementById('popupSubEdit').onclick = async () => {
     const sub = (task.subtasks || []).find(x => x.id === popupSubId);
     if (!sub) return;
-    const nombre = prompt('Nuevo nombre para la subtarea:', sub.name);
+    const nombre = await askText({ title: 'Cambiar el nombre', value: sub.name, maxLength: 120 });
     if (nombre === null) return;
     const n = nombre.trim();
     if (!n || n === sub.name) return;
@@ -1273,8 +1293,16 @@ function renderPopupQuickActions(task, entryIndex, entry) {
       ipcRenderer.send('action', { type:'pause' }); closePopup();
     }));
     wrap.appendChild(mkBtn(PQA_ICON_RESTART, 'Reiniciar con otra nota', 'pqa-accent', () => {
-      const note = prompt('Nota para la nueva sesión (opcional):', '');
-      if (note !== null) { ipcRenderer.send('action', { type:'restart-task-with-note', payload:{ note } }); closePopup(); }
+      askText({
+        title: 'Reiniciar con otra nota',
+        text: 'Se cierra este rato y empieza uno nuevo desde ahora, en la misma tarea.',
+        placeholder: 'Nota para la nueva sesión (opcional)',
+        okLabel: 'Reiniciar', maxLength: 500,
+      }).then(note => {
+        if (note === null) return;
+        ipcRenderer.send('action', { type:'restart-task-with-note', payload:{ note } });
+        closePopup();
+      });
     }));
   } else if (!isLiveEntry && !taskIsActive) {
     const label = document.createElement('span');

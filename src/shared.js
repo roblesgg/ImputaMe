@@ -319,3 +319,88 @@ function runTutorial(steps, onDone, windowName) {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initWinDrag);
   else initWinDrag();
 })();
+
+// ── Pedir un texto ───────────────────────────────────────────────────────────
+// window.prompt() NO existe en Electron: es un no-op que devuelve undefined sin
+// enseñar nada, así que todo lo que colgaba de él (crear y renombrar subtareas,
+// reiniciar una tarea con otra nota) simplemente no hacía nada al pulsarlo.
+// Esta es la sustituta, con el aspecto de la app y disponible en todas las vistas.
+// Devuelve una promesa con el texto, o null si se cancela.
+function askText({ title, text, value = '', okLabel = 'Guardar', placeholder = '', maxLength = 200 }) {
+  return new Promise((resolve) => {
+    if (!document.getElementById('ask-text-styles')) {
+      const st = document.createElement('style');
+      st.id = 'ask-text-styles';
+      st.textContent = `
+        .ask-backdrop { position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);-webkit-app-region:no-drag; }
+        .ask-card {
+          position:fixed;z-index:10001;left:50%;top:50%;transform:translate(-50%,-50%);
+          width:min(340px, calc(100vw - 40px));
+          background:var(--surface, #1c1c2a);border:1px solid var(--border, #333);
+          border-radius:var(--radius-sm, 12px);padding:18px;
+          display:flex;flex-direction:column;gap:11px;
+          box-shadow:0 20px 60px rgba(0,0,0,.55);-webkit-app-region:no-drag;
+        }
+        .ask-title { font-size:14px;font-weight:700;color:var(--text, #fff); }
+        .ask-text { font-size:12.5px;color:var(--text2, #999);line-height:1.45; }
+        .ask-input {
+          background:var(--bg, #111);border:1px solid var(--border, #333);border-radius:9px;
+          color:var(--text, #fff);font-family:inherit;font-size:13.5px;padding:9px 11px;outline:none;
+        }
+        .ask-input:focus { border-color:var(--accent, #818cf8); }
+        .ask-actions { display:flex;justify-content:flex-end;gap:8px;margin-top:2px; }
+        .ask-btn {
+          border:none;border-radius:9px;font-family:inherit;font-size:12.5px;font-weight:600;
+          padding:8px 15px;cursor:pointer;
+        }
+        .ask-btn.ghost { background:var(--bg2, #222);color:var(--text, #fff);border:1px solid var(--border, #333); }
+        .ask-btn.ghost:hover { background:var(--bg3, #2a2a2a); }
+        .ask-btn.primary { background:var(--accent2, #6366f1);color:#fff; }
+        .ask-btn.primary:hover { filter:brightness(1.08); }
+      `;
+      document.head.appendChild(st);
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'ask-backdrop';
+    const card = document.createElement('div');
+    card.className = 'ask-card';
+    card.innerHTML = `
+      <div class="ask-title"></div>
+      ${text ? '<div class="ask-text"></div>' : ''}
+      <input type="text" class="ask-input">
+      <div class="ask-actions">
+        <button class="ask-btn ghost">Cancelar</button>
+        <button class="ask-btn primary"></button>
+      </div>`;
+    card.querySelector('.ask-title').textContent = title || '';
+    if (text) card.querySelector('.ask-text').textContent = text;
+    card.querySelector('.ask-btn.primary').textContent = okLabel;
+
+    const input = card.querySelector('.ask-input');
+    input.value = value;
+    input.placeholder = placeholder;
+    input.maxLength = maxLength;
+
+    let cerrado = false;
+    const cerrar = (res) => {
+      if (cerrado) return; cerrado = true;
+      document.removeEventListener('keydown', onKey, true);
+      backdrop.remove(); card.remove();
+      resolve(res);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); cerrar(null); }
+      if (e.key === 'Enter' && document.activeElement === input) { e.preventDefault(); cerrar(input.value); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    backdrop.onclick = () => cerrar(null);
+    card.querySelector('.ask-btn.ghost').onclick = () => cerrar(null);
+    card.querySelector('.ask-btn.primary').onclick = () => cerrar(input.value);
+
+    document.body.appendChild(backdrop);
+    document.body.appendChild(card);
+    input.focus();
+    input.select();
+  });
+}

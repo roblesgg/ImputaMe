@@ -295,6 +295,23 @@
     </div>
   </div>
 
+  <!-- ── Enlace para imputar ────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Enlace para imputar</div>
+    <div class="card">
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:11px">
+        <div class="row-text">
+          <span class="row-title">A dónde imputas de verdad</span>
+          <span class="row-desc">Pega aquí la dirección del sitio donde metes las horas (el portal de tu empresa, una hoja de cálculo...). En cuanto pongas una, aparece un botón "Imputar" en el Panel y en el Calendario que te lleva ahí. Déjalo vacío para quitarlo.</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="imputeUrl" placeholder="https://..." maxlength="2000" style="flex:1">
+          <button class="btn-ghost" id="imputeTest" onclick="probarImpute()" style="white-space:nowrap;padding:0 14px">Probar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Descansa la vista (20-20-20) ───────────────────────── -->
   <div class="section">
     <div class="section-label">Descansa la vista</div>
@@ -699,6 +716,22 @@ function applyLeave() {
 });
 document.getElementById('leaveTime').addEventListener('change', applyLeave);
 
+// ---------- Enlace para imputar ----------
+// Se guarda al salir del campo (y con Enter): guardar en cada tecla dejaria a medias
+// direcciones sin terminar y el boton apareceria y desapareceria mientras escribes.
+function guardarImpute() {
+  ipcRenderer.send('action', { type:'set-impute-url', payload:{ url: document.getElementById('imputeUrl').value } });
+}
+document.getElementById('imputeUrl').addEventListener('change', guardarImpute);
+document.getElementById('imputeUrl').addEventListener('blur', guardarImpute);
+document.getElementById('imputeUrl').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { guardarImpute(); showToast('Enlace guardado'); }
+});
+function probarImpute() {
+  guardarImpute();
+  ipcRenderer.send('action', { type:'open-impute-url' });
+}
+
 // ---------- Regla 20-20-20 ----------
 let eyeCarePos = 'top';
 
@@ -878,6 +911,8 @@ ipcRenderer.on('settings', (_, s) => {
   document.getElementById('autohideRange').value = secs;
   document.getElementById('autohideValueLabel').textContent = secs + 's';
   updateAutohideVisibility();
+
+  document.getElementById('imputeUrl').value = s.imputeUrl || '';
 
   document.getElementById('eyeCareEnabled').checked = !!s.eyeCareEnabled;
   document.getElementById('eyeCareEvery').value = s.eyeCareEvery || 20;
