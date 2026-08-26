@@ -39,6 +39,14 @@ function applyThemeVars(t) {
     window.__dockExpanded = true;
     window.dispatchEvent(new Event('dock-expanded'));
   });
+  // El proceso principal avisa de que esta vista es una parada del recorrido guiado.
+  ipc.on('tutorial-tour', () => {
+    window.__tutorialTour = true;
+    window.dispatchEvent(new Event('tutorial-tour'));
+  });
+  // Preguntar al cargar: si esta vista nace cuando el panel YA está abierto (al cambiar
+  // de pestaña el iframe se recarga), el aviso de arriba se envió antes de existir.
+  ipc.send('action', { type: 'am-i-visible' });
 })();
 
 // ¿Está esta vista realmente a la vista del usuario? Embebida en el dock, no lo está
@@ -93,8 +101,8 @@ const TUTORIAL_STEPS = [
     title:'¿Ya llevas tiempo?', text:'Si empezaste una tarea antes de abrir la app, pon aquí cuántos minutos llevas (o la hora exacta): al darle a play se descontará ese tiempo.' },
   { id:'main-playpause', window:'main', version:'1.2.19', selector:'#tasksList .task-pill-actions .icon-btn:last-child',
     title:'Iniciar / pausar', text:'Play o pausa el cronómetro de esta tarea. Solo puede haber una activa a la vez: al iniciar otra, esta se pausa sola.' },
-  { id:'main-rename',    window:'main', version:'1.2.19', selector:'#tasksList .task-name',
-    title:'Renombrar', text:'Doble clic sobre el nombre para renombrarla de aquí en adelante. El calendario ya hecho conserva el nombre que tenía en cada momento (cada entrada guarda el suyo).' },
+  { id:'main-rename',    window:'main', version:'1.2.19', selector:'#tasksList .task-pill-actions .icon-btn:first-child',
+    title:'Renombrar', text:'El lápiz cambia el nombre de aquí en adelante (o doble clic sobre él). El calendario ya hecho conserva el nombre que tenía en cada momento: cada entrada guarda el suyo.' },
   { id:'main-color',     window:'main', version:'1.2.19', selector:'#tasksList .task-dot',
     title:'Color', text:'Haz clic en el punto de color para cambiarlo.' },
   { id:'main-save',      window:'main', version:'1.2.19', selector:'#tasksList .icon-btn[title="Guardar en un grupo"]',
@@ -114,9 +122,37 @@ const TUTORIAL_STEPS = [
     title:'Mini calendario', text:'Para saltar rápido a otra semana o mes.' },
   { id:'cal-export',     window:'calendar', version:'1.2.19', selector:'.export-btn',
     title:'Exportar', text:'Descarga tus horas en un CSV listo para abrir en Excel, del rango que quieras.' },
+
+  { id:'grp-search',     window:'groups', version:'2.2.2', selector:'#searchInput',
+    title:'Buscar entre lo guardado', text:'Escribe aquí para encontrar una tarea archivada, esté en la sección que esté.' },
+  { id:'grp-newsection', window:'groups', version:'2.2.2', selector:'.groups-topbar .btn-ghost',
+    title:'Secciones', text:'Crea secciones para agrupar tus tareas archivadas como te venga bien: por cliente, por proyecto, por lo que quieras.' },
+  { id:'grp-sort',       window:'groups', version:'2.2.2', selector:'#sortBtn',
+    title:'Ordenar las secciones', text:'Alfabéticamente, por orden de creación o a tu manera arrastrándolas. Tú eliges.' },
+  { id:'grp-rename',     window:'groups', version:'2.2.2', selector:'#groupsList .group-edit',
+    title:'Cambiar el nombre', text:'El lápiz renombra la sección. Cada tarea guardada tiene el suyo propio para lo mismo.' },
+  { id:'grp-restore',    window:'groups', version:'2.2.2', selector:'#groupsList .archived-task-row',
+    title:'Retomar una tarea', text:'Haz clic en una tarea guardada para devolverla al Panel y seguir contando donde la dejaste.' },
+  { id:'grp-trash',      window:'groups', version:'2.2.2', selector:'.trash-card',
+    title:'La papelera', text:'Lo que borras se queda aquí 30 días antes de irse del todo, por si te arrepientes. Su historial del calendario no se toca nunca.' },
+
+  { id:'set-theme',      window:'settings', version:'2.2.2', selector:'#themeGrid',
+    title:'Temas y color', text:'Ocho paletas, clara incluida. Y justo debajo eliges el color de los botones por separado del fondo.' },
+  { id:'set-dock',       window:'settings', version:'2.2.2', selector:'#dockMode',
+    title:'La barra flotante', text:'Es el modo por defecto: una barra discreta en el borde. Aquí ajustas su borde, color, largo, grosor, transparencia, monitor y cuándo se cierra sola.' },
+  { id:'set-beta',       window:'settings', version:'2.2.2', selector:'#betaUpdates',
+    title:'Versiones de prueba', text:'Enciéndelo y recibirás las versiones nada más publicarse, antes que nadie. Apagado, solo llegan las estables.' },
+  { id:'set-actions',    window:'settings', version:'2.2.2', selector:'.btn-grid',
+    title:'Copias de seguridad y más', text:'Exporta tus datos a un archivo y restáuralos cuando quieras. Aquí también repites este tutorial, revisas las novedades y buscas actualizaciones.' },
 ];
 
 function tutAllStepIds() { return TUTORIAL_STEPS.map(s => s.id); }
+
+// Orden del recorrido guiado por las distintas pantallas.
+const TUTORIAL_WINDOW_ORDER = ['main', 'calendar', 'groups', 'settings'];
+function hasMoreWindows(windowName) {
+  return TUTORIAL_WINDOW_ORDER.indexOf(windowName) < TUTORIAL_WINDOW_ORDER.length - 1;
+}
 
 function tutIsVisible(el) {
   if (!el) return false;
@@ -132,12 +168,20 @@ function startTutorialIfNeeded(windowName, seenIds, onDone) {
   const seen = new Set(seenIds || []);
   const pending = TUTORIAL_STEPS.filter(s =>
     s.window === windowName && !seen.has(s.id) && tutIsVisible(document.querySelector(s.selector)));
-  if (!pending.length) return false;
-  runTutorial(pending, onDone);
+  if (!pending.length) {
+    // Si el recorrido va en marcha y aquí no queda nada que enseñar, sigue solo a la
+    // siguiente pantalla en vez de dejar al usuario parado sin saber qué hacer.
+    if (window.__tutorialTour && !window.__tutorialHopped) {
+      window.__tutorialHopped = true;
+      try { require('electron').ipcRenderer.send('action', { type: 'tutorial-next', payload: { from: windowName } }); } catch {}
+    }
+    return false;
+  }
+  runTutorial(pending, onDone, windowName);
   return true;
 }
 
-function runTutorial(steps, onDone) {
+function runTutorial(steps, onDone, windowName) {
   let ipc = null;
   try { ipc = require('electron').ipcRenderer; } catch { return; }
 
@@ -162,6 +206,10 @@ function runTutorial(steps, onDone) {
   function finish(skipAll) {
     markSeen(skipAll ? tutAllStepIds() : steps.map(s => s.id));
     cleanup();
+    // Si no se ha omitido, el recorrido continúa solo en la siguiente vista que tenga
+    // pasos pendientes: el usuario solo tiene que ir dando a "Siguiente".
+    if (skipAll) ipc.send('action', { type: 'tutorial-stop' });
+    else ipc.send('action', { type: 'tutorial-next', payload: { from: windowName } });
   }
 
   function next() {
@@ -190,7 +238,7 @@ function runTutorial(steps, onDone) {
         <div class="tut-card-nav">
           <span class="tut-progress">${idx + 1}/${steps.length}</span>
           ${idx > 0 ? '<button class="tut-btn-ghost tut-prev">Atrás</button>' : ''}
-          <button class="tut-btn-primary tut-next">${idx === steps.length - 1 ? 'Entendido' : 'Siguiente'}</button>
+          <button class="tut-btn-primary tut-next">${idx === steps.length - 1 ? (hasMoreWindows(windowName) ? 'Continuar →' : 'Entendido') : 'Siguiente'}</button>
         </div>
       </div>`;
     card.querySelector('.tut-skip').onclick = () => finish(true);

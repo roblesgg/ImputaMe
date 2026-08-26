@@ -37,43 +37,32 @@ const DEFAULT_THEME = 'indigo';
 
 // Recorrido de novedades que se muestra UNA vez al actualizar. Solo para quien va por el
 // canal estable: en el de prueba las versiones se suceden a diario y sería un incordio.
+// Un mismo recorrido puede valer para varias versiones (2.2.1 solo arreglaba que este
+// no llegara a salir), y por eso se comparte el objeto: así se detecta que ya se ha
+// visto y no se repite palabra por palabra en la siguiente actualización.
+const NOVEDADES_2_2 = {
+  title: 'Novedades de imputa.me 2.2',
+  steps: [
+    { icon:'cursor', title:'Se acabó el parpadeo del cursor',
+      text:'Al pasar el ratón por botones, campos y agarradores el cursor se quedaba parpadeando entre la flecha y la mano. Ya no: ahora se mantiene estable mientras mueves el ratón.' },
+    { icon:'calendar', title:'Las tareas ya no se pisan',
+      text:'Al estirar una tarea por sus extremos en el calendario, ahora hace tope justo donde llega la de al lado. Si la arrastras a fondo, una acaba exactamente cuando empieza la otra.' },
+    { icon:'calendar', title:'Horas legibles en cada tarea',
+      text:'La duración baja a su propia línea, así que la hora de inicio y la de fin se leen enteras sin cortarse.' },
+    { icon:'screen', title:'Mejor con varios monitores',
+      text:'Al esconder el panel flotante ya no asoma un instante en la pantalla de al lado: ahora entra y sale con un desvanecido sin salir nunca de su monitor.' },
+    { icon:'spark', title:'Se esconde a tu ritmo',
+      text:'Si usas "esconder cuando el ratón sale", puedes ajustar el retardo en medios segundos, e incluso ponerlo a cero para que se esconda al instante.' },
+    { icon:'bell', title:'Actualizaciones sin sorpresas',
+      text:'Cuando haya una versión nueva te avisa sola con una notificación, pero no se descarga ni se instala nada sin que tú lo decidas.' },
+    { icon:'spark', title:'Esto que estás viendo',
+      text:'A partir de ahora, cada versión estable te recibe con un recorrido como este. Puedes repasarlo cuando quieras desde Ajustes → Ver novedades.' },
+  ],
+};
+
 const WHATS_NEW = {
-  '2.2.1': {
-    title: 'Novedades de imputa.me 2.2',
-    steps: [
-      { icon:'cursor', title:'Se acabó el parpadeo del cursor',
-        text:'Al pasar el ratón por botones, campos y agarradores el cursor se quedaba parpadeando entre la flecha y la mano. Ya no: ahora se mantiene estable mientras mueves el ratón.' },
-      { icon:'calendar', title:'Las tareas ya no se pisan',
-        text:'Al estirar una tarea por sus extremos en el calendario, ahora hace tope justo donde llega la de al lado. Si la arrastras a fondo, una acaba exactamente cuando empieza la otra.' },
-      { icon:'calendar', title:'Horas legibles en cada tarea',
-        text:'La duración baja a su propia línea, así que la hora de inicio y la de fin se leen enteras sin cortarse.' },
-      { icon:'screen', title:'Mejor con varios monitores',
-        text:'Al esconder el panel flotante ya no asoma un instante en la pantalla de al lado: ahora entra y sale con un desvanecido sin salir nunca de su monitor.' },
-      { icon:'spark', title:'Se esconde a tu ritmo',
-        text:'Si usas "esconder cuando el ratón sale", puedes ajustar el retardo en medios segundos, e incluso ponerlo a cero para que se esconda al instante.' },
-      { icon:'bell', title:'Actualizaciones sin sorpresas',
-        text:'Cuando haya una versión nueva te avisa sola con una notificación, pero no se descarga ni se instala nada sin que tú lo decidas.' },
-      { icon:'spark', title:'Esto que estás viendo',
-        text:'A partir de ahora, cada versión estable te recibe con un recorrido como este. Puedes repasarlo cuando quieras desde Ajustes → Ver novedades.' },
-    ],
-  },
-  '2.2.0': {
-    title: 'Novedades de imputa.me 2.2',
-    steps: [
-      { icon:'cursor', title:'Se acabó el parpadeo del cursor',
-        text:'Al pasar el ratón por botones, campos y agarradores el cursor se quedaba parpadeando entre la flecha y la mano. Ya no: ahora se mantiene estable mientras mueves el ratón.' },
-      { icon:'calendar', title:'Las tareas ya no se pisan',
-        text:'Al estirar una tarea por sus extremos en el calendario, ahora hace tope justo donde llega la de al lado. Si la arrastras a fondo, una acaba exactamente cuando empieza la otra.' },
-      { icon:'calendar', title:'Horas legibles en cada tarea',
-        text:'La duración baja a su propia línea, así que la hora de inicio y la de fin se leen enteras sin cortarse.' },
-      { icon:'screen', title:'Mejor con varios monitores',
-        text:'Al esconder el panel flotante ya no asoma un instante en la pantalla de al lado: ahora entra y sale con un desvanecido sin salir nunca de su monitor.' },
-      { icon:'spark', title:'Se esconde a tu ritmo',
-        text:'Si usas "esconder cuando el ratón sale", puedes ajustar el retardo en medios segundos, e incluso ponerlo a cero para que se esconda al instante.' },
-      { icon:'bell', title:'Actualizaciones sin sorpresas',
-        text:'Cuando haya una versión nueva te avisa sola con una notificación, pero no se descarga ni se instala nada sin que tú lo decidas.' },
-    ],
-  },
+  '2.2.0': NOVEDADES_2_2,
+  '2.2.1': NOVEDADES_2_2,
 };
 
 // Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el
@@ -119,6 +108,9 @@ let dockWin = null;              // ventana transparente de la BARRITA (click-th
 let dockPanelWin = null;         // ventana del PANEL: sin transparencia y con acrílico
 let dockHideWin = null;          // ventanita del botón de esconder, que flota junto al panel
 let dockExpanded = false;
+// Recorrido guiado en marcha: encadena Panel → Calendario → Guardadas → Ajustes.
+let tourActive = false;
+const TOUR_ORDER = ['main', 'calendar', 'groups', 'settings'];
 let dockHitRects = [];           // zonas "clicables" del dock, en coords de su ventana
 let dockOutsideSince = 0;        // desde cuándo el cursor está fuera del panel desplegado
 let lastBarRaiseAt = 0;          // para no reordenar ventanas en cada evento (ver 'set-dock-config')
@@ -149,6 +141,7 @@ let settings = {
   openAtLogin: false, // arrancar al iniciar sesión en Windows (desactivado por defecto)
   bgOpacity: 50,       // 0 = muy translúcida (se ve más el blur), 100 = muy opaca. Blur siempre puesto.
   tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
+  groupSort: 'created',  // orden de las secciones en Guardadas: 'created' | 'alpha' | 'custom'
   dockMode: true,      // modo barra flotante lateral: es el modo por defecto (instalación nueva)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
   theme: DEFAULT_THEME, // fondo/paleta base de toda la app (ver THEMES)
@@ -170,6 +163,7 @@ let settings = {
   // como estables.
   betaUpdates: false,
   lastSeenVersion: null,    // última versión cuyas novedades ya se han visto
+  lastSeenWhatsNew: null,   // y de qué hablaban, para no repetir el mismo recorrido
   dockCalendarWidth: 1180, // el calendario se abre bastante más ancho (y se puede estirar)
   lastView: 'panel',    // última vista abierta: la app vuelve a abrirse por donde la dejaste
 };
@@ -458,7 +452,7 @@ function archiveTask(taskId, groupId, groupName) {
     const name = groupName.trim();
     if (!name) return;
     let group = state.groups.find(g => g.name.toLowerCase() === name.toLowerCase());
-    if (!group) { group = { id: Date.now().toString(), name }; state.groups.push(group); }
+    if (!group) { group = { id: Date.now().toString(), name, order: nextGroupOrder() }; state.groups.push(group); }
     gid = group.id;
   }
   if (!gid || !state.groups.some(g => g.id === gid)) return;
@@ -468,11 +462,44 @@ function archiveTask(taskId, groupId, groupName) {
   saveData(); broadcastState();
 }
 
+function nextGroupOrder() {
+  return state.groups.reduce((max, g) => Math.max(max, Number(g.order) || 0), 0) + 1;
+}
+
+// Las secciones se sirven ya ordenadas para que Guardadas solo tenga que pintarlas.
+// 'created' usa el id, que es la marca de tiempo de cuando se creó.
+function sortedGroups() {
+  const gs = [...state.groups];
+  const byCreation = (a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+  if (settings.groupSort === 'alpha') {
+    return gs.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+  }
+  if (settings.groupSort === 'custom') {
+    return gs.sort((a, b) => {
+      const ao = Number(a.order), bo = Number(b.order);
+      if (Number.isFinite(ao) && Number.isFinite(bo) && ao !== bo) return ao - bo;
+      return byCreation(a, b);   // las que nunca se han arrastrado, por antigüedad
+    });
+  }
+  return gs.sort(byCreation);
+}
+
+// Guarda el orden manual que deja el usuario al arrastrar secciones.
+function reorderGroups(ids) {
+  if (!Array.isArray(ids)) return;
+  ids.forEach((id, i) => {
+    const g = state.groups.find(x => x.id === id);
+    if (g) g.order = i + 1;
+  });
+  settings.groupSort = 'custom';   // arrastrar implica que manda el orden manual
+  saveSettings(); saveData(); broadcastState();
+}
+
 function createGroup(name) {
   const n = (name || '').trim();
   if (!n) return null;
   let group = state.groups.find(g => g.name.toLowerCase() === n.toLowerCase());
-  if (!group) { group = { id: Date.now().toString(), name: n.slice(0, 60) }; state.groups.push(group); }
+  if (!group) { group = { id: Date.now().toString(), name: n.slice(0, 60), order: nextGroupOrder() }; state.groups.push(group); }
   saveData(); broadcastState();
   return group.id;
 }
@@ -990,6 +1017,50 @@ function hideDockHide() {
 // ventana asomaba un instante en el monitor de al lado antes de esconderse. La sensación
 // de entrar/salir la da el desvanecido que lo acompaña.
 const PANEL_SLIDE = 54;
+// La barrita tiene que estar SIEMPRE visible y con las medidas del área de trabajo. Si la
+// ventana se creó cuando el escritorio aún se montaba (arranque con Windows) o cambian los
+// monitores, sus medidas se quedan viejas: entonces su "borde derecho" cae en mitad de la
+// pantalla física (la barrita aparece flotando en medio) o directamente fuera (desaparece).
+function ensureDockBarVisible() {
+  if (!settings.dockMode) return;
+  createDock();
+  if (!dockWin || dockWin.isDestroyed()) return;
+  try { if (!dockWin.isVisible()) dockWin.showInactive(); } catch {}
+  syncDockBounds();
+}
+
+function syncDockBounds() {
+  if (!dockWin || dockWin.isDestroyed()) return;
+  let cur, want;
+  try { cur = dockWin.getBounds(); want = computeDockBounds(); } catch { return; }
+  if (cur.x !== want.x || cur.y !== want.y || cur.width !== want.width || cur.height !== want.height) {
+    try { dockWin.setBounds(want); } catch {}
+  }
+  // El panel abierto también se recoloca, por si cambió la pantalla bajo sus pies.
+  if (dockExpanded && dockPanelWin && !dockPanelWin.isDestroyed()) {
+    const pb = computePanelBounds(dockPanelView);
+    try { dockPanelWin.setBounds(pb); } catch {}
+    positionDockHide(pb);
+  }
+}
+
+function fadeWindow(win, from, to, ms, done) {
+  if (!win || win.isDestroyed()) return;
+  if (win.__fade) { clearInterval(win.__fade); win.__fade = null; }
+  const token = (win.__fadeToken = (win.__fadeToken || 0) + 1);
+  const start = Date.now();
+  try { win.setOpacity(from); } catch {}
+  win.__fade = setInterval(() => {
+    if (!win || win.isDestroyed() || win.__fadeToken !== token) { clearInterval(win.__fade); return; }
+    const t = Math.min(1, (Date.now() - start) / ms);
+    try { win.setOpacity(from + (to - from) * t); } catch {}
+    if (t >= 1) {
+      clearInterval(win.__fade); win.__fade = null;
+      if (done) { try { done(); } catch {} }
+    }
+  }, 16);
+}
+
 function offscreenPanelBounds(b, anchor) {
   if (anchor === 'right')  return { ...b, x: b.x - PANEL_SLIDE };
   if (anchor === 'left')   return { ...b, x: b.x + PANEL_SLIDE };
@@ -1003,26 +1074,23 @@ function showDockPanel() {
   createDockPanel();
   if (!dockPanelWin || dockPanelWin.isDestroyed()) return;
   const target = computePanelBounds(dockPanelView);
-  const anchor = dockConfig().anchor;
   const wasVisible = dockPanelWin.isVisible();
-  const from = offscreenPanelBounds(target, anchor);
+  // La ventana se coloca YA en su sitio: la sensación de aparecer la da el desvanecido.
+  // Antes se desplazaba fotograma a fotograma y por eso iba a tirones.
   try {
-    if (!wasVisible) dockPanelWin.setBounds(from);
+    dockPanelWin.setBounds(target);
+    if (!wasVisible) dockPanelWin.setOpacity(0);
     dockPanelWin.showInactive(); dockPanelWin.moveTop(); dockPanelWin.focus();
   } catch {}
   dockExpanded = true; dockOutsideSince = 0; dockPanelShownAt = Date.now();
   createDockHide();
-  if (wasVisible) {
-    try { dockPanelWin.setBounds(target); dockPanelWin.setOpacity(1); } catch {}
-    positionDockHide(target);
-  } else {
-    try { dockPanelWin.setOpacity(0); } catch {}
-    animateWindowBounds(dockPanelWin, target, 240, from, (b, k) => {
-      try { dockPanelWin.setOpacity(k); } catch {}
-      positionDockHide(b);
-    });
-  }
+  positionDockHide(target);
   showDockHide();
+  if (wasVisible) { try { dockPanelWin.setOpacity(1); } catch {} }
+  else {
+    fadeWindow(dockPanelWin, 0, 1, 170);
+    if (dockHideWin && !dockHideWin.isDestroyed()) fadeWindow(dockHideWin, 0, 1, 170);
+  }
   sendToAllFrames(dockPanelWin, 'dock-expanded');
 }
 
@@ -1032,15 +1100,14 @@ function collapseDockPanel() {
   hideDockHide();
   if (dockWin && !dockWin.isDestroyed()) { try { dockWin.webContents.send('dock-collapse'); } catch {} }
   if (!dockPanelWin || dockPanelWin.isDestroyed() || !dockPanelWin.isVisible()) return;
-  let b; try { b = dockPanelWin.getBounds(); } catch { return; }
-  animateWindowBounds(dockPanelWin, offscreenPanelBounds(b, dockConfig().anchor), 200, b, (_, k) => {
-    try { dockPanelWin.setOpacity(1 - k); } catch {}
-  });
-  setTimeout(() => {
+  if (dockHideWin && !dockHideWin.isDestroyed()) fadeWindow(dockHideWin, 1, 0, 130, () => hideDockHide());
+  fadeWindow(dockPanelWin, 1, 0, 150, () => {
     try {
       if (dockPanelWin && !dockPanelWin.isDestroyed()) { dockPanelWin.hide(); dockPanelWin.setOpacity(1); }
+      if (dockHideWin && !dockHideWin.isDestroyed()) dockHideWin.setOpacity(1);
     } catch {}
-  }, 230);
+    ensureDockBarVisible();   // al cerrarse el panel, la barrita tiene que estar ahí
+  });
 }
 
 // Empuja la config visual al renderer del dock (al crearlo y al cambiar Ajustes).
@@ -1355,6 +1422,11 @@ function openWhatsNew() {
 
 // Se enseña una sola vez por versión y SOLO en el canal estable: en el de prueba salen
 // versiones a diario y sería un incordio verlo cada vez.
+function whatsNewSignature(notes) {
+  if (!notes) return '';
+  return (notes.steps || []).map(s => s.title).join('|');
+}
+
 function maybeShowWhatsNew() {
   const v = app.getVersion();
   if (settings.lastSeenVersion === v) return;
@@ -1363,9 +1435,14 @@ function maybeShowWhatsNew() {
   // activado, y eso también le ocultaba las novedades de las estables, que es justo lo
   // que había que enseñar.
   const notes = WHATS_NEW[v];
+  const sig = whatsNewSignature(notes);
+  const yaVisto = !!sig && sig === settings.lastSeenWhatsNew;
   settings.lastSeenVersion = v;      // se marca aunque no haya notas, para no reintentarlo
+  if (sig) settings.lastSeenWhatsNew = sig;
   saveSettings();
-  if (!notes) return;
+  // Si la versión nueva cuenta exactamente lo mismo que la anterior, no se repite:
+  // ya se leyó una vez y volver a soltarlo entero es justo lo que molestaba.
+  if (!notes || yaVisto) return;
   setTimeout(() => openWhatsNew(), 1200);   // tras el arranque, sin pisar al splash
 }
 
@@ -1383,7 +1460,7 @@ function getSerializableState() {
       totalSecs: totalSecondsForTask(t),
       inTrash: isInTrash(t),   // para la sección "Papelera" de Guardadas
     })),
-    groups: state.groups,
+    groups: sortedGroups(),
     activeTaskId: state.activeTaskId,
     todayTotal: totalTodaySeconds(),
     settings,
@@ -1441,6 +1518,11 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'rename-group':  renameGroup(payload.groupId, payload.name); break;
     case 'delete-group':  deleteGroup(payload.groupId); break;
     case 'move-task-to-group': moveTaskToGroup(payload.taskId, payload.groupId); break;
+    case 'set-group-sort':
+      settings.groupSort = ['alpha', 'created', 'custom'].includes(payload && payload.sort) ? payload.sort : 'created';
+      saveSettings(); broadcastState();
+      break;
+    case 'reorder-groups': reorderGroups(payload && payload.ids); break;
     case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes); break;
     case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note, payload.name); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
@@ -1495,8 +1577,28 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'reset-tutorial':
       settings.tutorialSeenSteps = [];
       saveSettings(); broadcastState();
+      tourActive = true;   // el recorrido empieza por el Panel y de ahí va solo
       openMain();
       break;
+    // Una vista recién cargada pregunta si el usuario la está viendo ya. Hace falta
+    // porque al cambiar de pestaña el iframe se recarga y se pierde el aviso 'dock-expanded'.
+    case 'am-i-visible':
+      if (dockExpanded) { try { event.reply('dock-expanded'); } catch {} }
+      if (tourActive) { try { event.reply('tutorial-tour'); } catch {} }
+      break;
+    // Recorrido asistido: al acabar los pasos de una vista, lleva solo a la siguiente.
+    // Las vistas que ya no tengan nada pendiente lo mandan también, para no dejar al
+    // usuario plantado en una pantalla sin explicación ninguna.
+    case 'tutorial-next': {
+      const idx = TOUR_ORDER.indexOf(payload && payload.from);
+      const next = idx >= 0 ? TOUR_ORDER[idx + 1] : null;
+      if (!next) { tourActive = false; break; }
+      tourActive = true;
+      const open = { calendar: openCalendar, groups: openGroups, settings: openSettings };
+      setTimeout(() => { try { open[next](); } catch {} }, 260);
+      break;
+    }
+    case 'tutorial-stop': tourActive = false; break;
     case 'open-main':     openMain(); break;
     case 'open-calendar': openCalendar(); break;
     case 'open-settings': openSettings(); break;
@@ -1526,7 +1628,9 @@ ipcMain.on('action', (event, { type, payload }) => {
         rememberView(payload.view);
         // El calendario tiene su propio ancho: al cambiar de vista se reajusta.
         if (dockPanelWin && !dockPanelWin.isDestroyed()) {
-          animateWindowBounds(dockPanelWin, computePanelBounds(dockPanelView), 190, null, (b) => positionDockHide(b));
+          const nb = computePanelBounds(dockPanelView);
+          try { dockPanelWin.setBounds(nb); } catch {}
+          positionDockHide(nb);
         }
       }
       break;
@@ -1942,6 +2046,12 @@ app.whenReady().then(() => {
   tray.setContextMenu(buildTrayMenu());
   tray.on('click', () => openLastView());
 
+  // Conectar/desconectar monitores o cambiar su resolución deja las medidas viejas.
+  ['display-added', 'display-removed', 'display-metrics-changed'].forEach(ev => {
+    try { screen.on(ev, () => { positionDock(); syncDockBounds(); }); } catch {}
+  });
+  setInterval(() => { if (settings.dockMode) syncDockBounds(); }, 3000);
+
   startTick();
   resetReminderTimer();
   applyLoginItem();                         // sincroniza el registro con el ajuste guardado
@@ -1950,7 +2060,13 @@ app.whenReady().then(() => {
   // por sí), así que hay que crearla igualmente: si no, arrancar con Windows dejaba la
   // app sin nada visible salvo el icono de la bandeja.
   if (process.argv.includes('--hidden')) {
-    if (settings.dockMode) createDock();
+    if (settings.dockMode) {
+      createDock();
+      // Arrancando con Windows, las pantallas todavía no son las definitivas: se recoloca
+      // un par de veces después para que la barrita no quede fuera ni en medio.
+      setTimeout(ensureDockBarVisible, 2500);
+      setTimeout(ensureDockBarVisible, 8000);
+    }
   } else {
     showSplashThenMain();
   }

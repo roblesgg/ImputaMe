@@ -204,6 +204,7 @@ function moveBarTo(x, y) {
 
 document.addEventListener('mousemove', (e) => {
   if (!barDrag) return;
+  if (e.buttons === 0) { finishBarDrag(e.clientX, e.clientY); return; }   // se soltó fuera
   if (barDrag.dragging) { moveBarTo(e.clientX, e.clientY); return; }
   if (Math.hypot(e.clientX - barDrag.startX, e.clientY - barDrag.startY) > CLICK_SLOP) {
     barDrag.moved = true;
@@ -212,15 +213,17 @@ document.addEventListener('mousemove', (e) => {
   }
 });
 
-document.addEventListener('mouseup', (e) => {
+function finishBarDrag(x, y) {
   if (!barDrag) return;
   const d = barDrag;
   clearTimeout(d.holdTimer);
   bar.classList.remove('arming');
-  if (d.dragging) { barDrag = null; snapBarToEdge(e.clientX, e.clientY); return; }
   barDrag = null;
+  if (d.dragging) { snapBarToEdge(x, y); return; }
   if (!d.moved) expand();
-});
+}
+document.addEventListener('mouseup', (e) => finishBarDrag(e.clientX, e.clientY));
+window.addEventListener('blur', () => { if (barDrag) finishBarDrag(barDrag.startX, barDrag.startY); });
 
 // Encaja la barrita en el borde más cercano, respetando la separación configurada.
 function snapBarToEdge(x, y) {

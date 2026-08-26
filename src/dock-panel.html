@@ -149,11 +149,19 @@ ipcRenderer.on('dock-navigate', (_, view) => navTo(view));
 // ---- Redimensionar: se le pide al proceso principal que cambie el tamaño de ESTA ventana
 let resizeState = null;
 resizer.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
   e.preventDefault();
   resizeState = { x: e.screenX, y: e.screenY, w: window.innerWidth, h: window.innerHeight };
+  // Con captura del puntero los eventos siguen llegando aunque la ventana se encoja y el
+  // cursor quede fuera de ella. Sin esto, el "soltar" se perdía y el arrastre se quedaba
+  // pegado al ratón hasta hacer clic en otro sitio.
+  try { resizer.setPointerCapture(e.pointerId ?? 1); } catch {}
 });
 document.addEventListener('mousemove', (e) => {
   if (!resizeState) return;
+  // Red de seguridad: si ya no hay ningún botón pulsado, el arrastre terminó (aunque no
+  // hayamos recibido el "soltar" por haberse producido fuera de la ventana).
+  if (e.buttons === 0) { endResize(); return; }
   let size;
   if (anchor === 'left' || anchor === 'right') {
     const dx = e.screenX - resizeState.x;
@@ -165,12 +173,16 @@ document.addEventListener('mousemove', (e) => {
   resizeState.size = size;
   ipcRenderer.send('action', { type:'dock-panel-resize', payload:{ size, view: currentView } });
 });
-document.addEventListener('mouseup', () => {
+function endResize() {
   if (!resizeState) return;
   const s = resizeState.size; const v = currentView;
   resizeState = null;
   if (s != null) ipcRenderer.send('action', { type:'dock-panel-resize-end', payload:{ size: s, view: v } });
-});
+}
+document.addEventListener('mouseup', endResize);
+// Si la ventana pierde el foco o el ratón se va, el arrastre también termina.
+window.addEventListener('blur', endResize);
+document.addEventListener('mouseleave', (e) => { if (e.buttons === 0) endResize(); });
 </script>
 </body>
 </html>

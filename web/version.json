@@ -1,4 +1,4 @@
 {
-  "version": "2.2.1",
-  "notes": "imputa.me 2.2.1. Arreglado que el recorrido de novedades no llegara a aparecer al actualizar: se estaba ocultando a quien tuviera activada la opción Betatester, cuando lo que debía decidir es que la versión sea estable. Ahora, cada versión estable te recibe con el recorrido, tengas o no las versiones de prueba activadas."
+  "version": "2.2.2",
+  "notes": "imputa.me 2.2.2 (beta). La barra flotante ya no se pierde: vuelve a salir al arrancar Windows, se recoloca sola si cambian los monitores y reaparece siempre al cerrar el panel. Las transiciones del panel van con un desvanecido en vez de moverse a saltos. Arrastrar para redimensionar ya no se queda pegado al ratón. El tutorial arranca en el momento de pulsarlo y ahora es un recorrido asistido que te lleva solo del Panel al Calendario, Guardadas y Ajustes. En Guardadas hay lápiz para renombrar secciones y un menú para ordenarlas (alfabético, por creación o arrastrando); en el Panel, lápiz en cada tarea. Y el recorrido de novedades no se repite si la versión nueva cuenta lo mismo que la anterior."
 }

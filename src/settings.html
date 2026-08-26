@@ -669,6 +669,8 @@ ipcRenderer.on('settings', (_, s) => {
   document.getElementById('bgOpacity').value = (s.bgOpacity == null ? 50 : s.bgOpacity);
   document.getElementById('blurEnabled').checked = s.blurEnabled !== false;
   document.getElementById('betaUpdates').checked = !!s.betaUpdates;
+  tutorialSeen = s.tutorialSeenSteps || [];
+  setTimeout(maybeStartTutorial, 60);   // tras pintar temas, colores y la barra flotante
 
   const secs = Math.max(2, Math.min(60, s.widgetAutoHideSeconds || 10));
   document.getElementById('autohideRange').value = secs;
@@ -747,7 +749,9 @@ function showToast(text) {
 }
 
 function cancel() { ipcRenderer.send('action', { type:'close-settings' }); }
-function startTutorial() { ipcRenderer.send('action', { type:'reset-tutorial' }); cancel(); }
+// No hace falta cerrar Ajustes a mano: reset-tutorial ya lleva al Panel, que es donde
+// arranca el recorrido. Hacer las dos cosas provocaba dos navegaciones pisándose.
+function startTutorial() { ipcRenderer.send('action', { type:'reset-tutorial' }); }
 function checkUpdates() { ipcRenderer.send('action', { type:'check-for-updates' }); }
 function showWhatsNew() { ipcRenderer.send('action', { type:'show-whats-new' }); }
 
@@ -859,6 +863,17 @@ refreshAccount();
 
 // Embebido en el dock nadie empuja 'settings' al cargar, así que lo pedimos.
 ipcRenderer.send('action', { type:'get-settings' });
+
+// Última parada del recorrido guiado. Ver comentario en main.html: embebido en la barra
+// flotante, esta vista existe aunque el panel siga plegado, así que se espera.
+let tutorialActive = false;
+let tutorialSeen = null;
+function maybeStartTutorial() {
+  if (tutorialActive || !tutorialSeen || !isViewVisibleToUser()) return;
+  tutorialActive = startTutorialIfNeeded('settings', tutorialSeen, () => { tutorialActive = false; });
+}
+window.addEventListener('dock-expanded', maybeStartTutorial);
+window.addEventListener('tutorial-tour', maybeStartTutorial);
 </script>
 </body>
 </html>

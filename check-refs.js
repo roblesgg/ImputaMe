@@ -6,6 +6,9 @@ const fs = require('fs');
 
 function stripNoise(src) {
   return src
+    // En los .html, el CSS de <style> no es JavaScript: sus funciones (var, rgba,
+    // linear-gradient...) salían como "sin definir" y ahogaban los avisos de verdad.
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
     .replace(/`(?:\\[\s\S]|[^`\\])*`/g, '``')

@@ -502,6 +502,7 @@ function maybeStartTutorial() {
   tutorialActive = startTutorialIfNeeded('calendar', seen, () => { tutorialActive = false; });
 }
 window.addEventListener('dock-expanded', maybeStartTutorial);
+window.addEventListener('tutorial-tour', maybeStartTutorial);
 ipcRenderer.send('action', { type: 'get-state' });
 
 function renderAll() {
