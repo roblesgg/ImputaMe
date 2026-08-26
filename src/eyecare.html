@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Descansa la vista</title>
+<style>
+  /* Ventana transparente y sin marco: aquí solo se pinta la burbuja. Nada de fondo
+     en html/body, o se vería un rectángulo opaco sobre el escritorio. */
+  html, body {
+    margin: 0; height: 100%; background: transparent; overflow: hidden;
+    font-family: 'Segoe UI', system-ui, sans-serif; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-user-select: none; user-select: none;
+  }
+  .burbuja {
+    --acento: #818cf8;
+    width: 100%; height: 100%;
+    container-type: inline-size;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2%;
+    background: rgba(16, 16, 26, .88);
+    border: 1px solid rgba(255, 255, 255, .13);
+    border-radius: 22%/28%;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, .5);
+    animation: entrar .45s cubic-bezier(.2, 1.3, .4, 1);
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  body.saliendo .burbuja { opacity: 0; transform: scale(.9); }
+  @keyframes entrar {
+    from { opacity: 0; transform: scale(.75) translateY(-12%); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Los ojos: dos óvalos con su pupila, que parpadean y miran a lo lejos. Que miren
+     hacia un lado es la propia instrucción: aparta la vista de la pantalla. */
+  .ojos { display: flex; gap: 9%; width: 62%; }
+  .ojo {
+    position: relative; flex: 1; aspect-ratio: 1 / .72;
+    background: #f4f4f9; border-radius: 50%;
+    animation: parpadeo 4.2s infinite;
+  }
+  .pupila {
+    position: absolute; top: 50%; left: 50%;
+    width: 42%; height: 58%; border-radius: 50%;
+    background: #1b1b28;
+    transform: translate(-50%, -50%);
+    animation: mirar 4.2s infinite ease-in-out;
+  }
+  .pupila::after {
+    content: ''; position: absolute; top: 16%; right: 18%;
+    width: 26%; height: 26%; border-radius: 50%; background: rgba(255, 255, 255, .85);
+  }
+  @keyframes parpadeo {
+    0%, 92%, 100% { transform: scaleY(1); }
+    95%           { transform: scaleY(.1); }
+  }
+  @keyframes mirar {
+    0%, 20%   { transform: translate(-50%, -50%); }
+    45%, 70%  { transform: translate(-135%, -50%); }
+    100%      { transform: translate(-50%, -50%); }
+  }
+
+  .cuenta {
+    font-size: 26cqw; font-weight: 800; color: var(--acento);
+    font-variant-numeric: tabular-nums; line-height: 1;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+  }
+  .texto {
+    font-size: 7.5cqw; color: rgba(255, 255, 255, .62); font-weight: 600;
+    letter-spacing: .01em; text-align: center; padding: 0 6%;
+  }
+
+</style>
+</head>
+<body>
+  <div class="burbuja" id="burbuja">
+    <div class="ojos">
+      <div class="ojo"><div class="pupila"></div></div>
+      <div class="ojo"><div class="pupila"></div></div>
+    </div>
+    <div class="cuenta" id="cuenta">20</div>
+    <div class="texto">Mira a lo lejos</div>
+  </div>
+
+<script>
+const { ipcRenderer } = require('electron');
+
+let restantes = 20;
+let tic = null;
+
+// El color de acento del tema, para que la burbuja no desentone con el resto.
+ipcRenderer.on('theme', (_, t) => {
+  if (t && t.accent) document.getElementById('burbuja').style.setProperty('--acento', t.accent);
+});
+ipcRenderer.send('action', { type: 'get-theme' });
+
+ipcRenderer.on('eye-start', (_, segundos) => {
+  restantes = Math.max(1, Number(segundos) || 20);
+  document.body.classList.remove('saliendo');
+  document.getElementById('cuenta').textContent = restantes;
+  if (tic) clearInterval(tic);
+  tic = setInterval(() => {
+    restantes--;
+    document.getElementById('cuenta').textContent = Math.max(0, restantes);
+    if (restantes <= 0) { clearInterval(tic); tic = null; cerrar(); }
+  }, 1000);
+});
+
+// Un clic la quita de en medio hasta el siguiente aviso: si estás en mitad de algo,
+// que no haya que aguantarla los 20 segundos enteros.
+function cerrar() {
+  document.body.classList.add('saliendo');
+  setTimeout(() => ipcRenderer.send('action', { type: 'eye-done' }), 260);
+}
+document.body.addEventListener('click', () => {
+  if (tic) { clearInterval(tic); tic = null; }
+  cerrar();
+});
+</script>
+</body>
+</html>

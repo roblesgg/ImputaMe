@@ -33,7 +33,7 @@
     -webkit-app-region:no-drag;
   }
   .group-header:hover { background:var(--bg3); }
-  .group-name { flex:1;font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text; }
+  .group-name { flex:1;font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
   .group-count { font-size:11.5px;color:var(--text2); }
   .group-chevron { color:var(--text2);transition:transform .15s;flex-shrink:0; }
   .group-card.collapsed .group-chevron { transform:rotate(-90deg); }
@@ -355,9 +355,7 @@ function renderGroups() {
       if (collapsedGroups.has(g.id)) collapsedGroups.delete(g.id); else collapsedGroups.add(g.id);
       renderGroups();
     };
-    // El lápiz es lo que renombra ahora; el doble clic se queda como atajo de siempre.
-    const nameEl = header.querySelector('.group-name');
-    nameEl.ondblclick = (e) => { e.stopPropagation(); openSectionPopup('rename', g.id, g.name); };
+    // Renombrar es cosa del lápiz: el doble clic era un gesto que no se veía por ningún lado.
     header.querySelector('.group-edit').onclick = (e) => { e.stopPropagation(); openSectionPopup('rename', g.id, g.name); };
     header.querySelector('.group-del').onclick = (e) => {
       e.stopPropagation();

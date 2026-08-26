@@ -122,6 +122,9 @@ let groupsWin = null;
 let splashWin = null;
 let reminderTimer = null;
 let leaveTimer = null;
+let eyeCareWin = null;
+let eyeCareTimer = null;
+let eyeCareHideTimer = null;
 let leaveNotifiedOn = null;   // 'YYYY-MM-DD' del último aviso, para no repetirlo
 let tickTimer = null;
 let syncWin = null;
@@ -167,6 +170,14 @@ let settings = {
   leaveSameEveryDay: true,      // una sola hora para toda la semana
   leaveTime: '18:00',
   leaveDays: { 1:'18:00', 2:'18:00', 3:'18:00', 4:'18:00', 5:'18:00', 6:null, 0:null },
+  // ── Regla 20-20-20 ──────────────────────────────────────────────────────────
+  // Cada 20 minutos, mirar 20 segundos a algo que esté a unos 6 metros. Apagada por
+  // defecto: es un aviso que interrumpe, y eso se pide, no se impone.
+  eyeCareEnabled: false,
+  eyeCareEvery: 20,      // minutos entre avisos
+  eyeCareRest: 20,       // segundos que dura la cuenta atrás
+  eyeCarePos: 'top',     // topLeft | top | topRight | bottomLeft | bottom | bottomRight
+  eyeCareSize: 150,      // ancho de la burbuja en px (el alto va en proporción)
   widgetAutoHide: true,
   widgetAutoHideSeconds: 10,
   colorMode: 'auto', // 'auto' | 'manual'
@@ -698,6 +709,74 @@ function startLeaveWatcher() {
   if (leaveTimer) clearInterval(leaveTimer);
   leaveTimer = setInterval(checkLeaveTime, 30000);
   checkLeaveTime();
+}
+
+// ── Regla 20-20-20 ───────────────────────────────────────────────────────────
+const EYE_RATIO = 0.78;   // alto respecto al ancho de la burbuja
+
+function eyeCareBounds() {
+  const work = dockDisplay().workArea;
+  const w = Math.max(80, Math.min(420, Number(settings.eyeCareSize) || 150));
+  const h = Math.round(w * EYE_RATIO);
+  const m = 18;   // separación del borde
+  const pos = settings.eyeCarePos || 'top';
+  const izq = work.x + m;
+  const centro = work.x + Math.round((work.width - w) / 2);
+  const der = work.x + work.width - w - m;
+  const arriba = work.y + m;
+  const abajo = work.y + work.height - h - m;
+  const x = pos.includes('Left') ? izq : pos.includes('Right') ? der : centro;
+  const y = pos.startsWith('bottom') ? abajo : arriba;
+  return { x, y, width: w, height: h };
+}
+
+function createEyeCareWindow() {
+  if (eyeCareWin && !eyeCareWin.isDestroyed()) return eyeCareWin;
+  const b = eyeCareBounds();
+  eyeCareWin = new BrowserWindow({
+    ...b,
+    frame: false, transparent: true, hasShadow: false, resizable: false,
+    // focusable:false para no sacar al usuario de lo que esté haciendo; el clic para
+    // quitarla de en medio sigue llegando igual.
+    skipTaskbar: true, alwaysOnTop: true, focusable: false, show: false,
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+  });
+  // 'screen-saver' la pone por encima incluso de aplicaciones a pantalla completa,
+  // que es justo cuando más falta hace acordarse de mirar a lo lejos.
+  try { eyeCareWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+  eyeCareWin.loadFile(path.join(__dirname, 'src', 'eyecare.html'));
+  eyeCareWin.on('closed', () => { eyeCareWin = null; });
+  return eyeCareWin;
+}
+
+function showEyeCare(segundos) {
+  const win = createEyeCareWindow();
+  if (!win || win.isDestroyed()) return;
+  const secs = Math.max(1, Number(segundos) || Number(settings.eyeCareRest) || 20);
+  try { win.setBounds(eyeCareBounds()); } catch {}
+  const lanzar = () => {
+    if (!win || win.isDestroyed()) return;
+    try { win.showInactive(); win.webContents.send('eye-start', secs); } catch {}
+  };
+  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', lanzar);
+  else lanzar();
+
+  // Red de seguridad: si el renderer se atasca, la burbuja no se queda ahí clavada.
+  if (eyeCareHideTimer) clearTimeout(eyeCareHideTimer);
+  eyeCareHideTimer = setTimeout(hideEyeCare, (secs + 4) * 1000);
+}
+
+function hideEyeCare() {
+  if (eyeCareHideTimer) { clearTimeout(eyeCareHideTimer); eyeCareHideTimer = null; }
+  try { if (eyeCareWin && !eyeCareWin.isDestroyed()) eyeCareWin.hide(); } catch {}
+}
+
+function startEyeCareTimer() {
+  if (eyeCareTimer) { clearInterval(eyeCareTimer); eyeCareTimer = null; }
+  hideEyeCare();
+  if (!settings.eyeCareEnabled) return;
+  const min = Math.max(1, Math.min(180, Number(settings.eyeCareEvery) || 20));
+  eyeCareTimer = setInterval(() => showEyeCare(), min * 60000);
 }
 
 let widgetHideTimer = null;
@@ -1617,6 +1696,20 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'rename-group':  renameGroup(payload.groupId, payload.name); break;
     case 'delete-group':  deleteGroup(payload.groupId); break;
     case 'move-task-to-group': moveTaskToGroup(payload.taskId, payload.groupId); break;
+    case 'set-eye-care': {
+      const p = payload || {};
+      if (p.eyeCareEnabled !== undefined) settings.eyeCareEnabled = !!p.eyeCareEnabled;
+      if (p.eyeCareEvery !== undefined) settings.eyeCareEvery = Math.max(1, Math.min(180, Number(p.eyeCareEvery) || 20));
+      if (p.eyeCareRest !== undefined) settings.eyeCareRest = Math.max(5, Math.min(120, Number(p.eyeCareRest) || 20));
+      if (p.eyeCarePos !== undefined) settings.eyeCarePos = p.eyeCarePos;
+      if (p.eyeCareSize !== undefined) settings.eyeCareSize = Math.max(80, Math.min(420, Number(p.eyeCareSize) || 150));
+      saveSettingsSoon(); broadcastState();
+      startEyeCareTimer();
+      // Al tocar la posición o el tamaño se enseña un momento, para verlo mientras se ajusta.
+      if (p.preview) showEyeCare(p.previewSeconds || 3);
+      break;
+    }
+    case 'eye-done': hideEyeCare(); break;
     case 'set-leave': {
       const p = payload || {};
       settings.leaveEnabled = !!p.leaveEnabled;
@@ -2137,6 +2230,7 @@ app.whenReady().then(() => {
   // encontraría paseándole por la app en cada arranque.
   if (!(settings.tutorialSeenSteps || []).length) tourActive = true;
   startLeaveWatcher();
+  startEyeCareTimer();
 
   // Sincronización opcional (Supabase). Si hay sesión guardada, arranca sola.
   if (sync) sync.init({

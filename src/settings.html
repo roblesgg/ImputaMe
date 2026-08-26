@@ -290,6 +290,46 @@
     </div>
   </div>
 
+  <!-- ── Descansa la vista (20-20-20) ───────────────────────── -->
+  <div class="section">
+    <div class="section-label">Descansa la vista</div>
+    <div class="card">
+      <div class="row">
+        <div class="row-text">
+          <span class="row-title">Regla 20-20-20</span>
+          <span class="row-desc">Lo que recomiendan los oftalmólogos: cada 20 minutos, mira 20 segundos a algo que esté a unos 6 metros. Relaja el músculo del ojo. Aparecen unos ojos flotantes con la cuenta atrás; si molestan, un clic los quita hasta el siguiente aviso.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="eyeCareEnabled">
+          <span class="switch-track"></span>
+          <span class="switch-knob"></span>
+        </label>
+      </div>
+      <div class="row-sub" id="eyeCareWrap">
+        <span class="sub-label">Avisarme cada · <span id="eyeCareEveryLabel">20 min</span></span>
+        <input type="range" id="eyeCareEvery" min="1" max="120" step="1" value="20">
+
+        <span class="sub-label">Mirar a lo lejos durante · <span id="eyeCareRestLabel">20 s</span></span>
+        <input type="range" id="eyeCareRest" min="5" max="120" step="5" value="20">
+
+        <span class="sub-label">Dónde aparecen</span>
+        <div class="seg" id="eyeCarePosSeg" style="flex-wrap:wrap">
+          <button data-pos="topLeft">↖</button>
+          <button data-pos="top">↑</button>
+          <button data-pos="topRight">↗</button>
+          <button data-pos="bottomLeft">↙</button>
+          <button data-pos="bottom">↓</button>
+          <button data-pos="bottomRight">↘</button>
+        </div>
+
+        <span class="sub-label">Tamaño · <span id="eyeCareSizeLabel">150px</span></span>
+        <input type="range" id="eyeCareSize" min="80" max="420" step="10" value="150">
+
+        <button class="btn-ghost" onclick="previewEyeCare()" style="align-self:flex-start;padding:8px 14px">Ver cómo queda</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Apariencia ─────────────────────────────────────────── -->
   <div class="section">
     <div class="section-label">Apariencia</div>
@@ -654,6 +694,48 @@ function applyLeave() {
 });
 document.getElementById('leaveTime').addEventListener('change', applyLeave);
 
+// ---------- Regla 20-20-20 ----------
+let eyeCarePos = 'top';
+
+function applyEyeCare(preview) {
+  ipcRenderer.send('action', { type:'set-eye-care', payload:{
+    eyeCareEnabled: document.getElementById('eyeCareEnabled').checked,
+    eyeCareEvery: parseInt(document.getElementById('eyeCareEvery').value) || 20,
+    eyeCareRest: parseInt(document.getElementById('eyeCareRest').value) || 20,
+    eyeCarePos,
+    eyeCareSize: parseInt(document.getElementById('eyeCareSize').value) || 150,
+    preview: !!preview,
+    previewSeconds: preview === 'largo' ? 6 : 3,
+  } });
+}
+function previewEyeCare() { applyEyeCare('largo'); }
+
+function updateEyeCareVisibility() {
+  document.getElementById('eyeCareWrap').classList.toggle('open', document.getElementById('eyeCareEnabled').checked);
+}
+document.getElementById('eyeCareEnabled').addEventListener('change', () => { updateEyeCareVisibility(); applyEyeCare(); });
+document.getElementById('eyeCareEvery').addEventListener('input', () => {
+  document.getElementById('eyeCareEveryLabel').textContent = document.getElementById('eyeCareEvery').value + ' min';
+  applyEyeCare();
+});
+document.getElementById('eyeCareRest').addEventListener('input', () => {
+  document.getElementById('eyeCareRestLabel').textContent = document.getElementById('eyeCareRest').value + ' s';
+  applyEyeCare();
+});
+// La posición y el tamaño se enseñan al tocarlos: es lo único que no se puede juzgar
+// sin verlo puesto en la pantalla.
+document.getElementById('eyeCareSize').addEventListener('input', () => {
+  document.getElementById('eyeCareSizeLabel').textContent = document.getElementById('eyeCareSize').value + 'px';
+  applyEyeCare(true);
+});
+document.querySelectorAll('#eyeCarePosSeg button').forEach(b => {
+  b.addEventListener('click', () => {
+    eyeCarePos = b.dataset.pos;
+    document.querySelectorAll('#eyeCarePosSeg button').forEach(x => x.classList.toggle('active', x === b));
+    applyEyeCare(true);
+  });
+});
+
 // ---------- Fondo: vista previa en vivo ----------
 document.getElementById('bgOpacity').addEventListener('input', (e) => {
   ipcRenderer.send('action', { type:'set-bg-opacity', payload:{ value: parseInt(e.target.value) || 0 } });
@@ -781,6 +863,17 @@ ipcRenderer.on('settings', (_, s) => {
   document.getElementById('autohideRange').value = secs;
   document.getElementById('autohideValueLabel').textContent = secs + 's';
   updateAutohideVisibility();
+
+  document.getElementById('eyeCareEnabled').checked = !!s.eyeCareEnabled;
+  document.getElementById('eyeCareEvery').value = s.eyeCareEvery || 20;
+  document.getElementById('eyeCareEveryLabel').textContent = (s.eyeCareEvery || 20) + ' min';
+  document.getElementById('eyeCareRest').value = s.eyeCareRest || 20;
+  document.getElementById('eyeCareRestLabel').textContent = (s.eyeCareRest || 20) + ' s';
+  document.getElementById('eyeCareSize').value = s.eyeCareSize || 150;
+  document.getElementById('eyeCareSizeLabel').textContent = (s.eyeCareSize || 150) + 'px';
+  eyeCarePos = s.eyeCarePos || 'top';
+  document.querySelectorAll('#eyeCarePosSeg button').forEach(b => b.classList.toggle('active', b.dataset.pos === eyeCarePos));
+  updateEyeCareVisibility();
 
   document.getElementById('leaveEnabled').checked = !!s.leaveEnabled;
   document.getElementById('leaveSameEveryDay').checked = s.leaveSameEveryDay !== false;

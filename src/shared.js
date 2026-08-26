@@ -91,6 +91,8 @@ function computeBackMinutes(minId, timeId) {
 const TUTORIAL_STEPS = [
   { id:'main-total',     window:'main', version:'1.2.19', selector:'.total-banner',
     title:'Total de hoy', text:'Aquí ves el tiempo acumulado de todas tus tareas de hoy, sumando en tiempo real.' },
+  { id:'main-hero',      window:'main', version:'2.3.2', selector:'#heroCard',
+    title:'La tarea en marcha', text:'Lo que estés haciendo ahora ocupa el sitio de honor: su cronómetro en grande, su nota y el botón de pausar. Cuando no hay nada corriendo, esta misma tarjeta te lo dice.' },
   { id:'main-nav',       window:'main', version:'1.2.19', selector:'#navButtons',
     title:'Calendario, Guardadas y Ajustes', text:'Desde aquí abres el Calendario (tu historial completo, editable), las tareas Guardadas (archivadas por grupos) y los Ajustes de la app.' },
   { id:'main-note',      window:'main', version:'1.2.19', selector:'#activeNoteRow',
@@ -102,7 +104,7 @@ const TUTORIAL_STEPS = [
   { id:'main-playpause', window:'main', version:'1.2.19', selector:'#tasksList .task-pill-actions .icon-btn:last-child',
     title:'Iniciar / pausar', text:'Play o pausa el cronómetro de esta tarea. Solo puede haber una activa a la vez: al iniciar otra, esta se pausa sola.' },
   { id:'main-rename',    window:'main', version:'1.2.19', selector:'#tasksList .task-pill-actions .icon-btn:first-child',
-    title:'Renombrar', text:'El lápiz cambia el nombre de aquí en adelante (o doble clic sobre él). El calendario ya hecho conserva el nombre que tenía en cada momento: cada entrada guarda el suyo.' },
+    title:'Renombrar', text:'El lápiz cambia el nombre de aquí en adelante. El calendario ya hecho conserva el nombre que tenía en cada momento: cada entrada guarda el suyo.' },
   { id:'main-color',     window:'main', version:'1.2.19', selector:'#tasksList .task-dot',
     title:'Color', text:'Haz clic en el punto de color para cambiarlo.' },
   { id:'main-save',      window:'main', version:'1.2.19', selector:'#tasksList .icon-btn[title="Guardar en un grupo"]',
