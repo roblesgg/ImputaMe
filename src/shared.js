@@ -138,9 +138,9 @@ const TUTORIAL_STEPS = [
 
   { id:'set-theme',      window:'settings', version:'2.2.2', selector:'#themeGrid',
     title:'Temas y color', text:'Ocho paletas, clara incluida. Y justo debajo eliges el color de los botones por separado del fondo.' },
-  { id:'set-dock',       window:'settings', version:'2.2.2', selector:'#dockMode',
+  { id:'set-dock',       window:'settings', version:'2.2.2', selector:'.row:has(#dockMode)',
     title:'La barra flotante', text:'Es el modo por defecto: una barra discreta en el borde. Aquí ajustas su borde, color, largo, grosor, transparencia, monitor y cuándo se cierra sola.' },
-  { id:'set-beta',       window:'settings', version:'2.2.2', selector:'#betaUpdates',
+  { id:'set-beta',       window:'settings', version:'2.2.2', selector:'.row:has(#betaUpdates)',
     title:'Versiones de prueba', text:'Enciéndelo y recibirás las versiones nada más publicarse, antes que nadie. Apagado, solo llegan las estables.' },
   { id:'set-actions',    window:'settings', version:'2.2.2', selector:'.btn-grid',
     title:'Copias de seguridad y más', text:'Exporta tus datos a un archivo y restáuralos cuando quieras. Aquí también repites este tutorial, revisas las novedades y buscas actualizaciones.' },
@@ -218,10 +218,25 @@ function runTutorial(steps, onDone, windowName) {
     reposition();
   }
 
-  function reposition() {
+  // yaColocado = ya se ha desplazado la página hasta el objetivo; sin esto se volvería
+  // a comprobar sin fin cuando el elemento es más alto que la ventana.
+  function reposition(yaColocado) {
     const step = steps[idx];
     const el = document.querySelector(step.selector);
     if (!el || !tutIsVisible(el)) { next(); return; }   // el objetivo desapareció (p.ej. se pausó la tarea): pasamos al siguiente
+
+    // Páginas largas (Ajustes, Guardadas): el objetivo puede estar fuera de la parte
+    // visible. Antes se señalaba igual y tanto el foco como el recuadro se iban fuera
+    // de la ventana, donde no se veían ni se podían pulsar.
+    if (yaColocado !== true) {
+      const r0 = el.getBoundingClientRect();
+      const fuera = r0.top < 8 || r0.bottom > window.innerHeight - 8;
+      if (fuera) {
+        try { el.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch { el.scrollIntoView(); }
+        requestAnimationFrame(() => reposition(true));
+        return;
+      }
+    }
 
     const r = el.getBoundingClientRect();
     const pad = 6;
@@ -253,9 +268,10 @@ function runTutorial(steps, onDone, windowName) {
     card.style.left = left + 'px';
 
     const cardH = card.offsetHeight;
-    let top = r.bottom + pad + 14;
-    if (top + cardH > window.innerHeight - 12) top = r.top - pad - 14 - cardH;
-    if (top < 12) top = Math.min(window.innerHeight - cardH - 12, Math.max(12, r.top));
+    let top = r.bottom + pad + 14;                                   // debajo del objetivo
+    if (top + cardH > window.innerHeight - 12) top = r.top - pad - 14 - cardH;   // no cabe: encima
+    // Y pase lo que pase, dentro de la ventana: es la red de seguridad que faltaba.
+    top = Math.max(12, Math.min(top, window.innerHeight - cardH - 12));
     card.style.top = top + 'px';
   }
 
