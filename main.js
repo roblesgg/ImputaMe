@@ -60,9 +60,30 @@ const NOVEDADES_2_2 = {
   ],
 };
 
+const NOVEDADES_2_3 = {
+  title: 'Novedades de imputa.me 2.3',
+  steps: [
+    { icon:'bar', title:'La barra flotante ya no se pierde',
+      text:'Se quedaba sin aparecer al encender el ordenador, y con varios monitores podía acabar plantada en medio de la pantalla. Ahora se recoloca sola al arrancar, cuando conectas o desconectas pantallas, y vuelve siempre a su sitio al cerrar el panel.' },
+    { icon:'cursor', title:'Se enciende cuando estás al lado',
+      text:'Antes se iluminaba desde bastante lejos. Ahora reacciona con el ratón ya pegado, y en Ajustes → Barra flotante puedes decidir a qué distancia exacta se enciende.' },
+    { icon:'spark', title:'Se mueve con suavidad',
+      text:'El panel iba a trompicones al abrirse y al cambiar de pestaña porque se le animaba el tamaño paso a paso. Ahora entra y sale con un desvanecido limpio.' },
+    { icon:'screen', title:'Arrastrar ya no se queda pegado',
+      text:'Si al agrandar el panel soltabas el ratón fuera de la ventana, se quedaba enganchado como si siguieras pulsando hasta hacer clic en otro sitio. Arreglado, también al mover la barrita.' },
+    { icon:'guide', title:'El tutorial te lleva de la mano',
+      text:'Ahora es un recorrido guiado: empieza en el Panel y te lleva solo al Calendario, a Guardadas y a Ajustes. Tú solo le das a Siguiente. Además arranca en el momento de pulsarlo, y en las páginas largas se desplaza sola hasta lo que te está explicando.' },
+    { icon:'pencil', title:'Renombrar con un clic',
+      text:'Cada tarea del Panel y cada sección de Guardadas tiene su lápiz al lado del botón de borrar. Ya no hay que adivinar que era doble clic (que sigue funcionando).' },
+    { icon:'folder', title:'Ordena tus secciones',
+      text:'En Guardadas hay un botón nuevo para ordenar las secciones: alfabéticamente, por orden de creación, o a tu manera arrastrándolas por su asa. Tu orden se guarda.' },
+  ],
+};
+
 const WHATS_NEW = {
   '2.2.0': NOVEDADES_2_2,
   '2.2.1': NOVEDADES_2_2,
+  '2.3.0': NOVEDADES_2_3,
 };
 
 // Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el
