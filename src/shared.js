@@ -116,8 +116,8 @@ const TUTORIAL_STEPS = [
     title:'Elegir día', text:'Haz clic en la cabecera de un día para seleccionarlo: se marca aquí y se resume en el panel de la izquierda.' },
   { id:'cal-summary',    window:'calendar', version:'1.2.19', selector:'.day-totals',
     title:'Resumen del día', text:'Cuánto tiempo llevas en cada tarea el día que tengas seleccionado.' },
-  { id:'cal-legend',     window:'calendar', version:'1.2.19', selector:'.task-legend',
-    title:'Tareas', text:'Haz clic en una tarea para mostrar u ocultar sus bloques en la cuadrícula.' },
+  { id:'cal-totales',    window:'calendar', version:'2.3.1', selector:'#weekTotalsList',
+    title:'Semana y mes', text:'Debajo del día tienes lo que llevas cada tarea en la semana que estás viendo y en el mes entero, con su total. Haz clic en cualquiera para mostrar u ocultar sus bloques en la cuadrícula.' },
   { id:'cal-minical',    window:'calendar', version:'1.2.19', selector:'.mini-cal',
     title:'Mini calendario', text:'Para saltar rápido a otra semana o mes.' },
   { id:'cal-export',     window:'calendar', version:'1.2.19', selector:'.export-btn',
@@ -209,7 +209,7 @@ function runTutorial(steps, onDone, windowName) {
     // Si no se ha omitido, el recorrido continúa solo en la siguiente vista que tenga
     // pasos pendientes: el usuario solo tiene que ir dando a "Siguiente".
     if (skipAll) ipc.send('action', { type: 'tutorial-stop' });
-    else ipc.send('action', { type: 'tutorial-next', payload: { from: windowName } });
+    else if (window.__tutorialTour) ipc.send('action', { type: 'tutorial-next', payload: { from: windowName } });
   }
 
   function next() {
@@ -238,6 +238,11 @@ function runTutorial(steps, onDone, windowName) {
       }
     }
 
+    // Se da por visto en cuanto se enseña, no al terminar el recorrido entero. Con 26
+    // pasos repartidos por cuatro pantallas, quien lo dejaba a medias se lo encontraba
+    // otra vez desde el principio en cada arranque.
+    markSeen([step.id]);
+
     const r = el.getBoundingClientRect();
     const pad = 6;
     spotlight.style.left = (r.left - pad) + 'px';
@@ -253,7 +258,7 @@ function runTutorial(steps, onDone, windowName) {
         <div class="tut-card-nav">
           <span class="tut-progress">${idx + 1}/${steps.length}</span>
           ${idx > 0 ? '<button class="tut-btn-ghost tut-prev">Atrás</button>' : ''}
-          <button class="tut-btn-primary tut-next">${idx === steps.length - 1 ? (hasMoreWindows(windowName) ? 'Continuar →' : 'Entendido') : 'Siguiente'}</button>
+          <button class="tut-btn-primary tut-next">${idx === steps.length - 1 ? (window.__tutorialTour && hasMoreWindows(windowName) ? 'Continuar →' : 'Entendido') : 'Siguiente'}</button>
         </div>
       </div>`;
     card.querySelector('.tut-skip').onclick = () => finish(true);

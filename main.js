@@ -121,6 +121,8 @@ let settingsWin = null;
 let groupsWin = null;
 let splashWin = null;
 let reminderTimer = null;
+let leaveTimer = null;
+let leaveNotifiedOn = null;   // 'YYYY-MM-DD' del último aviso, para no repetirlo
 let tickTimer = null;
 let syncWin = null;
 let updateWin = null;
@@ -156,6 +158,15 @@ let state = {
 
 let settings = {
   reminderMinutes: 10,
+  // ── Hora de salida ──────────────────────────────────────────────────────────
+  // Aviso al terminar la jornada para que no se quede una tarea corriendo toda la
+  // noche. Viene apagado: la hora de salida es cosa de cada uno, no hay defecto que
+  // valga para todos. Los días van por getDay(): 0 = domingo ... 6 = sábado, y null
+  // significa "ese día no me avises".
+  leaveEnabled: false,
+  leaveSameEveryDay: true,      // una sola hora para toda la semana
+  leaveTime: '18:00',
+  leaveDays: { 1:'18:00', 2:'18:00', 3:'18:00', 4:'18:00', 5:'18:00', 6:null, 0:null },
   widgetAutoHide: true,
   widgetAutoHideSeconds: 10,
   colorMode: 'auto', // 'auto' | 'manual'
@@ -622,6 +633,71 @@ function showReminder() {
   if (widgetWin && !widgetWin.isDestroyed()) { widgetWin.showInactive(); scheduleWidgetAutoHide(); }
   else createWidgetWindow();
   reminderTimer = setTimeout(showReminder, getReminderMs());
+}
+
+// ── Aviso de hora de salida ──────────────────────────────────────────────────
+// Fecha local en 'AAAA-MM-DD'. No vale toISOString(), que pasa a UTC y a última hora
+// de la tarde ya devuelve el día siguiente.
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Devuelve la hora de salida de hoy ('HH:MM') o null si hoy no toca avisar.
+function leaveTimeForToday() {
+  if (!settings.leaveEnabled) return null;
+  if (settings.leaveSameEveryDay) return settings.leaveTime || null;
+  const dias = settings.leaveDays || {};
+  return dias[new Date().getDay()] || null;
+}
+
+function checkLeaveTime() {
+  const hhmm = leaveTimeForToday();
+  if (!hhmm || !state.activeTaskId) return;   // sin tarea corriendo no hay nada que parar
+
+  const hoy = ymd(new Date());
+  if (leaveNotifiedOn === hoy) return;
+
+  const [h, m] = String(hhmm).split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return;
+  const objetivo = new Date();
+  objetivo.setHours(h, m, 0, 0);
+
+  const retraso = Date.now() - objetivo.getTime();
+  // Se avisa desde la hora en punto y hasta una hora después: así el aviso no se
+  // pierde si el ordenador estaba suspendido justo en ese minuto, pero tampoco salta
+  // a deshora si se abre la app por la noche.
+  if (retraso < 0 || retraso > 60 * 60000) return;
+
+  leaveNotifiedOn = hoy;
+  notifyLeaveTime();
+}
+
+function notifyLeaveTime() {
+  const task = state.tasks.find(t => t.id === state.activeTaskId);
+  const nombre = task ? task.name : 'una tarea';
+  const llevas = task ? fmtDuration(todaySecondsForTask(task)) : '';
+  try {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({
+      title: 'imputa.me · hora de salida',
+      body: `Sigues con "${nombre}"${llevas ? ` (${llevas} hoy)` : ''}. ¿La paras antes de irte?`,
+      icon: APP_ICON_PATH,
+      silent: false,
+    });
+    n.on('click', () => openMain());   // el panel, con el play/pausa a mano
+    n.show();
+  } catch {}
+}
+
+function fmtDuration(secs) {
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function startLeaveWatcher() {
+  if (leaveTimer) clearInterval(leaveTimer);
+  leaveTimer = setInterval(checkLeaveTime, 30000);
+  checkLeaveTime();
 }
 
 let widgetHideTimer = null;
@@ -1541,6 +1617,17 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'rename-group':  renameGroup(payload.groupId, payload.name); break;
     case 'delete-group':  deleteGroup(payload.groupId); break;
     case 'move-task-to-group': moveTaskToGroup(payload.taskId, payload.groupId); break;
+    case 'set-leave': {
+      const p = payload || {};
+      settings.leaveEnabled = !!p.leaveEnabled;
+      settings.leaveSameEveryDay = p.leaveSameEveryDay !== false;
+      if (typeof p.leaveTime === 'string') settings.leaveTime = p.leaveTime;
+      if (p.leaveDays && typeof p.leaveDays === 'object') settings.leaveDays = p.leaveDays;
+      leaveNotifiedOn = null;   // cambiar la hora vuelve a habilitar el aviso de hoy
+      saveSettings(); broadcastState();
+      startLeaveWatcher();
+      break;
+    }
     case 'set-group-sort':
       settings.groupSort = ['alpha', 'created', 'custom'].includes(payload && payload.sort) ? payload.sort : 'created';
       saveSettings(); broadcastState();
@@ -1613,10 +1700,10 @@ ipcMain.on('action', (event, { type, payload }) => {
     // Las vistas que ya no tengan nada pendiente lo mandan también, para no dejar al
     // usuario plantado en una pantalla sin explicación ninguna.
     case 'tutorial-next': {
+      if (!tourActive) break;   // no hay recorrido en marcha: nadie tiene que ir a ningún lado
       const idx = TOUR_ORDER.indexOf(payload && payload.from);
       const next = idx >= 0 ? TOUR_ORDER[idx + 1] : null;
       if (!next) { tourActive = false; break; }
-      tourActive = true;
       const open = { calendar: openCalendar, groups: openGroups, settings: openSettings };
       setTimeout(() => { try { open[next](); } catch {} }, 260);
       break;
@@ -2045,6 +2132,11 @@ app.whenReady().then(() => {
   SETTINGS_FILE = path.join(app.getPath('userData'), 'imputa-settings.json');
   loadData();
   applySystemThemeSource();
+  // Instalación nueva: el recorrido va solo por las cuatro pantallas. En cualquier otro
+  // caso hay que pedirlo desde Ajustes; si no, a quien le quedaran pasos sueltos se lo
+  // encontraría paseándole por la app en cada arranque.
+  if (!(settings.tutorialSeenSteps || []).length) tourActive = true;
+  startLeaveWatcher();
 
   // Sincronización opcional (Supabase). Si hay sesión guardada, arranca sola.
   if (sync) sync.init({

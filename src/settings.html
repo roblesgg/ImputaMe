@@ -109,6 +109,20 @@
 
   .sub-label { font-size:11.5px;color:var(--text2);font-weight:600; }
 
+  /* Hora de salida */
+  .time-input {
+    background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);
+    font-family:inherit;font-size:13px;padding:7px 9px;outline:none;
+  }
+  .time-input:focus { border-color:var(--accent); }
+  .time-input:disabled { opacity:.35; }
+  .day-row { display:flex;align-items:center;gap:10px; }
+  .day-row .day-name { flex:1;font-size:13px; }
+  .day-row.off .day-name { color:var(--text2);text-decoration:line-through; }
+  .day-check {
+    width:18px;height:18px;flex-shrink:0;accent-color:var(--accent);cursor:pointer;margin:0;
+  }
+
   /* Color libre, por si ninguno de los predefinidos vale. */
   .custom-color { display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-app-region:no-drag; }
   .custom-color input[type=color] {
@@ -243,6 +257,35 @@
       <div class="row-sub" id="autohideSliderWrap">
         <span class="sub-label">Se oculta tras <span id="autohideValueLabel">10s</span></span>
         <input type="range" id="autohideRange" min="2" max="60" step="1" value="10">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Hora de salida ─────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Hora de salida</div>
+    <div class="card">
+      <div class="row">
+        <div class="row-text">
+          <span class="row-title">Avisarme al salir</span>
+          <span class="row-desc">Si a esa hora sigues con una tarea en marcha, te aviso para que la pares o la cierres antes de irte.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="leaveEnabled">
+          <span class="switch-track"></span>
+          <span class="switch-knob"></span>
+        </label>
+      </div>
+      <div class="row-sub" id="leaveOptionsWrap">
+        <div class="day-row">
+          <span class="day-name" style="font-weight:600">Todos los días</span>
+          <input type="checkbox" class="day-check" id="leaveSameEveryDay">
+        </div>
+        <div class="day-row" id="leaveSingleRow">
+          <span class="day-name">Salgo a las</span>
+          <input type="time" class="time-input" id="leaveTime" value="18:00">
+        </div>
+        <div id="leaveDaysRows" style="display:none;flex-direction:column;gap:9px"></div>
       </div>
     </div>
   </div>
@@ -554,6 +597,63 @@ document.getElementById('autohideRange').addEventListener('input', (e) => {
   document.getElementById('autohideValueLabel').textContent = e.target.value + 's';
 });
 
+// ---------- Hora de salida ----------
+// getDay(): 0 = domingo ... 6 = sábado. Se enseñan de lunes a domingo, que es como se
+// lee una semana aquí.
+const DIAS = [
+  { n: 1, nombre: 'Lunes' }, { n: 2, nombre: 'Martes' }, { n: 3, nombre: 'Miércoles' },
+  { n: 4, nombre: 'Jueves' }, { n: 5, nombre: 'Viernes' }, { n: 6, nombre: 'Sábado' },
+  { n: 0, nombre: 'Domingo' },
+];
+let leaveDays = { 1:'18:00', 2:'18:00', 3:'18:00', 4:'18:00', 5:'18:00', 6:null, 0:null };
+
+function buildLeaveDays() {
+  const cont = document.getElementById('leaveDaysRows');
+  cont.innerHTML = '';
+  DIAS.forEach(d => {
+    const activo = !!leaveDays[d.n];
+    const row = document.createElement('div');
+    row.className = 'day-row' + (activo ? '' : ' off');
+    row.innerHTML = `
+      <span class="day-name">${d.nombre}</span>
+      <input type="time" class="time-input" value="${leaveDays[d.n] || '18:00'}" ${activo ? '' : 'disabled'}>
+      <input type="checkbox" class="day-check" ${activo ? 'checked' : ''} title="Avisarme este día">`;
+    const time = row.querySelector('.time-input');
+    const check = row.querySelector('.day-check');
+    check.addEventListener('change', () => {
+      // Desmarcar no borra la hora: se guarda por si vuelve a activarse.
+      leaveDays[d.n] = check.checked ? time.value : null;
+      time.disabled = !check.checked;
+      row.classList.toggle('off', !check.checked);
+      applyLeave();
+    });
+    time.addEventListener('change', () => { if (check.checked) { leaveDays[d.n] = time.value; applyLeave(); } });
+    cont.appendChild(row);
+  });
+}
+
+function updateLeaveVisibility() {
+  const on = document.getElementById('leaveEnabled').checked;
+  document.getElementById('leaveOptionsWrap').classList.toggle('open', on);
+  const igual = document.getElementById('leaveSameEveryDay').checked;
+  document.getElementById('leaveSingleRow').style.display = igual ? 'flex' : 'none';
+  document.getElementById('leaveDaysRows').style.display = igual ? 'none' : 'flex';
+}
+
+function applyLeave() {
+  ipcRenderer.send('action', { type:'set-leave', payload:{
+    leaveEnabled: document.getElementById('leaveEnabled').checked,
+    leaveSameEveryDay: document.getElementById('leaveSameEveryDay').checked,
+    leaveTime: document.getElementById('leaveTime').value || '18:00',
+    leaveDays,
+  } });
+}
+
+['leaveEnabled','leaveSameEveryDay'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { updateLeaveVisibility(); applyLeave(); });
+});
+document.getElementById('leaveTime').addEventListener('change', applyLeave);
+
 // ---------- Fondo: vista previa en vivo ----------
 document.getElementById('bgOpacity').addEventListener('input', (e) => {
   ipcRenderer.send('action', { type:'set-bg-opacity', payload:{ value: parseInt(e.target.value) || 0 } });
@@ -681,6 +781,13 @@ ipcRenderer.on('settings', (_, s) => {
   document.getElementById('autohideRange').value = secs;
   document.getElementById('autohideValueLabel').textContent = secs + 's';
   updateAutohideVisibility();
+
+  document.getElementById('leaveEnabled').checked = !!s.leaveEnabled;
+  document.getElementById('leaveSameEveryDay').checked = s.leaveSameEveryDay !== false;
+  document.getElementById('leaveTime').value = s.leaveTime || '18:00';
+  if (s.leaveDays) leaveDays = { ...leaveDays, ...s.leaveDays };
+  buildLeaveDays();
+  updateLeaveVisibility();
 
   currentTheme = s.theme || 'indigo';
   currentAccent = s.accent || null;

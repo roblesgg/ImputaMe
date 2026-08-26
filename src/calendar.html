@@ -109,7 +109,12 @@
   .confirm-popup { width:340px;z-index:52; }
   .confirm-popup-text { font-size:13px;color:var(--text2);line-height:1.45; }
 
-  .day-totals { display:flex;flex-direction:column;gap:2px; }
+  .day-totals { display:flex;flex-direction:column;gap:2px;flex-shrink:0; }
+  .totals-sum {
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    margin-top:5px;padding:6px 8px 2px;border-top:1px solid var(--border);
+    font-size:11.5px;font-weight:700;color:var(--text2);
+  }
   .day-total-time { font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
 
   .sidebar-footer { margin-top:auto; }
@@ -324,9 +329,14 @@
       <div id="dayTotalsList"></div>
     </div>
 
-    <div class="task-legend">
-      <div class="legend-title">Tareas</div>
-      <div id="legendList"></div>
+    <div class="day-totals">
+      <div class="legend-title" id="weekTotalsTitle">Tareas de esta semana</div>
+      <div id="weekTotalsList"></div>
+    </div>
+
+    <div class="day-totals">
+      <div class="legend-title" id="monthTotalsTitle">Tareas del mes</div>
+      <div id="monthTotalsList"></div>
     </div>
 
     <div class="sidebar-footer">
@@ -507,50 +517,89 @@ ipcRenderer.send('action', { type: 'get-state' });
 
 function renderAll() {
   renderMiniCal();
-  renderLegend();
   renderDayTotals();
   renderWeek();
 }
 
-// ---------- Totales del día seleccionado ----------
-function renderDayTotals() {
-  const title = document.getElementById('dayTotalsTitle');
-  const list = document.getElementById('dayTotalsList');
-  if (!title || !list) return;
-  const day = startOfDay(selectedDate || today0);
-  title.textContent = sameDay(day, today0)
-    ? 'Tareas de hoy'
-    : `Tareas del ${day.getDate()} de ${MONTHS[day.getMonth()].toLowerCase()}`;
-
-  list.innerHTML = '';
-  if (!currentState) return;
-  const dayStart = day.getTime();
-  const dayEnd = dayStart + 86400000;
-
+// ---------- Totales por día, semana y mes ----------
+// Cuánto ha cargado cada tarea dentro de un rango, contando solo el trozo que cae
+// dentro (una entrada puede empezar antes y acabar después).
+function totalsForRange(from, to) {
   const totals = [];
+  if (!currentState) return totals;
   currentState.tasks.forEach(task => {
     let secs = 0;
     task.entries.forEach(entry => {
       const s = entry.start, e = entry.end || Date.now();
-      if (e <= dayStart || s >= dayEnd) return;
-      const from = Math.max(s, dayStart), to = Math.min(e, dayEnd);
-      secs += Math.max(0, (to - from) / 1000);
+      if (e <= from || s >= to) return;
+      secs += Math.max(0, (Math.min(e, to) - Math.max(s, from)) / 1000);
     });
     if (secs > 0) totals.push({ task, secs });
   });
+  return totals.sort((a, b) => b.secs - a.secs);
+}
 
+// Pinta una de las tres listas. Al pulsar una tarea se muestran u ocultan sus bloques
+// en la rejilla: eso lo hacía la lista "Tareas", que ya no está por repetir lo mismo
+// sin decir cuánto tiempo llevaba cada una.
+function renderTotalsInto(listId, totals, vacio) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  list.innerHTML = '';
   if (!totals.length) {
-    list.innerHTML = '<div style="font-size:11px;color:var(--text2)">Sin actividad este día</div>';
+    list.innerHTML = `<div style="font-size:11px;color:var(--text2)">${vacio}</div>`;
     return;
   }
-  totals.sort((a, b) => b.secs - a.secs);
+  let total = 0;
   totals.forEach(({ task, secs }) => {
+    total += secs;
+    const oculta = hiddenTaskIds.has(task.id);
     const item = document.createElement('div');
-    item.className = 'legend-item';
-    item.style.cursor = 'default';
-    item.innerHTML = `<div class="legend-dot" style="background:${task.color}"></div><span class="legend-name">${task.name}</span><span class="day-total-time">${formatDur(secs * 1000)}</span>`;
+    item.className = 'legend-item' + (oculta ? ' hidden-task' : '') +
+      (task.id === currentState.activeTaskId ? ' active-task' : '');
+    item.title = oculta ? 'Mostrar en el calendario' : 'Ocultar del calendario';
+    item.innerHTML = `
+      <div class="legend-dot" style="background:${task.color}"></div>
+      <span class="legend-name">${task.name}${task.deleted ? ' <span class="legend-deleted-tag">(eliminada)</span>' : ''}</span>
+      <span class="day-total-time">${formatDur(secs * 1000)}</span>`;
+    item.onclick = () => {
+      if (oculta) hiddenTaskIds.delete(task.id); else hiddenTaskIds.add(task.id);
+      renderDayTotals(); renderWeek();
+    };
     list.appendChild(item);
   });
+  const suma = document.createElement('div');
+  suma.className = 'totals-sum';
+  suma.innerHTML = `<span>Total</span><span class="day-total-time">${formatDur(total * 1000)}</span>`;
+  list.appendChild(suma);
+}
+
+function renderDayTotals() {
+  if (!currentState) return;
+  const day = startOfDay(selectedDate || today0);
+
+  // Día
+  const t = document.getElementById('dayTotalsTitle');
+  if (t) t.textContent = sameDay(day, today0)
+    ? 'Tareas de hoy'
+    : `Tareas del ${day.getDate()} de ${MONTHS[day.getMonth()].toLowerCase()}`;
+  const dayStart = day.getTime();
+  renderTotalsInto('dayTotalsList', totalsForRange(dayStart, dayStart + 86400000), 'Sin actividad este día');
+
+  // Semana: la que se está viendo en la rejilla, no la del día suelto.
+  const wIni = startOfDay(viewWeekStart).getTime();
+  const wFin = startOfDay(addDays(viewWeekStart, 7)).getTime();
+  const wt = document.getElementById('weekTotalsTitle');
+  if (wt) wt.textContent = wIni <= today0.getTime() && today0.getTime() < wFin
+    ? 'Tareas de esta semana' : 'Tareas de la semana';
+  renderTotalsInto('weekTotalsList', totalsForRange(wIni, wFin), 'Sin actividad esta semana');
+
+  // Mes del día seleccionado.
+  const mIni = new Date(day.getFullYear(), day.getMonth(), 1).getTime();
+  const mFin = new Date(day.getFullYear(), day.getMonth() + 1, 1).getTime();
+  const mt = document.getElementById('monthTotalsTitle');
+  if (mt) mt.textContent = `Tareas de ${MONTHS[day.getMonth()].toLowerCase()}`;
+  renderTotalsInto('monthTotalsList', totalsForRange(mIni, mFin), 'Sin actividad este mes');
 }
 
 // ---------- Mini calendar ----------
@@ -614,33 +663,6 @@ function goToday() {
   miniViewYear = selectedDate.getFullYear(); miniViewMonth = selectedDate.getMonth();
   renderAll();
   scrollToNow();
-}
-
-// ---------- Legend ----------
-function renderLegend() {
-  const list = document.getElementById('legendList');
-  list.innerHTML = '';
-  if (!currentState || !currentState.tasks.length) {
-    list.innerHTML = '<div style="font-size:11px;color:var(--text2)">Sin tareas todavía</div>';
-    return;
-  }
-  currentState.tasks.forEach(t => {
-    const isActive = t.id === currentState.activeTaskId;
-    const item = document.createElement('div');
-    item.className = 'legend-item' + (hiddenTaskIds.has(t.id)?' hidden-task':'') + (isActive?' active-task':'');
-    // Las tareas borradas siguen aquí (se puede mostrar/ocultar su rastro en el
-    // calendario, como cualquier otra), solo se marcan para que se sepa que ya no
-    // existen como tarea activa.
-    item.innerHTML = `
-      <div class="legend-dot" style="background:${t.color}"></div>
-      <span class="legend-name">${t.name}${t.deleted ? ' <span class="legend-deleted-tag">(eliminada)</span>' : ''}</span>
-      ${isActive ? '<span class="legend-live-dot" title="En marcha"></span>' : ''}`;
-    item.onclick = () => {
-      if (hiddenTaskIds.has(t.id)) hiddenTaskIds.delete(t.id); else hiddenTaskIds.add(t.id);
-      renderLegend(); renderWeek();
-    };
-    list.appendChild(item);
-  });
 }
 
 // ---------- Week grid ----------
