@@ -19,7 +19,8 @@
   .burbuja {
     --u: 1.5px;
     --acento: #a5b4fc;
-    position: fixed; inset: 0;
+    /* Separada del borde de la ventana: ese hueco es donde cae la sombra. */
+    position: fixed; inset: var(--pad, 0px);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: calc(var(--u) * 5);
@@ -105,8 +106,15 @@ const { ipcRenderer } = require('electron');
 // La unidad base sale del ancho real de la ventana: 100px de ancho = --u de 1px, y
 // todo lo demás va en múltiplos. Así el dibujo escala entero con el deslizador de
 // tamaño de Ajustes sin depender de porcentajes que se puedan aplanar.
+const PAD = 0.14 / (1 + 0.14 * 2);   // el mismo margen que reserva EYE_PAD en main.js
+
 function ajustarEscala() {
-  document.getElementById('burbuja').style.setProperty('--u', (window.innerWidth / 100) + 'px');
+  const est = document.getElementById('burbuja').style;
+  const pad = Math.round(window.innerWidth * PAD);
+  est.setProperty('--pad', pad + 'px');
+  // --u se calcula sobre el ancho de la BURBUJA, no el de la ventana, para que el
+  // dibujo mantenga sus proporciones al margen del hueco de la sombra.
+  est.setProperty('--u', ((window.innerWidth - pad * 2) / 100) + 'px');
 }
 window.addEventListener('resize', ajustarEscala);
 ajustarEscala();

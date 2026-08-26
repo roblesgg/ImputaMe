@@ -643,7 +643,7 @@ function restoreAndStartTask(taskId, backMinutes) {
   openMain();
 }
 
-function editEntry(taskId, entryIndex, startMs, endMs, note, name) {
+function editEntry(taskId, entryIndex, startMs, endMs, note, name, subId) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task || !task.entries[entryIndex]) return;
   const e = task.entries[entryIndex];
@@ -662,6 +662,17 @@ function editEntry(taskId, entryIndex, startMs, endMs, note, name) {
   if (name !== undefined) {
     const nm = (name || '').trim().slice(0, 120);
     if (nm) e.nameAtTime = nm;
+  }
+  // La subtarea de ESTA entrada: para corregir a qué parte de la tarea fue este rato.
+  // '' (o null) la deja sin subtarea, apuntada a la tarea a secas.
+  if (subId !== undefined) {
+    const sub = subId ? (task.subtasks || []).find(x => x.id === subId) : null;
+    if (sub) { e.subId = sub.id; e.subNameAtTime = sub.name; }
+    else { delete e.subId; delete e.subNameAtTime; }
+    // Si se le quita la subtarea a la entrada en curso, el panel tiene que enterarse.
+    if (state.activeTaskId === taskId && entryIndex === task.entries.length - 1 && !e.end) {
+      state.activeSubId = sub ? sub.id : null;
+    }
   }
   saveData(); broadcastState();
 }
@@ -781,11 +792,18 @@ function startLeaveWatcher() {
 
 // ── Regla 20-20-20 ───────────────────────────────────────────────────────────
 const EYE_RATIO = 0.78;   // alto respecto al ancho de la burbuja
+// La ventana se hace más grande que la burbuja por todos los lados. Su sombra se pinta
+// DENTRO de la ventana: si la burbuja la llenara entera, la sombra se recortaría contra
+// el borde y se verían las cuatro esquinas cuadradas y negras alrededor del redondeo.
+// Es el mismo motivo por el que la ventana del botón de ocultar es mucho mayor que él.
+const EYE_PAD = 0.14;     // margen a cada lado, en fracción del ancho de la burbuja
 
 function eyeCareBounds() {
   const work = dockDisplay().workArea;
-  const w = Math.max(80, Math.min(420, Number(settings.eyeCareSize) || 150));
-  const h = Math.round(w * EYE_RATIO);
+  const burbuja = Math.max(80, Math.min(420, Number(settings.eyeCareSize) || 150));
+  const pad = Math.round(burbuja * EYE_PAD);
+  const w = burbuja + pad * 2;
+  const h = Math.round(burbuja * EYE_RATIO) + pad * 2;
   const m = 18;   // separación del borde
   const pos = settings.eyeCarePos || 'top';
   const izq = work.x + m;
@@ -803,7 +821,9 @@ function createEyeCareWindow() {
   const b = eyeCareBounds();
   eyeCareWin = new BrowserWindow({
     ...b,
-    frame: false, transparent: true, hasShadow: false, resizable: false,
+    // roundedCorners:false porque el redondeo lo pone el CSS de la burbuja; dejando
+    // que Windows redondee además la ventana solo se añaden recortes raros encima.
+    frame: false, transparent: true, hasShadow: false, resizable: false, roundedCorners: false,
     // focusable:false para no sacar al usuario de lo que esté haciendo; el clic para
     // quitarla de en medio sigue llegando igual.
     skipTaskbar: true, alwaysOnTop: true, focusable: false, show: false,
@@ -1826,7 +1846,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     case 'reorder-groups': reorderGroups(payload && payload.ids); break;
     case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes); break;
-    case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note, payload.name); break;
+    case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note, payload.name, payload.subId); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
     case 'add-calendar-entry':
       addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note);

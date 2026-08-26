@@ -1,4 +1,4 @@
 {
-  "version": "2.3.5",
-  "notes": "imputa.me 2.3.5 (beta). Arreglados los ojos de la regla 20-20-20: salían aplastados en una línea. Ahora son dos ojos que parpadean y miran despacio de un lado a otro, con la cuenta atrás debajo, y aparecen en la misma pantalla donde tengas la barra flotante. Multipantalla: si desconectas el monitor donde tenías puesta la barra, se pasa sola al que quede, y al volver a conectarlo vuelve a él — se reconoce por sus medidas, no solo por su identificador, porque Windows se lo cambia al reconectar. En Ajustes, el desplegable avisa cuando la pantalla elegida no está conectada."
+  "version": "2.3.6",
+  "notes": "imputa.me 2.3.6 (beta). Desde el popup de una tarea en el calendario ya se puede elegir a qué subtarea fue ese rato, y crear, renombrar o borrar subtareas sin salir de ahí. Y arreglado el recuadro de los ojos: se le veían las esquinas negras cuadradas por fuera del redondeo, porque su sombra se pintaba dentro de la ventana y se recortaba contra el borde."
 }
