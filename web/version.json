@@ -1,4 +1,4 @@
 {
-  "version": "2.3.4",
-  "notes": "imputa.me 2.3.4 (beta). Subtareas: dentro de una tarea (\"Cocina\") puedes crear subtareas (horno, frigorífico...), cada una con su propio tiempo y su play, y con sus notas por sesión como siempre. Todo lo que hagas dentro suma en la tarea, y el calendario apunta cada rato a la subtarea que era. Nueva cuadrícula de accesos rápidos bajo la lista de tareas: Calendario, Guardadas, Ajustes y un botón para reanudar la última tarea que estuviste haciendo. Y arreglado que el selector de pantalla de la barra flotante hubiera desaparecido de Ajustes, junto con la opacidad y el modo de cierre."
+  "version": "2.3.5",
+  "notes": "imputa.me 2.3.5 (beta). Arreglados los ojos de la regla 20-20-20: salían aplastados en una línea. Ahora son dos ojos que parpadean y miran despacio de un lado a otro, con la cuenta atrás debajo, y aparecen en la misma pantalla donde tengas la barra flotante. Multipantalla: si desconectas el monitor donde tenías puesta la barra, se pasa sola al que quede, y al volver a conectarlo vuelve a él — se reconoce por sus medidas, no solo por su identificador, porque Windows se lo cambia al reconectar. En Ajustes, el desplegable avisa cuando la pantalla elegida no está conectada."
 }

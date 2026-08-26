@@ -4,79 +4,96 @@
 <meta charset="UTF-8">
 <title>Descansa la vista</title>
 <style>
-  /* Ventana transparente y sin marco: aquí solo se pinta la burbuja. Nada de fondo
-     en html/body, o se vería un rectángulo opaco sobre el escritorio. */
+  /* Todo se mide en --u, una unidad que fija el JS a partir del ancho real de la
+     ventana. Ni porcentajes en cadena, ni aspect-ratio, ni container queries: la
+     primera versión apilaba las tres. Los ojos iban con flex:1 + aspect-ratio dentro
+     de un contenedor sin altura, así que el stretch del flex ganaba a la proporción,
+     los dejaba a cero de alto y todo el conjunto se aplanaba en una línea. */
+  * { box-sizing: border-box; }
   html, body {
-    margin: 0; height: 100%; background: transparent; overflow: hidden;
-    font-family: 'Segoe UI', system-ui, sans-serif; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    -webkit-user-select: none; user-select: none;
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: transparent; overflow: hidden;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    cursor: pointer; -webkit-user-select: none; user-select: none;
   }
   .burbuja {
-    --acento: #818cf8;
-    width: 100%; height: 100%;
-    container-type: inline-size;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 2%;
-    background: rgba(16, 16, 26, .88);
-    border: 1px solid rgba(255, 255, 255, .13);
-    border-radius: 22%/28%;
-    box-shadow: 0 14px 44px rgba(0, 0, 0, .5);
-    animation: entrar .45s cubic-bezier(.2, 1.3, .4, 1);
-    transition: opacity .25s ease, transform .25s ease;
+    --u: 1.5px;
+    --acento: #a5b4fc;
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: calc(var(--u) * 5);
+    background: rgba(15, 15, 24, .9);
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: calc(var(--u) * 22);
+    box-shadow: 0 calc(var(--u) * 9) calc(var(--u) * 30) rgba(0, 0, 0, .55);
+    animation: entrar .5s cubic-bezier(.2, 1.25, .4, 1);
+    transition: opacity .3s ease, transform .3s ease;
   }
-  body.saliendo .burbuja { opacity: 0; transform: scale(.9); }
+  body.saliendo .burbuja { opacity: 0; transform: scale(.92); }
   @keyframes entrar {
-    from { opacity: 0; transform: scale(.75) translateY(-12%); }
+    from { opacity: 0; transform: scale(.8) translateY(calc(var(--u) * -8)); }
     to   { opacity: 1; transform: none; }
   }
 
-  /* Los ojos: dos óvalos con su pupila, que parpadean y miran a lo lejos. Que miren
-     hacia un lado es la propia instrucción: aparta la vista de la pantalla. */
-  .ojos { display: flex; gap: 9%; width: 62%; }
+  /* ── Los ojos ───────────────────────────────────────────────────────────
+     Dos óvalos con su pupila. Parpadean y miran despacio de un lado a otro:
+     el movimiento ES la instrucción, apartar la vista de la pantalla. */
+  .ojos { display: flex; gap: calc(var(--u) * 7); flex-shrink: 0; }
   .ojo {
-    position: relative; flex: 1; aspect-ratio: 1 / .72;
-    background: #f4f4f9; border-radius: 50%;
-    animation: parpadeo 4.2s infinite;
+    position: relative; flex-shrink: 0;
+    width: calc(var(--u) * 26); height: calc(var(--u) * 19);
+    background: #f6f6fb;
+    border-radius: 50%;
+    box-shadow: inset 0 calc(var(--u) * 1.5) calc(var(--u) * 3) rgba(0, 0, 0, .18);
+    animation: parpadeo 6s ease-in-out infinite;
   }
+  .ojo:nth-child(2) { animation-delay: .06s; }   /* parpadear a la vez clavada parece un robot */
   .pupila {
     position: absolute; top: 50%; left: 50%;
-    width: 42%; height: 58%; border-radius: 50%;
-    background: #1b1b28;
-    transform: translate(-50%, -50%);
-    animation: mirar 4.2s infinite ease-in-out;
+    width: calc(var(--u) * 10); height: calc(var(--u) * 10);
+    margin: calc(var(--u) * -5) 0 0 calc(var(--u) * -5);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #4b4b66 0%, #16161f 65%);
+    animation: mirar 6s ease-in-out infinite;
   }
-  .pupila::after {
-    content: ''; position: absolute; top: 16%; right: 18%;
-    width: 26%; height: 26%; border-radius: 50%; background: rgba(255, 255, 255, .85);
+  .brillo {
+    position: absolute; top: calc(var(--u) * 1.6); right: calc(var(--u) * 1.8);
+    width: calc(var(--u) * 3); height: calc(var(--u) * 3);
+    border-radius: 50%; background: rgba(255, 255, 255, .9);
   }
   @keyframes parpadeo {
-    0%, 92%, 100% { transform: scaleY(1); }
-    95%           { transform: scaleY(.1); }
+    0%, 44%, 52%, 100% { transform: scaleY(1); }
+    48%                { transform: scaleY(.08); }
   }
+  /* Mira a la izquierda, vuelve, mira a la derecha, vuelve. Despacio, sin tirones. */
   @keyframes mirar {
-    0%, 20%   { transform: translate(-50%, -50%); }
-    45%, 70%  { transform: translate(-135%, -50%); }
-    100%      { transform: translate(-50%, -50%); }
+    0%,  12%   { transform: translate(0, 0); }
+    25%, 37%   { transform: translate(calc(var(--u) * -6), 0); }
+    50%, 57%   { transform: translate(0, 0); }
+    70%, 82%   { transform: translate(calc(var(--u) * 6), 0); }
+    95%, 100%  { transform: translate(0, 0); }
   }
 
   .cuenta {
-    font-size: 26cqw; font-weight: 800; color: var(--acento);
-    font-variant-numeric: tabular-nums; line-height: 1;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+    font-size: calc(var(--u) * 26);
+    line-height: 1; font-weight: 800; color: var(--acento);
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+    text-shadow: 0 calc(var(--u) * 1.5) calc(var(--u) * 7) rgba(0, 0, 0, .5);
   }
   .texto {
-    font-size: 7.5cqw; color: rgba(255, 255, 255, .62); font-weight: 600;
-    letter-spacing: .01em; text-align: center; padding: 0 6%;
+    font-size: calc(var(--u) * 8);
+    line-height: 1.25; font-weight: 600; text-align: center; flex-shrink: 0;
+    color: rgba(255, 255, 255, .6);
+    padding: 0 calc(var(--u) * 6);
   }
-
 </style>
 </head>
 <body>
   <div class="burbuja" id="burbuja">
     <div class="ojos">
-      <div class="ojo"><div class="pupila"></div></div>
-      <div class="ojo"><div class="pupila"></div></div>
+      <div class="ojo"><div class="pupila"><div class="brillo"></div></div></div>
+      <div class="ojo"><div class="pupila"><div class="brillo"></div></div></div>
     </div>
     <div class="cuenta" id="cuenta">20</div>
     <div class="texto">Mira a lo lejos</div>
@@ -85,17 +102,25 @@
 <script>
 const { ipcRenderer } = require('electron');
 
-let restantes = 20;
-let tic = null;
+// La unidad base sale del ancho real de la ventana: 100px de ancho = --u de 1px, y
+// todo lo demás va en múltiplos. Así el dibujo escala entero con el deslizador de
+// tamaño de Ajustes sin depender de porcentajes que se puedan aplanar.
+function ajustarEscala() {
+  document.getElementById('burbuja').style.setProperty('--u', (window.innerWidth / 100) + 'px');
+}
+window.addEventListener('resize', ajustarEscala);
+ajustarEscala();
 
-// El color de acento del tema, para que la burbuja no desentone con el resto.
 ipcRenderer.on('theme', (_, t) => {
   if (t && t.accent) document.getElementById('burbuja').style.setProperty('--acento', t.accent);
 });
 ipcRenderer.send('action', { type: 'get-theme' });
 
+let tic = null;
+
 ipcRenderer.on('eye-start', (_, segundos) => {
-  restantes = Math.max(1, Number(segundos) || 20);
+  let restantes = Math.max(1, Number(segundos) || 20);
+  ajustarEscala();
   document.body.classList.remove('saliendo');
   document.getElementById('cuenta').textContent = restantes;
   if (tic) clearInterval(tic);
@@ -110,7 +135,7 @@ ipcRenderer.on('eye-start', (_, segundos) => {
 // que no haya que aguantarla los 20 segundos enteros.
 function cerrar() {
   document.body.classList.add('saliendo');
-  setTimeout(() => ipcRenderer.send('action', { type: 'eye-done' }), 260);
+  setTimeout(() => ipcRenderer.send('action', { type: 'eye-done' }), 300);
 }
 document.body.addEventListener('click', () => {
   if (tic) { clearInterval(tic); tic = null; }

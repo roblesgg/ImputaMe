@@ -849,7 +849,17 @@ ipcRenderer.on('displays', (_, list) => {
     opt.textContent = `Pantalla ${d.index}${d.primary ? ' (principal)' : ''} · ${d.width}×${d.height}`;
     sel.appendChild(opt);
   });
-  if (pendingDisplayId != null) sel.value = String(pendingDisplayId);
+  // Si la pantalla elegida no está conectada ahora, se deja dicho en el propio
+  // desplegable: la barra está de prestado en otra, pero al reconectarla vuelve sola.
+  if (pendingDisplayId != null) {
+    if (!(list || []).some(d => String(d.id) === String(pendingDisplayId))) {
+      const opt = document.createElement('option');
+      opt.value = String(pendingDisplayId);
+      opt.textContent = 'Pantalla elegida (ahora desconectada)';
+      sel.insertBefore(opt, sel.firstChild);
+    }
+    sel.value = String(pendingDisplayId);
+  }
 });
 
 // ---------- Carga de ajustes ----------

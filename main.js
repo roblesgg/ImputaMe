@@ -189,6 +189,7 @@ let settings = {
   groupSort: 'created',  // orden de las secciones en Guardadas: 'created' | 'alpha' | 'custom'
   dockMode: true,      // modo barra flotante lateral: es el modo por defecto (instalación nueva)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
+  dockDisplayKey: null, // huella de esa pantalla: al reconectarla Windows puede darle otro id
   theme: DEFAULT_THEME, // fondo/paleta base de toda la app (ver THEMES)
   accent: null,         // color de acento; null = el que trae el tema (ver ACCENTS)
   dockAnchor: 'right', // borde al que se pega la barrita: left | right | top | bottom
@@ -953,7 +954,9 @@ function debounce(fn, ms) {
 // La pantalla "de referencia" para abrir/posicionar ventanas nuevas: la que tenga el
 // panel principal en ese momento (si no existe todavía, la principal del sistema).
 function getReferenceDisplay() {
-  if (mainWin && !mainWin.isDestroyed()) {
+  // En modo dock las ventanas sueltas están escondidas y sus límites pueden apuntar a
+  // un monitor que ya no existe: ahí la referencia buena es la principal.
+  if (!settings.dockMode && mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) {
     try { return screen.getDisplayMatching(mainWin.getBounds()); } catch {}
   }
   return screen.getPrimaryDisplay();
@@ -1059,11 +1062,25 @@ function createWidgetWindow() {
 // que recalcular ni redimensionar la ventana (que era lo que iba a tirones).
 const DOCK_ANCHORS = ['left','right','top','bottom'];
 
+// Huella de una pantalla, para reconocerla aunque vuelva con otro id (Windows los
+// reasigna al desconectar y volver a conectar un monitor).
+function displayKey(d) {
+  if (!d) return null;
+  return `${d.bounds.width}x${d.bounds.height}@${d.bounds.x},${d.bounds.y}:${d.scaleFactor}`;
+}
+
+// La pantalla donde vive la barra flotante. Si la elegida no está conectada ahora
+// mismo, se usa la que haya, PERO no se toca el ajuste: en cuanto vuelva a aparecer,
+// la barra se va sola otra vez a ella.
 function dockDisplay() {
   const displays = screen.getAllDisplays();
   if (settings.dockDisplayId != null) {
-    const d = displays.find(x => x.id === settings.dockDisplayId);
-    if (d) return d;
+    const porId = displays.find(x => x.id === settings.dockDisplayId);
+    if (porId) return porId;
+    if (settings.dockDisplayKey) {
+      const porHuella = displays.find(x => displayKey(x) === settings.dockDisplayKey);
+      if (porHuella) return porHuella;
+    }
   }
   return getReferenceDisplay();
 }
@@ -1968,6 +1985,10 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'set-dock-config': {
       const { preview, ...vals } = payload || {};
       settings = { ...settings, ...vals };
+      if (vals.dockDisplayId !== undefined) {
+        const elegida = screen.getAllDisplays().find(d => d.id === vals.dockDisplayId);
+        settings.dockDisplayKey = elegida ? displayKey(elegida) : null;
+      }
       saveSettingsSoon();   // los deslizadores disparan esto muchas veces por segundo
       if (settings.dockMode) { createDock(); positionDock(); }
       // Con el panel abierto la barrita se oculta; al ajustarla hay que verla.
@@ -2339,7 +2360,16 @@ app.whenReady().then(() => {
 
   // Conectar/desconectar monitores o cambiar su resolución deja las medidas viejas.
   ['display-added', 'display-removed', 'display-metrics-changed'].forEach(ev => {
-    try { screen.on(ev, () => { positionDock(); syncDockBounds(); }); } catch {}
+    try {
+      screen.on(ev, () => {
+        // Varias pasadas: al desconectar un monitor, Windows tarda un poco en dejar
+        // las áreas de trabajo definitivas, y una sola pasada inmediata las coge a medias.
+        [0, 400, 1500, 4000].forEach(ms => setTimeout(() => {
+          if (!settings.dockMode) return;
+          positionDock(); syncDockBounds(); ensureDockBarVisible();
+        }, ms));
+      });
+    } catch {}
   });
   setInterval(() => { if (settings.dockMode) syncDockBounds(); }, 3000);
 
