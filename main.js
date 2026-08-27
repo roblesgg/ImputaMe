@@ -232,6 +232,7 @@ let settings = {
   dockMode: true,      // modo barra flotante lateral: es el modo por defecto (instalación nueva)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
   dockDisplayKey: null, // huella de esa pantalla: al reconectarla Windows puede darle otro id
+  dockHiddenUntil: 0,   // 0 = visible; -1 = escondida a mano; si no, marca de tiempo en la que vuelve
   theme: DEFAULT_THEME, // fondo/paleta base de toda la app (ver THEMES)
   accent: null,         // color de acento; null = el que trae el tema (ver ACCENTS)
   dockAnchor: 'right', // borde al que se pega la barrita: left | right | top | bottom
@@ -384,6 +385,8 @@ function buildTrayMenu() {
     // Interruptor de escape: permite salir del modo dock desde la bandeja aunque su
     // interfaz no se viera bien, sin depender de abrir Ajustes dentro del propio dock.
     { label: 'Modo barra flotante (dock)', type: 'checkbox', checked: !!settings.dockMode, click: () => toggleDockMode() },
+    // Si la barra se escondió desde su menú, esta es la forma de recuperarla.
+    { label: 'Mostrar la barra ahora', click: () => hideDockFor(null), visible: !!settings.dockMode && dockIsHidden() },
     { label: 'Buscar actualizaciones…', click: () => checkForUpdates(true) },
     { label: 'Salir', click: () => { saveData(); app.quit(); } },
   ]);
@@ -832,6 +835,81 @@ function startLeaveWatcher() {
   checkLeaveTime();
 }
 
+// ── Menú del clic derecho sobre la barra ─────────────────────────────────────
+// Menú nativo a propósito: se pinta por encima de todo, se coloca solo y se cierra
+// como el usuario espera, sin tener que resolver nada de eso dentro de la ventana
+// transparente y click-through de la barra.
+function showDockContextMenu() {
+  if (!dockWin || dockWin.isDestroyed()) return;
+  const activa = getActiveTask();
+  const displays = screen.getAllDisplays();
+  const actual = dockDisplay();
+
+  const esconder = (min, etiqueta) => ({ label: etiqueta, click: () => hideDockFor(min) });
+
+  const plantilla = [
+    { label: 'imputa.me', enabled: false },
+    { label: `Hoy: ${formatDuration(totalTodaySeconds())}`, enabled: false },
+    { type: 'separator' },
+    activa
+      ? { label: `Pausar «${activa.name}»`, click: () => pauseActive() }
+      : { label: 'No hay ninguna tarea en marcha', enabled: false },
+    { type: 'separator' },
+    {
+      label: 'Esconder la barra',
+      submenu: [
+        esconder(15, '15 minutos'),
+        esconder(30, '30 minutos'),
+        esconder(60, '1 hora'),
+        esconder(120, '2 horas'),
+        esconder(480, '8 horas'),
+        { type: 'separator' },
+        esconder(0, 'Hasta que la muestre yo'),
+      ],
+    },
+    {
+      label: 'Cambiar de pantalla',
+      enabled: displays.length > 1,
+      submenu: displays.map((d, i) => ({
+        label: `Pantalla ${i + 1}${d.bounds.x === 0 && d.bounds.y === 0 ? ' (principal)' : ''} · ${d.size.width}×${d.size.height}`,
+        type: 'radio',
+        checked: d.id === actual.id,
+        click: () => {
+          settings.dockDisplayId = d.id;
+          settings.dockDisplayKey = displayKey(d);
+          saveSettings(); positionDock(); syncDockBounds(); ensureDockBarVisible();
+        },
+      })),
+    },
+    {
+      label: 'Cambiar de borde',
+      submenu: [['left', 'Izquierda'], ['right', 'Derecha'], ['top', 'Arriba'], ['bottom', 'Abajo']].map(([v, etiqueta]) => ({
+        label: etiqueta,
+        type: 'radio',
+        checked: (settings.dockAnchor || 'right') === v,
+        click: () => { settings.dockAnchor = v; saveSettings(); positionDock(); syncDockBounds(); },
+      })),
+    },
+    { type: 'separator' },
+    { label: 'Calendario', click: () => openCalendar() },
+    { label: 'Guardadas', click: () => openGroups() },
+    { label: 'Ajustes', click: () => openSettings() },
+  ];
+
+  if (normalizeUrl(settings.imputeUrl)) {
+    plantilla.push({ label: 'Imputar…', click: () => openImputeUrl() });
+  }
+
+  plantilla.push(
+    { type: 'separator' },
+    // Modo clásico = ventanas sueltas de siempre, sin barra flotante.
+    { label: 'Cambiar a modo clásico (ventanas)', click: () => toggleDockMode() },
+    { label: 'Salir de imputa.me', click: () => { saveData(); app.quit(); } },
+  );
+
+  try { Menu.buildFromTemplate(plantilla).popup({ window: dockWin }); } catch {}
+}
+
 // ── Enlace para imputar ──────────────────────────────────────────────────────
 // Se acepta lo que el usuario pegue: si no trae esquema, se le pone https://. Solo
 // http y https, para que un enlace guardado no pueda acabar abriendo otra cosa.
@@ -1229,6 +1307,7 @@ function createDockPanel() {
     icon: APP_ICON_PATH,
     webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true },
   });
+  try { dockPanelWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}   // igual que la barra
   dockPanelWin.loadFile(path.join(__dirname, 'src', 'dock-panel.html'));
   const push = () => {
     try { dockPanelWin.webContents.send('dock-config', dockConfig()); } catch {}
@@ -1315,6 +1394,7 @@ function createDockHide() {
     icon: APP_ICON_PATH,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
+  try { dockHideWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
   dockHideWin.loadFile(path.join(__dirname, 'src', 'dock-hide.html'));
   const push = () => { try { dockHideWin.webContents.send('dock-config', dockConfig()); } catch {} };
   if (dockHideWin.webContents.isLoading()) dockHideWin.webContents.once('did-finish-load', push);
@@ -1363,11 +1443,41 @@ const PANEL_SLIDE = 54;
 // ventana se creó cuando el escritorio aún se montaba (arranque con Windows) o cambian los
 // monitores, sus medidas se quedan viejas: entonces su "borde derecho" cae en mitad de la
 // pantalla física (la barrita aparece flotando en medio) o directamente fuera (desaparece).
+// ¿Está la barra escondida a propósito ahora mismo? -1 es "hasta que yo la muestre";
+// un número mayor que cero es el momento en el que vuelve sola.
+function dockIsHidden() {
+  const h = Number(settings.dockHiddenUntil) || 0;
+  if (h === -1) return true;
+  if (h > Date.now()) return true;
+  if (h !== 0) { settings.dockHiddenUntil = 0; saveSettings(); }   // ya venció
+  return false;
+}
+
+// minutos = 0 la esconde hasta que se pida mostrarla; null la vuelve a mostrar.
+function hideDockFor(minutos) {
+  if (minutos === null) settings.dockHiddenUntil = 0;
+  else if (!minutos) settings.dockHiddenUntil = -1;
+  else settings.dockHiddenUntil = Date.now() + minutos * 60000;
+  saveSettings();
+  if (dockIsHidden()) {
+    collapseDockPanel();
+    try { if (dockWin && !dockWin.isDestroyed()) dockWin.hide(); } catch {}
+  } else {
+    ensureDockBarVisible();
+  }
+  updateTrayTitle();
+}
+
 function ensureDockBarVisible() {
   if (!settings.dockMode) return;
   createDock();
   if (!dockWin || dockWin.isDestroyed()) return;
+  // Escondida a propósito: el vigilante no debe sacarla otra vez.
+  if (dockIsHidden()) { try { if (dockWin.isVisible()) dockWin.hide(); } catch {} return; }
   try { if (!dockWin.isVisible()) dockWin.showInactive(); } catch {}
+  // Reafirmar el nivel: una aplicación que entra a pantalla completa puede quedarse
+  // por encima, y entonces la barra "a veces" no se ve.
+  try { dockWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
   syncDockBounds();
 }
 
@@ -1540,6 +1650,11 @@ function createDock() {
   setDockIgnore(true);
   if (dockHitTimer) clearInterval(dockHitTimer);
   dockHitTimer = setInterval(updateDockHitTest, 60);
+  // 'screen-saver' es el nivel que queda por encima de las aplicaciones a pantalla
+  // completa. Con el alwaysOnTop normal, un juego o un vídeo maximizado se ponía
+  // delante y la barra desaparecía. La ventana es click-through salvo en la barra,
+  // así que estar tan arriba no molesta a nada.
+  try { dockWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
   dockWin.loadFile(path.join(__dirname, 'src', 'dock.html'));
   sendDockConfig();
   dockWin.once('ready-to-show', () => { if (dockWin && !dockWin.isDestroyed()) dockWin.showInactive(); });
@@ -2016,6 +2131,8 @@ ipcMain.on('action', (event, { type, payload }) => {
       dockBarRect = (payload && payload.barRect) || null;
       updateDockHitTest();
       break;
+    case 'dock-context-menu': showDockContextMenu(); break;
+    case 'show-dock-bar': hideDockFor(null); break;
     case 'dock-expand':            // la barrita pide abrir el panel
       showDockPanel();
       break;
@@ -2477,7 +2594,14 @@ app.whenReady().then(() => {
       });
     } catch {}
   });
-  setInterval(() => { if (settings.dockMode) syncDockBounds(); }, 3000);
+  setInterval(() => {
+    if (!settings.dockMode) return;
+    // dockIsHidden() caduca el escondite solo, y ensureDockBarVisible la devuelve
+    // (y le reafirma el nivel, por si algo a pantalla completa se puso delante).
+    if (dockIsHidden()) return;
+    ensureDockBarVisible();
+    syncDockBounds();
+  }, 3000);
 
   startTick();
   resetReminderTimer();

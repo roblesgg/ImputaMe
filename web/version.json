@@ -1,4 +1,4 @@
 {
-  "version": "2.4.1",
-  "notes": "imputa.me 2.4.1. Las novedades dejan de ser una presentación que lees y cierras: ahora enlazan con un recorrido guiado que va por la app señalando cada cosa nueva en el sitio donde está, del Panel al Calendario y a Ajustes, y solo te enseña lo que sea nuevo para ti. Pasos nuevos para las subtareas del calendario, el botón de reanudar, el de imputar y los tres apartados nuevos de Ajustes."
+  "version": "2.4.2",
+  "notes": "imputa.me 2.4.2 (beta). Arreglado que crear una subtarea desde el calendario no guardara nada: se creaba de verdad, pero el desplegable se quedaba con la lista vieja y al guardar iba sin subtarea. La barra flotante ya no se queda detrás de lo que pongas a pantalla completa. Y con el clic derecho sobre ella salen opciones: esconderla un rato, cambiar de pantalla o de borde, pausar la tarea, ir al calendario, imputar, o pasarte al modo clásico de ventanas."
 }

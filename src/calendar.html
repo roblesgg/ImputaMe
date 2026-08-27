@@ -539,6 +539,7 @@ ipcRenderer.on('state', (_, state) => {
     miniViewMonth = selectedDate.getMonth();
   }
   renderAll();
+  refrescarFilaSubtarea();
   if (firstLoad) scrollToNow();
   maybeStartTutorial();
 });
@@ -1171,7 +1172,7 @@ function renderPopupSubtasks(task, entry) {
     const nombre = await askText({
       title: 'Nueva subtarea',
       text: `Se creará dentro de "${task.name}".`,
-      placeholder: 'horno, frigorífico...',
+      placeholder: 'Nombre de la subtarea',
       okLabel: 'Crear', maxLength: 120,
     });
     if (nombre === null) return;
@@ -1206,32 +1207,40 @@ function renderPopupSubtasks(task, entry) {
   };
 }
 
+// Vuelve a pintar la fila con la lista de subtareas recien llegada, conservando la
+// eleccion actual (o estrenando la que se acaba de crear).
+function refrescarFilaSubtarea() {
+  if (popupMode !== 'edit' || !popupCtx || !currentState) return;
+  const task = currentState.tasks.find(t => t.id === popupCtx.task.id);
+  if (!task) return;
+  popupCtx.task = task;                       // el popup trabaja con el estado vivo
+  const entry = task.entries[popupCtx.entryIndex];
+  if (!entry) return;
+
+  const elegida = popupSubId;
+  renderPopupSubtasks(task, entry);
+
+  // Si acabamos de crear una, se selecciona ella; si no, se respeta lo que hubiera.
+  const nueva = subEsperando && (task.subtasks || []).find(x => x.name === subEsperando.name);
+  const objetivo = nueva ? nueva.id : elegida;
+  if (nueva) subEsperando = null;
+  const sel = document.getElementById('popupSubSelect');
+  if (sel && objetivo && Array.from(sel.options).some(o => o.value === objetivo)) {
+    sel.value = objetivo;
+    popupSubId = objetivo;
+  }
+  actualizarBotonesSub(task);
+}
+
 function actualizarBotonesSub(task) {
   const hay = !!popupSubId && (task.subtasks || []).some(x => x.id === popupSubId);
   document.getElementById('popupSubEdit').disabled = !hay;
   document.getElementById('popupSubDel').disabled = !hay;
 }
 
-// Al crear una subtarea desde aquí, el estado nuevo llega por IPC: en cuanto aparece
-// se selecciona sola, que es lo que el usuario acaba de pedir.
+// Nombre de la subtarea recien pedida, para reconocerla cuando llegue el estado nuevo
+// (el id lo pone el proceso principal).
 let subEsperando = null;
-function reconciliarSubtareaNueva() {
-  if (!subEsperando || !currentState || popupMode !== 'edit' || !popupCtx) return;
-  const task = currentState.tasks.find(t => t.id === subEsperando.taskId);
-  const sub = task && (task.subtasks || []).find(x => x.name === subEsperando.name);
-  if (!sub) return;
-  subEsperando = null;
-  popupSubId = sub.id;
-  const sel = document.getElementById('popupSubSelect');
-  if (sel && !Array.from(sel.options).some(o => o.value === sub.id)) {
-    const opt = document.createElement('option');
-    opt.value = sub.id;
-    opt.textContent = sub.name;
-    sel.appendChild(opt);
-  }
-  if (sel) sel.value = sub.id;
-  actualizarBotonesSub(task);
-}
 
 // ---------- Popup de confirmación (con el estilo de la app, no confirm() nativo) ----------
 function showConfirmPopup(title, text, okLabel, onConfirm) {

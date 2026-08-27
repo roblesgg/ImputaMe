@@ -138,6 +138,14 @@ setInterval(sendHitRects, 180);
 // Revelado de la barrita al acercar el ratón: lo decide el proceso principal, que sigue
 // el cursor. Aquí ya no se puede con mousemove, porque la ventana dejó de pedir que se le
 // reenviaran los movimientos (ese reenvío era lo que hacía parpadear el cursor).
+// Clic derecho sobre la barra: el menú lo monta el proceso principal (nativo, para
+// que se pinte por encima de todo y se coloque solo).
+bar.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (barDrag) return;
+  ipcRenderer.send('action', { type: 'dock-context-menu' });
+});
+
 ipcRenderer.on('dock-bar-near', (_, near) => {
   if (barDrag && barDrag.dragging) return;
   bar.classList.toggle('near', !!near && !expanded);
