@@ -146,6 +146,13 @@
   }
   .archived-play:hover { background:var(--bg2); }
   .archived-play.is-playing { color:var(--danger);opacity:1; }
+  .archived-del {
+    background:transparent;border:none;width:26px;height:26px;border-radius:7px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    color:var(--text2);opacity:0;transition:all .12s;-webkit-app-region:no-drag;
+  }
+  .archived-task-row:hover .archived-del { opacity:1; }
+  .archived-del:hover { background:rgba(248,113,113,.2);color:var(--danger); }
   .archived-edit {
     background:transparent;border:none;color:var(--text2);width:26px;height:26px;border-radius:7px;
     display:flex;align-items:center;justify-content:center;flex-shrink:0;
@@ -586,11 +593,25 @@ function renderGroups() {
         </button>
         <button class="archived-play ${enMarcha ? 'is-playing' : 'is-stopped'}" title="${enMarcha ? 'Pausar' : 'Iniciar'}">
           ${enMarcha ? SVG_PAUSE : SVG_PLAY}
+        </button>
+        <button class="archived-del" title="Eliminar tarea">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
         </button>`;
       row.onclick = () => openStartPopup(t);
       row.querySelector('.archived-dot').onclick = (e) => { e.stopPropagation(); openColorPopup(t); };
       // Play directo: si está archivada la saca de Guardadas y la arranca; si ya está
       // en marcha, la pausa.
+      // Eliminar manda a la papelera (30 días para arrepentirse) y NO toca el
+      // calendario: los ratos ya hechos siguen ahí con el nombre que tenían.
+      row.querySelector('.archived-del').onclick = (e) => {
+        e.stopPropagation();
+        const dias = (currentState.trashRetentionDays || 30);
+        const aviso = `¿Eliminar "${t.name}"?
+
+Irá a la papelera y podrás restaurarla durante ${dias} días.
+El calendario NO se toca: todo el tiempo que ya has registrado con ella se sigue viendo igual.`;
+        if (confirm(aviso)) ipcRenderer.send('action', { type: 'delete-task', payload: { taskId: t.id } });
+      };
       row.querySelector('.archived-play').onclick = (e) => {
         e.stopPropagation();
         if (enMarcha) ipcRenderer.send('action', { type: 'pause' });

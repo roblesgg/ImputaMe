@@ -1,4 +1,4 @@
 {
-  "version": "2.5.3",
-  "notes": "imputa.me 2.5.3. Arreglado que la pestaña Tareas saliera completamente vacía: un fallo mío en la 2.5.2 reventaba el pintado en la primera sección y se llevaba por delante toda la lista. Tus secciones y tareas estaban intactas, solo no se dibujaban. El Panel pasa a enseñar las tareas más recientes (la última usada arriba) con un enlace a Tareas para verlas todas. \"Guardadas\" ahora es \"Tareas\" y están todas dentro, con su botón de play y la que corre resaltada, y el color se puede cambiar también desde ahí y desde los puntitos del calendario."
+  "version": "2.5.4",
+  "notes": "imputa.me 2.5.4. Las tareas ya se pueden eliminar desde la pestaña Tareas, con el botón de papelera de cada fila. Van a la papelera y se pueden restaurar durante 30 días, y el calendario NO se toca: todo el tiempo que ya habías registrado con esa tarea se sigue viendo igual, con el nombre que tenía entonces. El aviso de confirmación lo deja claro antes de que borres nada."
 }
