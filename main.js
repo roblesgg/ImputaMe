@@ -229,6 +229,7 @@ let settings = {
   bgOpacity: 50,       // 0 = muy translúcida (se ve más el blur), 100 = muy opaca. Blur siempre puesto.
   tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
   groupSort: 'created',  // orden de las secciones en Guardadas: 'created' | 'alpha' | 'custom'
+  groupSortDir: 'asc',   // y en qué sentido: 'asc' | 'desc'
   dockMode: true,      // modo barra flotante lateral: es el modo por defecto (instalación nueva)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
   dockDisplayKey: null, // huella de esa pantalla: al reconectarla Windows puede darle otro id
@@ -624,21 +625,24 @@ function sortedGroups() {
   const gs = [...state.groups];
   const byCreation = (a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
   if (settings.groupSort === 'alpha') {
-    return gs.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
-  }
-  if (settings.groupSort === 'custom') {
-    return gs.sort((a, b) => {
+    gs.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+  } else if (settings.groupSort === 'custom') {
+    gs.sort((a, b) => {
       const ao = Number(a.order), bo = Number(b.order);
       if (Number.isFinite(ao) && Number.isFinite(bo) && ao !== bo) return ao - bo;
       return byCreation(a, b);   // las que nunca se han arrastrado, por antigüedad
     });
+  } else {
+    gs.sort(byCreation);
   }
-  return gs.sort(byCreation);
+  // El sentido se aplica al final, así vale para los tres criterios por igual.
+  return settings.groupSortDir === 'desc' ? gs.reverse() : gs;
 }
 
 // Guarda el orden manual que deja el usuario al arrastrar secciones.
 function reorderGroups(ids) {
   if (!Array.isArray(ids)) return;
+  if (settings.groupSortDir === 'desc') ids = [...ids].reverse();
   ids.forEach((id, i) => {
     const g = state.groups.find(x => x.id === id);
     if (g) g.order = i + 1;
@@ -682,11 +686,11 @@ function moveTaskToGroup(taskId, groupId) {
   saveData(); broadcastState();
 }
 
-function restoreAndStartTask(taskId, backMinutes) {
+function restoreAndStartTask(taskId, backMinutes, subId) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task) return;
   task.archived = false;
-  startTask(taskId, backMinutes);
+  startTask(taskId, backMinutes, subId);   // se puede retomar directamente en una subtarea
   openMain();
 }
 
@@ -2079,11 +2083,16 @@ ipcMain.on('action', (event, { type, payload }) => {
     }
     case 'open-impute-url': openImputeUrl(); break;
     case 'set-group-sort':
-      settings.groupSort = ['alpha', 'created', 'custom'].includes(payload && payload.sort) ? payload.sort : 'created';
+      if (payload && payload.sort !== undefined) {
+        settings.groupSort = ['alpha', 'created', 'custom'].includes(payload.sort) ? payload.sort : 'created';
+      }
+      if (payload && payload.dir !== undefined) {
+        settings.groupSortDir = payload.dir === 'desc' ? 'desc' : 'asc';
+      }
       saveSettings(); broadcastState();
       break;
     case 'reorder-groups': reorderGroups(payload && payload.ids); break;
-    case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes); break;
+    case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes, payload.subId); break;
     case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note, payload.name, payload.subId); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
     case 'add-calendar-entry':

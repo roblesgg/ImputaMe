@@ -71,6 +71,50 @@
   .sort-opt:hover { background:var(--bg3); }
   .sort-opt .sort-check { width:14px;flex-shrink:0;color:var(--accent);opacity:0; }
   .sort-opt.active .sort-check { opacity:1; }
+  .sort-menu .sort-sep { height:1px;background:var(--border);margin:4px 6px; }
+  .sort-menu .sort-head { font-size:10.5px;color:var(--text2);font-weight:700;padding:4px 10px 2px;letter-spacing:.04em;text-transform:uppercase; }
+
+  /* Barra de expandir / colapsar */
+  .tree-bar { display:flex;gap:7px;flex-shrink:0;margin-top:-2px; }
+  .tree-btn {
+    display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:9px;
+    background:transparent;border:1px solid var(--border);color:var(--text2);
+    font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;
+    transition:background .12s,color .12s;-webkit-app-region:no-drag;
+  }
+  .tree-btn:hover { background:var(--bg3);color:var(--text); }
+
+  /* Esquema de subtareas dentro de una tarea guardada */
+  .sub-toggle {
+    width:18px;height:18px;flex-shrink:0;border:none;background:transparent;color:var(--text2);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:5px;
+    transition:transform .16s ease,color .12s,background .12s;
+  }
+  .sub-toggle:hover { color:var(--text);background:var(--bg3); }
+  .sub-toggle.open { transform:rotate(90deg); }
+  .sub-toggle.none { visibility:hidden; }
+  .archived-item { display:flex;flex-direction:column;flex-shrink:0; }
+  .archived-subs {
+    display:flex;flex-direction:column;
+    margin:1px 0 4px 30px;padding-left:12px;
+    border-left:1.5px solid var(--border);
+  }
+  .archived-sub {
+    display:flex;align-items:center;gap:8px;padding:5px 9px;border-radius:7px;font-size:12.5px;
+  }
+  .archived-sub:hover { background:var(--bg3); }
+  .archived-sub .sub-bullet {
+    width:5px;height:5px;border-radius:50%;background:var(--text2);opacity:.55;flex-shrink:0;
+  }
+  .archived-sub .sub-nombre { flex:1;min-width:0;overflow-wrap:anywhere; }
+  .archived-sub .sub-tiempo { font-size:11.5px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
+  .archived-subs-empty { font-size:11px;color:var(--text2);opacity:.7;padding:5px 9px; }
+  .group-tree-btn {
+    background:transparent;border:none;color:var(--text2);width:24px;height:24px;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:all .12s;-webkit-app-region:no-drag;
+  }
+  .group-header:hover .group-tree-btn { opacity:1; }
+  .group-tree-btn:hover { background:var(--bg3);color:var(--accent); }
   .group-rename-input {
     flex:1;background:var(--bg);border:1px solid var(--accent);border-radius:6px;
     color:var(--text);font-family:inherit;font-size:13.5px;font-weight:600;padding:2px 6px;outline:none;-webkit-app-region:no-drag;
@@ -143,8 +187,10 @@
       Sección
     </button>
     <div class="sort-wrap">
-      <button class="btn-ghost" id="sortBtn" onclick="toggleSortMenu(event)" title="Ordenar las secciones" style="display:flex;align-items:center;padding:0 10px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13M3 12h9M3 18h5"/><path d="M18 9l3-3 3 3" transform="translate(-3,0)"/><path d="M18 6v12" transform="translate(-3,0)"/></svg>
+      <button class="btn-ghost" id="sortBtn" onclick="toggleSortMenu(event)" title="Ordenar las secciones" style="white-space:nowrap;display:flex;align-items:center;gap:7px;padding:0 13px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13M3 12h9M3 18h5"/></svg>
+        <span id="sortBtnLabel">Ordenar</span>
+        <svg id="sortDirIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
       </button>
       <div class="sort-menu" id="sortMenu">
         <button class="sort-opt" data-sort="alpha" onclick="chooseSort('alpha')">
@@ -159,11 +205,32 @@
           <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           Personalizado (arrastrar)
         </button>
+        <div class="sort-sep"></div>
+        <div class="sort-head">Sentido</div>
+        <button class="sort-opt" data-dir="asc" onclick="chooseSortDir('asc')">
+          <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Ascendente
+        </button>
+        <button class="sort-opt" data-dir="desc" onclick="chooseSortDir('desc')">
+          <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Descendente
+        </button>
       </div>
     </div>
     <button class="btn-primary" onclick="openStartPopup(null)" style="white-space:nowrap;display:flex;align-items:center;gap:6px">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       Nueva
+    </button>
+  </div>
+
+  <div class="tree-bar no-drag">
+    <button class="tree-btn" onclick="expandirTodo()" title="Abrir todas las secciones y todas sus subtareas">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+      Expandir todo
+    </button>
+    <button class="tree-btn" onclick="colapsarTodo()" title="Cerrar todas las secciones">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></svg>
+      Colapsar todo
     </button>
   </div>
 
@@ -231,6 +298,7 @@
 const { ipcRenderer } = require('electron');
 let currentState = null;
 let startPopupTaskId = null; // null = crear tarea nueva
+let startPopupSubId = null;  // subtarea con la que arrancar, si se pulsó una del esquema
 let startPopupColor = COLORS[0];
 let sectionPopupMode = null;  // 'create' | 'rename'
 let sectionPopupGroupId = null;
@@ -255,8 +323,36 @@ function maybeStartTutorial() {
 window.addEventListener('dock-expanded', maybeStartTutorial);
 window.addEventListener('tutorial-tour', maybeStartTutorial);
 
+// ── Esquema: qué tareas guardadas tienen sus subtareas a la vista ────────────
+const subsAbiertas = new Set();
+
+function expandirTodo() {
+  collapsedGroups.clear();
+  (currentState ? currentState.tasks : []).forEach(t => {
+    if (t.archived && !t.deleted && (t.subtasks || []).length) subsAbiertas.add(t.id);
+  });
+  trashCollapsed = false;
+  renderGroups();
+}
+
+function colapsarTodo() {
+  (currentState ? currentState.groups : []).forEach(g => collapsedGroups.add(g.id));
+  subsAbiertas.clear();
+  trashCollapsed = true;
+  renderGroups();
+}
+
 // ── Ordenado de secciones ─────────────────────────────────────────────────────
 let draggedGroupId = null;
+
+function currentSortDir() {
+  return (currentState && currentState.settings && currentState.settings.groupSortDir) || 'asc';
+}
+
+function chooseSortDir(dir) {
+  document.getElementById('sortMenu').classList.remove('open');
+  ipcRenderer.send('action', { type:'set-group-sort', payload:{ dir } });
+}
 
 function currentSort() {
   return (currentState && currentState.settings && currentState.settings.groupSort) || 'created';
@@ -305,9 +401,16 @@ function dropGroupOn(targetId, above) {
 
 function renderGroups() {
   const list = document.getElementById('groupsList');
-  // Marca en el menú cuál es el orden activo.
-  document.querySelectorAll('.sort-opt').forEach(o =>
+  // Marca en el menú el criterio y el sentido activos, y el botón dice cuál es.
+  document.querySelectorAll('.sort-opt[data-sort]').forEach(o =>
     o.classList.toggle('active', o.dataset.sort === currentSort()));
+  document.querySelectorAll('.sort-opt[data-dir]').forEach(o =>
+    o.classList.toggle('active', o.dataset.dir === currentSortDir()));
+  const etiquetas = { alpha: 'A → Z', created: 'Creación', custom: 'Manual' };
+  const lbl = document.getElementById('sortBtnLabel');
+  if (lbl) lbl.textContent = etiquetas[currentSort()] || 'Ordenar';
+  const dirIcon = document.getElementById('sortDirIcon');
+  if (dirIcon) dirIcon.style.transform = currentSortDir() === 'desc' ? '' : 'rotate(180deg)';
   list.innerHTML = '';
   if (!currentState) return;
 
@@ -345,6 +448,9 @@ function renderGroups() {
       <svg class="group-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg>
       <span class="group-name">${g.name}</span>
       <span class="group-count">${tasksInGroup.length}</span>
+      <button class="group-tree-btn" title="Abrir o cerrar las subtareas de esta sección">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
+      </button>
       <button class="group-edit" title="Cambiar el nombre">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
       </button>
@@ -357,6 +463,14 @@ function renderGroups() {
     };
     // Renombrar es cosa del lápiz: el doble clic era un gesto que no se veía por ningún lado.
     header.querySelector('.group-edit').onclick = (e) => { e.stopPropagation(); openSectionPopup('rename', g.id, g.name); };
+    header.querySelector('.group-tree-btn').onclick = (e) => {
+      e.stopPropagation();
+      // Si hay alguna abierta, el botón las cierra todas; si no, las abre todas.
+      const conSubs = tasksInGroup.filter(t => (t.subtasks || []).length);
+      const algunaAbierta = conSubs.some(t => subsAbiertas.has(t.id));
+      conSubs.forEach(t => { if (algunaAbierta) subsAbiertas.delete(t.id); else subsAbiertas.add(t.id); });
+      renderGroups();
+    };
     header.querySelector('.group-del').onclick = (e) => {
       e.stopPropagation();
       if (confirm(`¿Eliminar la sección "${g.name}"?\nLas tareas que contenga volverán al panel principal (no se borran).`))
@@ -373,6 +487,11 @@ function renderGroups() {
       tasksWrap.appendChild(hint);
     }
     filtered.forEach(t => {
+      const nodo = document.createElement('div');
+      nodo.className = 'archived-item';
+      const nSubs = (t.subtasks || []).length;
+      const abierta = subsAbiertas.has(t.id);
+
       const row = document.createElement('div');
       row.className = 'archived-task-row';
       row.draggable = true;
@@ -380,6 +499,9 @@ function renderGroups() {
       row.title = 'Click para empezarla · arrástrala para moverla de sección';
       row.innerHTML = `
         <svg class="archived-grip" width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2.5" cy="2.5" r="1.3"/><circle cx="7.5" cy="2.5" r="1.3"/><circle cx="2.5" cy="7" r="1.3"/><circle cx="7.5" cy="7" r="1.3"/><circle cx="2.5" cy="11.5" r="1.3"/><circle cx="7.5" cy="11.5" r="1.3"/></svg>
+        <button class="sub-toggle ${abierta ? 'open' : ''} ${nSubs ? '' : 'none'}" title="Ver las subtareas">
+          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg>
+        </button>
         <div class="archived-dot" style="background:${t.color}"></div>
         <span class="archived-task-name">${t.name}</span>
         <span class="archived-task-time">${fmt(t.totalSecs)}</span>
@@ -395,7 +517,35 @@ function renderGroups() {
         try { e.dataTransfer.setData('text/plain', t.id); } catch {}
       });
       row.addEventListener('dragend', () => { draggedTaskId = null; row.classList.remove('dragging'); document.querySelectorAll('.group-card.drop-target').forEach(c => c.classList.remove('drop-target')); });
-      tasksWrap.appendChild(row);
+      row.querySelector('.sub-toggle').onclick = (e) => {
+        e.stopPropagation();
+        if (subsAbiertas.has(t.id)) subsAbiertas.delete(t.id); else subsAbiertas.add(t.id);
+        renderGroups();
+      };
+      nodo.appendChild(row);
+
+      // El esquema: las subtareas cuelgan de su tarea con su tiempo acumulado.
+      if (abierta) {
+        const subs = document.createElement('div');
+        subs.className = 'archived-subs';
+        if (!nSubs) {
+          subs.innerHTML = '<div class="archived-subs-empty">Sin subtareas</div>';
+        } else {
+          (t.subtasks || []).forEach(sub => {
+            const fila = document.createElement('div');
+            fila.className = 'archived-sub';
+            fila.innerHTML = `
+              <span class="sub-bullet"></span>
+              <span class="sub-nombre">${sub.name}</span>
+              <span class="sub-tiempo">${fmt(sub.totalSecs)}</span>`;
+            fila.title = `Empezar "${t.name}" en "${sub.name}"`;
+            fila.onclick = (e) => { e.stopPropagation(); openStartPopup(t, sub.id); };
+            subs.appendChild(fila);
+          });
+        }
+        nodo.appendChild(subs);
+      }
+      tasksWrap.appendChild(nodo);
     });
     card.appendChild(tasksWrap);
 
@@ -532,11 +682,14 @@ function renderTrash(list) {
 }
 
 // ---------- Popup nueva tarea / empezar guardada ----------
-function openStartPopup(task) {
+function openStartPopup(task, subId) {
   const isNew = !task;
   startPopupTaskId = isNew ? null : task.id;
+  startPopupSubId = subId || null;
 
-  document.getElementById('startPopupTitle').textContent = isNew ? 'Nueva tarea' : task.name;
+  const sub = subId && (task.subtasks || []).find(x => x.id === subId);
+  document.getElementById('startPopupTitle').textContent =
+    isNew ? 'Nueva tarea' : (sub ? `${task.name} · ${sub.name}` : task.name);
   document.getElementById('startPopupNameFields').style.display = isNew ? 'block' : 'none';
   document.getElementById('startPopupName').value = '';
 
@@ -565,11 +718,12 @@ function closeStartPopup() {
   document.getElementById('startPopupBackdrop').style.display = 'none';
   document.getElementById('startPopup').style.display = 'none';
   startPopupTaskId = null;
+  startPopupSubId = null;
 }
 function confirmStart() {
   const backMinutes = computeBackMinutes('startBackMinutes', 'startBackTime');
   if (startPopupTaskId) {
-    ipcRenderer.send('action', { type: 'restore-and-start-task', payload: { taskId: startPopupTaskId, backMinutes } });
+    ipcRenderer.send('action', { type: 'restore-and-start-task', payload: { taskId: startPopupTaskId, backMinutes, subId: startPopupSubId || undefined } });
   } else {
     const name = document.getElementById('startPopupName').value.trim();
     if (!name) { alert('Ponle un nombre a la tarea'); return; }

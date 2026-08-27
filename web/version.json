@@ -1,4 +1,4 @@
 {
-  "version": "2.4.3",
-  "notes": "imputa.me 2.4.3 (beta). Modo No molestar, en el Panel junto al total del día: mientras está puesto no sale ningún aviso por encima de lo que estés haciendo — ni el recordatorio de las horas, ni los ojos del 20-20-20, ni las notificaciones de hora de salida o de actualización. Se pone los minutos u horas que quieras, o hasta que lo quites, y el botón te dice cuánto le queda. Los cronómetros siguen contando igual. También está en el clic derecho de la barra flotante y en la bandeja."
+  "version": "2.4.4",
+  "notes": "imputa.me 2.4.4 (beta). Guardadas se convierte en un esquema: cada tarea guardada despliega sus subtareas con su tiempo acumulado, y desde una subtarea puedes retomar la tarea directamente en ella. Botones nuevos de Expandir todo y Colapsar todo, y cada sección tiene el suyo para abrir o cerrar las subtareas de sus tareas. El botón de ordenar deja de ser un icono diminuto: ahora dice por qué criterio está ordenando y permite elegir ascendente o descendente."
 }
