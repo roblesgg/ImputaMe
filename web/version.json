@@ -1,4 +1,4 @@
 {
-  "version": "2.4.12",
-  "notes": "imputa.me 2.4.12 (beta). Arreglado que el botón de ocultar el panel flotante dejara de funcionar: en la 2.4.10 optimicé las animaciones para saltarse los fotogramas que no cambian nada, y resulta que el botón solo se recolocaba desde ahí — al pasar entre Panel, Guardadas y Ajustes, que son igual de anchos, no había ni un fotograma y el botón se quedaba descolgado. Además, ya puedes elegir qué días se ven en el calendario (Ajustes → Calendario), y meter un sábado suelto en una semana concreta con el botón \"Días\" sin tocar tu configuración de siempre."
+  "version": "2.5.0",
+  "notes": "imputa.me 2.5. No molestar para silenciar todos los avisos. La barra flotante con menú de clic derecho y sin quedarse detrás de lo que va a pantalla completa. Guardadas convertida en un esquema con las subtareas de cada tarea, y ordenable en los dos sentidos. Elegir qué días se ven en el calendario, con excepciones para una semana suelta. Clic derecho sobre cualquier rato del calendario para archivarlo, retomarlo o alargarlo conservando su subtarea y su nota. 24 colores de tarea, animaciones bastante más fluidas, y el instalador ya no te pide cerrar la app a mano al actualizar."
 }

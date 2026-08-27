@@ -154,6 +154,8 @@ const TUTORIAL_STEPS = [
     title:'Secciones', text:'Crea secciones para agrupar tus tareas archivadas como te venga bien: por cliente, por proyecto, por lo que quieras.' },
   { id:'grp-sort',       window:'groups', version:'2.2.2', selector:'#sortBtn',
     title:'Ordenar las secciones', text:'Alfabéticamente, por orden de creación o a tu manera arrastrándolas, y en el sentido que quieras: ascendente o descendente.' },
+  { id:'grp-orden',      window:'groups', version:'2.5.0', selector:'#sortBtn',
+    title:'Ordenar las secciones', text:'El botón dice por qué criterio están ordenadas: alfabético, por orden de creación o el tuyo propio arrastrándolas. Y ahora eliges también el sentido, ascendente o descendente.' },
   { id:'grp-esquema',    window:'groups', version:'2.4.4', selector:'.tree-bar',
     title:'Todo a la vista, o nada', text:'Abre o cierra de golpe todas las secciones y sus subtareas. Cada tarea guardada despliega las suyas con la flechita, y cada sección tiene su propio botón para abrirlas o cerrarlas todas.' },
   { id:'grp-rename',     window:'groups', version:'2.2.2', selector:'#groupsList .group-edit',

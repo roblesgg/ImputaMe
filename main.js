@@ -117,12 +117,33 @@ const NOVEDADES_2_4_1 = {
   ],
 };
 
+const NOVEDADES_2_5 = {
+  title: 'Novedades de imputa.me 2.5',
+  steps: [
+    { icon:'guide', title:'Te lo enseño donde está',
+      text:'Como en la 2.4: cuando acabes de leer esto, el recorrido te lleva por la app señalando cada cosa nueva en su sitio. Solo verás lo que no hayas visto ya, y con darle a Siguiente basta.' },
+    { icon:'bell', title:'No molestar',
+      text:'Silencia de golpe todo lo que sale por encima: el recordatorio de las horas, los ojos del 20-20-20 y las notificaciones. Los minutos u horas que quieras, y los cronómetros siguen contando igual.' },
+    { icon:'bar', title:'La barra, con su menú',
+      text:'Clic derecho sobre la barra flotante: esconderla un rato, cambiarla de pantalla o de borde, pausar la tarea, o pasarte al modo clásico de ventanas. Y ya no se queda detrás de lo que pongas a pantalla completa.' },
+    { icon:'folder', title:'Guardadas, como un esquema',
+      text:'Cada tarea guardada despliega sus subtareas con el tiempo que llevan, y pulsando una retomas la tarea justo en ella. Con botones para abrirlo y cerrarlo todo, y ordenado ascendente o descendente.' },
+    { icon:'calendar', title:'Los días que trabajas',
+      text:'Quita el sábado y el domingo del calendario y las columnas se reparten el hueco. Y si una semana suelta sí trabajas un sábado, lo metes solo en esa semana desde el botón "Días".' },
+    { icon:'pencil', title:'Clic derecho en el calendario',
+      text:'Sobre cualquier rato del calendario: guardar la tarea en una sección, retomarla desde ahora o alargar ese rato hasta ahora — conservando su subtarea y su nota — y editarlo o eliminarlo.' },
+    { icon:'spark', title:'Y por debajo',
+      text:'24 colores de tarea en vez de 8, animaciones bastante más fluidas, el panel flotante se adapta de tamaño con animación al cambiar de pestaña, los ojos avisan cuando toca de verdad, y el instalador ya no te pide cerrar la app a mano al actualizar.' },
+  ],
+};
+
 const WHATS_NEW = {
   '2.2.0': NOVEDADES_2_2,
   '2.2.1': NOVEDADES_2_2,
   '2.3.0': NOVEDADES_2_3,
   '2.4.0': NOVEDADES_2_4,
   '2.4.1': NOVEDADES_2_4_1,
+  '2.5.0': NOVEDADES_2_5,
 };
 
 // Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el
@@ -1666,9 +1687,9 @@ function positionDockHide(panelBounds) {
   } catch {}
 }
 
-function showDockHide() {
+function showDockHide(panelBounds) {
   createDockHide();
-  positionDockHide();
+  positionDockHide(panelBounds);   // se pasa el destino conocido, NO se relee con getBounds()
   try { dockHideWin.showInactive(); dockHideWin.moveTop(); } catch {}
 }
 function hideDockHide() {
@@ -1709,6 +1730,18 @@ function hideDockFor(minutos) {
   updateTrayTitle();
 }
 
+// Las tres ventanas del dock viven en el mismo nivel ('screen-saver'), asi que quien
+// se reafirma el ultimo queda arriba. Reafirmar el de la barra cada pocos segundos
+// (lo que la mantiene por encima de lo que va a pantalla completa) la ponia por encima
+// del panel y de su boton de esconder, y el boton dejaba de recibir los clics. Aqui se
+// vuelve a dejar el orden que toca: barra, luego panel, luego boton.
+function restackDock() {
+  try { if (dockWin && !dockWin.isDestroyed()) dockWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+  if (!dockExpanded) return;
+  try { if (dockPanelWin && !dockPanelWin.isDestroyed() && dockPanelWin.isVisible()) dockPanelWin.moveTop(); } catch {}
+  try { if (dockHideWin && !dockHideWin.isDestroyed() && dockHideWin.isVisible()) dockHideWin.moveTop(); } catch {}
+}
+
 function ensureDockBarVisible() {
   if (!settings.dockMode) return;
   createDock();
@@ -1716,9 +1749,7 @@ function ensureDockBarVisible() {
   // Escondida a propósito: el vigilante no debe sacarla otra vez.
   if (dockIsHidden()) { try { if (dockWin.isVisible()) dockWin.hide(); } catch {} return; }
   try { if (!dockWin.isVisible()) dockWin.showInactive(); } catch {}
-  // Reafirmar el nivel: una aplicación que entra a pantalla completa puede quedarse
-  // por encima, y entonces la barra "a veces" no se ve.
-  try { dockWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+  restackDock();
   syncDockBounds();
 }
 
@@ -1780,8 +1811,7 @@ function showDockPanel() {
   } catch {}
   dockExpanded = true; dockOutsideSince = 0; dockPanelShownAt = Date.now();
   createDockHide();
-  positionDockHide(target);
-  showDockHide();
+  showDockHide(target);
   if (wasVisible) { try { dockPanelWin.setOpacity(1); } catch {} }
   else {
     fadeWindow(dockPanelWin, 0, 1, 170);
@@ -1793,9 +1823,10 @@ function showDockPanel() {
 // Sale deslizando la ventana entera y, al terminar, se esconde.
 function collapseDockPanel() {
   dockExpanded = false; dockOutsideSince = 0;
-  hideDockHide();
   if (dockWin && !dockWin.isDestroyed()) { try { dockWin.webContents.send('dock-collapse'); } catch {} }
-  if (!dockPanelWin || dockPanelWin.isDestroyed() || !dockPanelWin.isVisible()) return;
+  // Se escondia de golpe aqui arriba y luego se le pedia un desvanecido que ya no se
+  // veia. Ahora solo se corta en seco si no hay panel del que despedirse.
+  if (!dockPanelWin || dockPanelWin.isDestroyed() || !dockPanelWin.isVisible()) { hideDockHide(); return; }
   if (dockHideWin && !dockHideWin.isDestroyed()) fadeWindow(dockHideWin, 1, 0, 130, () => hideDockHide());
   fadeWindow(dockPanelWin, 1, 0, 150, () => {
     try {
