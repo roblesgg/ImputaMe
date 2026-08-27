@@ -614,6 +614,28 @@ function renderTotalsInto(listId, totals, vacio) {
 
 function abrirImpute() { ipcRenderer.send('action', { type:'open-impute-url' }); }
 
+// El menú del clic derecho no puede pedir texto por su cuenta: pide a la vista que lo
+// haga y le devuelva el nombre de la sección nueva.
+ipcRenderer.on('ask-new-group', async (_, taskId) => {
+  const nombre = await askText({
+    title: 'Guardar en una sección nueva',
+    text: 'La tarea se archivará en Guardadas dentro de esta sección.',
+    placeholder: 'Nombre de la sección',
+    okLabel: 'Guardar', maxLength: 60,
+  });
+  if (nombre === null) return;
+  const n = nombre.trim();
+  if (!n) return;
+  ipcRenderer.send('action', { type: 'archive-task', payload: { taskId, groupName: n } });
+});
+
+// Y abrir el popup de una entrada desde ese mismo menú.
+ipcRenderer.on('open-entry-popup', (_, { taskId, entryIndex }) => {
+  const task = currentState && currentState.tasks.find(t => t.id === taskId);
+  const entry = task && task.entries[entryIndex];
+  if (entry) openEditPopup(task, entryIndex, entry);
+});
+
 function renderDayTotals() {
   if (!currentState) return;
   // El botón de imputar solo existe si hay enlace puesto en Ajustes.
@@ -821,6 +843,13 @@ function renderDayEntries(col, date) {
         if (Date.now() - lastResizeEnd < 300) return;
         openEditPopup(task, idx, entry);
       };
+      // Clic derecho: el menú lo monta el proceso principal, que es quien tiene la
+      // lista de secciones (nativo, así se pinta por encima de la rejilla sin líos).
+      block.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        ipcRenderer.send('action', { type: 'calendar-context-menu', payload: { taskId: task.id, entryIndex: idx } });
+      });
 
       // Los tiradores siempre se pueden usar, incluso en entradas cortas: por debajo de
       // 40px se usa la variante "compact" (más fina), que deja hueco de sobra para que

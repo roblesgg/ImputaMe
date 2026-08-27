@@ -1,4 +1,4 @@
 {
-  "version": "2.4.5",
-  "notes": "imputa.me 2.4.5 (beta). Esta vez sí: el cuadrado negro detrás de los ojos era el fondo de su ventana. A las ventanas transparentes de Windows hay que decirles explícitamente que su fondo también es transparente; a esta se me pasó, y por eso asomaba por fuera del redondeo. Corregido ahí y en la pantalla de bienvenida, que tenía el mismo descuido."
+  "version": "2.4.6",
+  "notes": "imputa.me 2.4.6 (beta). Clic derecho sobre cualquier bloque del calendario: guardar la tarea en una sección o moverla a otra (incluida una sección nueva) sin pasar por el panel, sacarla de Guardadas, pausarla o reanudarla, y editar o eliminar ese rato concreto. Y fuera la sombra de los ojos: en una ventana transparente se recortaba contra el borde y dejaba ese rectángulo oscuro alrededor. Ahora es un cuadrado limpio de esquinas redondeadas, y el tamaño que eliges en Ajustes es exactamente el que se ve."
 }

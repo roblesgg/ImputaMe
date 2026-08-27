@@ -556,6 +556,16 @@ function deleteTask(taskId) {
 // Devuelve la tarea a la vida: reaparece en el panel principal (sin sección). Vale
 // tanto desde la papelera como desde el calendario (aunque ya haya caducado en la
 // papelera), porque sus entradas nunca se han ido.
+// Saca una tarea de Guardadas y la devuelve al panel principal. No toca su historial:
+// las entradas del calendario se quedan exactamente como estaban.
+function unarchiveTask(taskId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task || !task.archived) return;
+  task.archived = false;
+  task.groupId = null;
+  saveData(); broadcastState();
+}
+
 function restoreTask(taskId) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -958,6 +968,63 @@ function showDockContextMenu() {
   try { Menu.buildFromTemplate(plantilla).popup({ window: dockWin }); } catch {}
 }
 
+// ── Menú del clic derecho sobre una entrada del calendario ───────────────────
+// Sirve sobre todo para archivar la tarea en una sección sin tener que ir al panel,
+// que es donde estaba ese botón hasta ahora.
+function showCalendarContextMenu(taskId, entryIndex) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const win = BrowserWindow.getFocusedWindow() || dockPanelWin || calendarWin;
+  const enMarcha = state.activeTaskId === task.id;
+
+  const avisar = (canal, datos) => {
+    [calendarWin, dockPanelWin].forEach(w => {
+      if (w && !w.isDestroyed()) sendToAllFrames(w, canal, datos);
+    });
+  };
+
+  const secciones = sortedGroups().map(g => ({
+    label: g.name,
+    type: 'radio',
+    checked: task.archived && task.groupId === g.id,
+    click: () => archiveTask(task.id, g.id),
+  }));
+
+  const plantilla = [
+    { label: task.name, enabled: false },
+    { type: 'separator' },
+  ];
+
+  if (task.deleted) {
+    plantilla.push({ label: 'Restaurar la tarea', click: () => restoreTask(task.id) });
+  } else {
+    plantilla.push({
+      label: task.archived ? 'Mover a otra sección' : 'Guardar en una sección',
+      submenu: secciones.concat(
+        secciones.length ? [{ type: 'separator' }] : [],
+        [{ label: 'Sección nueva…', click: () => avisar('ask-new-group', task.id) }],
+      ),
+    });
+    if (task.archived) {
+      plantilla.push({ label: 'Sacar de Guardadas', click: () => unarchiveTask(task.id) });
+    }
+    plantilla.push(
+      { type: 'separator' },
+      enMarcha
+        ? { label: 'Pausar', click: () => pauseActive() }
+        : { label: 'Reanudar esta tarea', click: () => startTask(task.id) },
+    );
+  }
+
+  plantilla.push(
+    { type: 'separator' },
+    { label: 'Editar esta entrada…', click: () => avisar('open-entry-popup', { taskId: task.id, entryIndex }) },
+    { label: 'Eliminar esta entrada', click: () => deleteEntry(task.id, entryIndex) },
+  );
+
+  try { Menu.buildFromTemplate(plantilla).popup(win ? { window: win } : {}); } catch {}
+}
+
 // ── Enlace para imputar ──────────────────────────────────────────────────────
 // Se acepta lo que el usuario pegue: si no trae esquema, se le pone https://. Solo
 // http y https, para que un enlace guardado no pueda acabar abriendo otra cosa.
@@ -979,18 +1046,14 @@ function openImputeUrl() {
 
 // ── Regla 20-20-20 ───────────────────────────────────────────────────────────
 const EYE_RATIO = 0.78;   // alto respecto al ancho de la burbuja
-// La ventana se hace más grande que la burbuja por todos los lados. Su sombra se pinta
-// DENTRO de la ventana: si la burbuja la llenara entera, la sombra se recortaría contra
-// el borde y se verían las cuatro esquinas cuadradas y negras alrededor del redondeo.
-// Es el mismo motivo por el que la ventana del botón de ocultar es mucho mayor que él.
-const EYE_PAD = 0.14;     // margen a cada lado, en fracción del ancho de la burbuja
 
+// La ventana mide exactamente lo que la burbuja: sin sombra no hay nada que se salga
+// del redondeo, así que no hace falta reservarle hueco (y el tamaño de Ajustes vuelve
+// a ser el de lo que se ve).
 function eyeCareBounds() {
   const work = dockDisplay().workArea;
-  const burbuja = Math.max(80, Math.min(420, Number(settings.eyeCareSize) || 150));
-  const pad = Math.round(burbuja * EYE_PAD);
-  const w = burbuja + pad * 2;
-  const h = Math.round(burbuja * EYE_RATIO) + pad * 2;
+  const w = Math.max(80, Math.min(420, Number(settings.eyeCareSize) || 150));
+  const h = Math.round(w * EYE_RATIO);
   const m = 18;   // separación del borde
   const pos = settings.eyeCarePos || 'top';
   const izq = work.x + m;
@@ -2050,6 +2113,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'rename-task':   renameTask(payload.taskId, payload.name); break;
     case 'set-active-note': setActiveEntryNote(payload.note); break;
     case 'archive-task':  archiveTask(payload.taskId, payload.groupId, payload.groupName); break;
+    case 'unarchive-task': unarchiveTask(payload.taskId); break;
     case 'create-group':  createGroup(payload.name); break;
     case 'rename-group':  renameGroup(payload.groupId, payload.name); break;
     case 'delete-group':  deleteGroup(payload.groupId); break;
@@ -2192,6 +2256,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       updateDockHitTest();
       break;
     case 'set-dnd': setDnd(payload && payload.minutes === null ? null : Number(payload && payload.minutes) || 0); break;
+    case 'calendar-context-menu': showCalendarContextMenu(payload && payload.taskId, payload && payload.entryIndex); break;
     case 'dock-context-menu': showDockContextMenu(); break;
     case 'show-dock-bar': hideDockFor(null); break;
     case 'dock-expand':            // la barrita pide abrir el panel
