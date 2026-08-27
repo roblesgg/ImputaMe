@@ -269,6 +269,13 @@
 
   /* Selector de tarea con buscador y secciones (popup de nueva entrada) */
   #popupTaskPicker { display:flex;flex-direction:column;gap:8px;min-height:0; }
+  .tp-fold {
+    width:24px;height:24px;border-radius:6px;flex-shrink:0;
+    background:transparent;border:1px solid var(--border);color:var(--text2);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    transition:background .12s,color .12s;
+  }
+  .tp-fold:hover { background:var(--bg3);color:var(--text); }
   .tp-label { font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
   .tp-search-wrap { position:relative;display:flex;align-items:center; }
   .tp-search-wrap svg { position:absolute;left:10px;color:var(--text2);pointer-events:none; }
@@ -396,7 +403,17 @@
     <textarea id="popupTaskNameEdit" style="display:none" maxlength="120" placeholder="Nombre de la tarea" rows="1"></textarea>
 
     <div id="popupTaskPicker">
-      <div class="tp-label">Tarea</div>
+      <div class="tp-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>Tarea</span>
+        <span style="display:flex;gap:4px">
+          <button class="tp-fold" onclick="tpExpandirTodo()" title="Abrir todas las secciones">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+          </button>
+          <button class="tp-fold" onclick="tpColapsarTodo()" title="Cerrar todas las secciones">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></svg>
+          </button>
+        </span>
+      </div>
       <div class="tp-search-wrap">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
         <input type="text" id="popupTaskSearch" placeholder="Buscar tarea o sección..." oninput="renderTaskPicker()">
@@ -792,6 +809,14 @@ function renderWeek() {
 let lastResizeEnd = 0;   // momento en que terminó el último redimensionado
 let popupSelectedTaskId = null;   // tarea elegida en el selector ('__new__' = crear nueva)
 const tpCollapsed = new Set();    // secciones plegadas en el selector de tarea
+
+// Las claves de las secciones del selector: las mismas que usa renderTaskPicker.
+function tpSectionKeys() {
+  const groups = (currentState && currentState.groups) || [];
+  return ['__active__', ...groups.map(g => g.id), '__none__'];
+}
+function tpColapsarTodo() { tpSectionKeys().forEach(k => tpCollapsed.add(k)); renderTaskPicker(); }
+function tpExpandirTodo() { tpCollapsed.clear(); renderTaskPicker(); }
 
 function renderDayEntries(col, date) {
   if (!currentState) return;

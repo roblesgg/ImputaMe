@@ -1,4 +1,4 @@
 {
-  "version": "2.4.6",
-  "notes": "imputa.me 2.4.6 (beta). Clic derecho sobre cualquier bloque del calendario: guardar la tarea en una sección o moverla a otra (incluida una sección nueva) sin pasar por el panel, sacarla de Guardadas, pausarla o reanudarla, y editar o eliminar ese rato concreto. Y fuera la sombra de los ojos: en una ventana transparente se recortaba contra el borde y dejaba ese rectángulo oscuro alrededor. Ahora es un cuadrado limpio de esquinas redondeadas, y el tamaño que eliges en Ajustes es exactamente el que se ve."
+  "version": "2.4.7",
+  "notes": "imputa.me 2.4.7 (beta). Arreglado el \"No se puede cerrar imputa.me\" que salía al actualizar y obligaba a reintentar varias veces: ahora la app se cierra a conciencia (ventanas y bandeja) antes de lanzar el instalador. 24 colores para las tareas en vez de 8, en una cuadrícula de claros, medios y oscuros. Y en el selector de tarea del calendario, botones para abrir y cerrar todas las secciones de golpe."
 }

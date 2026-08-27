@@ -1,5 +1,14 @@
 // Utilidades compartidas por las distintas ventanas (cargar antes que el script propio de cada .html)
-const COLORS = ['#6366f1','#f472b6','#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
+// 24 colores en tres tonos (claro / medio / oscuro) de ocho familias. Con ocho se
+// repetían enseguida y el calendario se volvía ilegible en cuanto tenías unas cuantas
+// tareas. Todos con suficiente cuerpo para que el texto encima se lea (ver
+// contrastTextColor, que elige blanco o negro segun la luminosidad).
+const COLORS = [
+  // índigo    azul       turquesa   verde      ámbar      naranja    rojo       rosa
+  '#818cf8', '#60a5fa', '#22d3ee', '#34d399', '#fbbf24', '#fb923c', '#f87171', '#f472b6',  // claros
+  '#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#f97316', '#ef4444', '#ec4899',  // medios
+  '#4338ca', '#1d4ed8', '#0e7490', '#047857', '#b45309', '#c2410c', '#b91c1c', '#a21caf',  // oscuros
+];
 
 // Modo "embed": la página va dentro de un iframe del dock (barra flotante), no como
 // ventana propia. Se oculta el chrome de ventana (X, minimizar, asa de arrastre) porque

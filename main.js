@@ -2407,7 +2407,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'close-sync':    if (syncWin && !syncWin.isDestroyed()) syncWin.hide(); break;
     case 'open-update-window': openUpdateWindow(); break;   // desde el botón rojo del panel
     case 'update-download': if (autoUpdater) autoUpdater.downloadUpdate(); break;
-    case 'update-install':  if (autoUpdater) setImmediate(() => autoUpdater.quitAndInstall()); break;
+    case 'update-install':  installUpdateNow(); break;
     case 'close-update':    if (updateWin && !updateWin.isDestroyed()) updateWin.close(); break;
     case 'check-for-updates': checkForUpdates(true); break;   // botón "Buscar actualizaciones" de Ajustes
     case 'set-beta-updates':
@@ -2754,7 +2754,29 @@ app.whenReady().then(() => {
   maybeShowWhatsNew();
 });
 
+// Cierre a conciencia antes de instalar una actualización.
+// El instalador intenta cerrar la app por su cuenta y no siempre puede: las ventanas
+// de imputa.me no salen en la barra de tareas, varias no tienen marco y alguna ni
+// acepta el foco, así que el "cierra la aplicación y reintenta" salía una y otra vez.
+// destroy() se salta cualquier manejador de cierre y garantiza que se van; la bandeja
+// también, porque es lo último que mantiene la app en pie.
+function installUpdateNow() {
+  if (!autoUpdater) return;
+  pauseActive(); saveData(); saveSettings();
+  try { if (dockHitTimer) { clearInterval(dockHitTimer); dockHitTimer = null; } } catch {}
+  try { if (tray) { tray.destroy(); tray = null; } } catch {}
+  BrowserWindow.getAllWindows().forEach(w => { try { w.destroy(); } catch {} });
+  // setImmediate para dejar que el ciclo de eventos procese las destrucciones antes
+  // de lanzar el instalador.
+  setImmediate(() => { try { autoUpdater.quitAndInstall(false, true); } catch {} });
+}
+
 app.on('window-all-closed', e => e.preventDefault());
 // saveSettings() explícito: saveSettingsSoon puede tener un guardado pendiente (p. ej.
 // la última vista abierta) que se perdería si la app se cierra antes de que salte.
-app.on('before-quit', () => { pauseActive(); saveData(); saveSettings(); });
+app.on('before-quit', () => {
+  pauseActive(); saveData(); saveSettings();
+  // La bandeja se va con la app: si se queda, el instalador que se lanza al salir
+  // (autoInstallOnAppQuit) puede seguir viendo el proceso vivo y pedir que la cierres.
+  try { if (tray) { tray.destroy(); tray = null; } } catch {}
+});

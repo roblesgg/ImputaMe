@@ -332,11 +332,14 @@ select option { background: var(--surface); color: var(--text); }
 
 /* Color picker row */
 .colors-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+/* Cuadrícula de 8 columnas: una fila por tono (claros, medios, oscuros). En una
+   sola línea, 24 colores no caben ni se distinguen. */
 .color-row {
-  display: flex; gap: 8px; -webkit-app-region: no-drag;
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px;
+  -webkit-app-region: no-drag;
 }
 .color-swatch {
-  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+  width: 100%; aspect-ratio: 1; max-width: 26px; border-radius: 50%; cursor: pointer;
   border: 2px solid transparent; transition: all .15s;
 }
 .color-swatch:hover, .color-swatch.selected {
