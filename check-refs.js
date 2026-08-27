@@ -20,7 +20,7 @@ const GLOBALS = new Set(['require', 'setTimeout', 'setInterval', 'clearTimeout',
   'setImmediate', 'parseInt', 'parseFloat', 'isNaN', 'String', 'Number', 'Boolean', 'Array',
   'Object', 'Symbol', 'Promise', 'Error', 'Date', 'Math', 'JSON', 'console', 'process', 'fetch',
   'encodeURIComponent', 'decodeURIComponent', 'queueMicrotask', 'structuredClone',
-  'requestAnimationFrame', 'alert', 'confirm', 'prompt', 'Event', 'URLSearchParams',
+  'requestAnimationFrame', 'alert', 'confirm', 'prompt', 'Event', 'URLSearchParams', 'performance',
   'Set', 'Map', 'WeakMap', 'WeakSet', 'RegExp', 'Proxy', 'Reflect', 'async', 'URL',
   // definidas en shared.js, que las páginas cargan con <script src> aparte:
   'isViewVisibleToUser', 'startTutorialIfNeeded', 'computeBackMinutes', 'contrastTextColor',

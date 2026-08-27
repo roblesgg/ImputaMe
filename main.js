@@ -1099,7 +1099,7 @@ function createEyeCareWindow() {
     // focusable:false para no sacar al usuario de lo que esté haciendo; el clic para
     // quitarla de en medio sigue llegando igual.
     skipTaskbar: true, alwaysOnTop: true, focusable: false, show: false,
-    webPreferences: { nodeIntegration: true, contextIsolation: false },
+    webPreferences: { nodeIntegration: true, contextIsolation: false , backgroundThrottling: false},
   });
   // 'screen-saver' la pone por encima incluso de aplicaciones a pantalla completa,
   // que es justo cuando más falta hace acordarse de mirar a lo lejos.
@@ -1341,7 +1341,8 @@ function makeWindow(file, w, h, opts = {}) {
     resizable: true, roundedCorners: true,
     icon: APP_ICON_PATH,
     ...restOpts,
-    webPreferences: { nodeIntegration: true, contextIsolation: false },
+    // Sin frenado en segundo plano: estas ventanas animan aunque no tengan el foco.
+    webPreferences: { nodeIntegration: true, contextIsolation: false, backgroundThrottling: false },
   });
   win.__sizeSpec = { minWidth: designMinW, minHeight: designMinH, maxWidth: designMaxW, maxHeight: designMaxH };
   win.on('focus', () => checkForUpdatesIfStale());   // volver a la app = buen momento para mirar
@@ -1462,7 +1463,7 @@ function createDockPanel() {
     backgroundMaterial: settings.blurEnabled === false ? 'none' : 'acrylic',
     resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true, roundedCorners: true,
     icon: APP_ICON_PATH,
-    webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true },
+    webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true , backgroundThrottling: false},
   });
   try { dockPanelWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}   // igual que la barra
   dockPanelWin.loadFile(path.join(__dirname, 'src', 'dock-panel.html'));
@@ -1502,7 +1503,7 @@ function animateWindowBounds(win, target, ms = 190, fromOverride, onFrame) {
   // nada... dejando la ventana fuera de la pantalla y el panel invisible.
   let from = fromOverride;
   if (!from) { try { from = win.getBounds(); } catch { return; } }
-  if (win.__boundsTween) { clearInterval(win.__boundsTween); win.__boundsTween = null; }
+  if (win.__boundsTween) { clearTimeout(win.__boundsTween); win.__boundsTween = null; }
   // Cada animación lleva su marca: así el salvavidas de abajo no puede colocar la ventana
   // en el destino de una animación ya sustituida por otra (p. ej. abrir justo tras cerrar).
   const token = (win.__boundsToken = (win.__boundsToken || 0) + 1);
@@ -1514,11 +1515,17 @@ function animateWindowBounds(win, target, ms = 190, fromOverride, onFrame) {
   };
   if (same) { land(); return; }
 
-  const start = Date.now();
+  // setTimeout encadenado y no setInterval de 16 ms: en Windows la resolución de los
+  // temporizadores hace que un intervalo de 16 acabe disparando a ~15,6 o ~31 ms, y esos
+  // fotogramas dobles son los tirones que se ven. Encadenando a 6 ms se pide bastante más
+  // de lo que la pantalla puede dibujar y es ella la que marca el ritmo. La posición sale
+  // del reloj, no del número de fotograma, así que perder alguno no descoloca nada.
+  const start = performance.now();
   const ease = (t) => 1 - Math.pow(1 - t, 3);   // suave al final, como el resto de la app
-  win.__boundsTween = setInterval(() => {
-    if (!win || win.isDestroyed() || win.__boundsToken !== token) { clearInterval(win.__boundsTween); return; }
-    const t = Math.min(1, (Date.now() - start) / ms);
+  let ultimo = null;
+  const paso = () => {
+    if (!win || win.isDestroyed() || win.__boundsToken !== token) { win.__boundsTween = null; return; }
+    const t = Math.min(1, (performance.now() - start) / ms);
     const k = ease(t);
     const b = {
       x: Math.round(from.x + (target.x - from.x) * k),
@@ -1526,10 +1533,17 @@ function animateWindowBounds(win, target, ms = 190, fromOverride, onFrame) {
       width: Math.round(from.width + (target.width - from.width) * k),
       height: Math.round(from.height + (target.height - from.height) * k),
     };
-    try { win.setBounds(b); } catch {}
-    if (onFrame) { try { onFrame(b, k); } catch {} }
-    if (t >= 1) { clearInterval(win.__boundsTween); win.__boundsTween = null; land(); }
-  }, 16);
+    // Si redondeado no ha cambiado nada, no se molesta al gestor de ventanas: cada
+    // setBounds es una llamada al sistema, y de balde solo resta fluidez.
+    if (!ultimo || b.x !== ultimo.x || b.y !== ultimo.y || b.width !== ultimo.width || b.height !== ultimo.height) {
+      ultimo = b;
+      try { win.setBounds(b); } catch {}
+      if (onFrame) { try { onFrame(b, k); } catch {} }
+    }
+    if (t >= 1) { win.__boundsTween = null; land(); return; }
+    win.__boundsTween = setTimeout(paso, 6);
+  };
+  win.__boundsTween = setTimeout(paso, 0);
   setTimeout(() => { if (!win.__boundsTween) land(); }, ms + 120);
 }
 
@@ -1549,7 +1563,7 @@ function createDockHide() {
     // "esconder al clicar fuera" se cerraría justo al pulsar su propio botón.
     focusable: false, roundedCorners: false,
     icon: APP_ICON_PATH,
-    webPreferences: { nodeIntegration: true, contextIsolation: false },
+    webPreferences: { nodeIntegration: true, contextIsolation: false , backgroundThrottling: false},
   });
   try { dockHideWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
   dockHideWin.loadFile(path.join(__dirname, 'src', 'dock-hide.html'));
@@ -1657,19 +1671,20 @@ function syncDockBounds() {
 
 function fadeWindow(win, from, to, ms, done) {
   if (!win || win.isDestroyed()) return;
-  if (win.__fade) { clearInterval(win.__fade); win.__fade = null; }
+  if (win.__fade) { clearTimeout(win.__fade); win.__fade = null; }
   const token = (win.__fadeToken = (win.__fadeToken || 0) + 1);
-  const start = Date.now();
+  const start = performance.now();
   try { win.setOpacity(from); } catch {}
-  win.__fade = setInterval(() => {
-    if (!win || win.isDestroyed() || win.__fadeToken !== token) { clearInterval(win.__fade); return; }
-    const t = Math.min(1, (Date.now() - start) / ms);
-    try { win.setOpacity(from + (to - from) * t); } catch {}
-    if (t >= 1) {
-      clearInterval(win.__fade); win.__fade = null;
-      if (done) { try { done(); } catch {} }
-    }
-  }, 16);
+  const paso = () => {
+    if (!win || win.isDestroyed() || win.__fadeToken !== token) { win.__fade = null; return; }
+    const t = Math.min(1, (performance.now() - start) / ms);
+    // Suavizado también aquí: en lineal se nota que arranca y para de golpe.
+    const k = 1 - Math.pow(1 - t, 3);
+    try { win.setOpacity(from + (to - from) * k); } catch {}
+    if (t >= 1) { win.__fade = null; if (done) { try { done(); } catch {} } return; }
+    win.__fade = setTimeout(paso, 6);
+  };
+  win.__fade = setTimeout(paso, 0);
 }
 
 function offscreenPanelBounds(b, anchor) {
@@ -1800,7 +1815,7 @@ function createDock() {
     resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true,
     roundedCorners: false, focusable: true,
     icon: APP_ICON_PATH,
-    webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true },
+    webPreferences: { nodeIntegration: true, contextIsolation: false, nodeIntegrationInSubFrames: true , backgroundThrottling: false},
   });
   dockExpanded = false;
   // Sin acrílico ni insertCSS de --bg: la ventana es transparente de verdad; el panel del

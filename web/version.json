@@ -1,4 +1,4 @@
 {
-  "version": "2.4.9",
-  "notes": "imputa.me 2.4.9 (beta). Al cambiar de pestaña, la ventana flotante ahora se ANIMA hasta su nuevo tamaño en vez de dar el salto, así que se ve cómo se adapta. Y arreglado el temporizador de la regla 20-20-20: no avisaba cada X minutos de verdad, porque cualquier cambio en Ajustes (incluido mover un deslizador) reiniciaba la cuenta desde cero, y además un temporizador largo no corre mientras el ordenador está suspendido. Ahora se lleva la hora del próximo aviso, así que ni toquetear los ajustes ni suspender el equipo lo desvían."
+  "version": "2.4.10",
+  "notes": "imputa.me 2.4.10 (beta). Animaciones más fluidas por dos vías. Una: Chromium frena las animaciones de las ventanas que no tienen el foco, y la barra flotante nunca lo tiene y la de los ojos ni siquiera puede tenerlo — justo las que más animan eran las que iban a menos fotogramas. Desactivado ese frenado. Y dos: las animaciones de tamaño y desvanecido se movían con un temporizador de 16 ms, que en Windows acaba disparando a 15,6 o a 31 y provoca fotogramas dobles; ahora se piden muchos más y manda el ritmo de la pantalla, saltándose los que no cambian nada."
 }
