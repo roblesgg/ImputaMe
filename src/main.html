@@ -22,6 +22,35 @@
     display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;
   }
   .total-inline { display:flex;align-items:baseline;gap:7px;white-space:nowrap; }
+
+  /* ── No molestar ───────────────────────────────────────────────────────── */
+  .dnd-wrap { position:relative;flex-shrink:0; }
+  .dnd-btn {
+    display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:9px;
+    background:var(--bg2);border:1px solid var(--border);color:var(--text2);
+    font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+    transition:background .12s,color .12s,border-color .12s;-webkit-app-region:no-drag;
+  }
+  .dnd-btn:hover { background:var(--bg3);color:var(--text); }
+  .dnd-btn.on {
+    background:color-mix(in srgb, var(--accent2) 26%, transparent);
+    border-color:color-mix(in srgb, var(--accent) 45%, transparent);
+    color:var(--text);
+  }
+  .dnd-menu {
+    position:absolute;top:calc(100% + 6px);right:0;z-index:60;min-width:200px;
+    background:var(--panel, var(--surface));border:1px solid var(--border);
+    border-radius:var(--radius-sm);padding:5px;display:none;flex-direction:column;gap:2px;
+    box-shadow:0 14px 34px rgba(0,0,0,.4);
+  }
+  .dnd-menu.open { display:flex; }
+  .dnd-menu button {
+    background:transparent;border:none;color:var(--text);font-family:inherit;font-size:12.5px;
+    text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;
+  }
+  .dnd-menu button:hover { background:var(--bg3); }
+  .dnd-menu .sep { height:1px;background:var(--border);margin:3px 6px; }
+  .dnd-menu .head { font-size:11px;color:var(--text2);padding:5px 10px 2px;font-weight:600; }
   .total-label { font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
   .total-time { font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent); }
 
@@ -221,6 +250,23 @@
     <div class="total-inline">
       <span class="total-label">Hoy</span>
       <span class="total-time" id="totalTime">0m 00s</span>
+    </div>
+    <div class="dnd-wrap">
+      <button class="dnd-btn" id="dndBtn" onclick="toggleDndMenu(event)" title="No molestar: silencia todos los avisos que salen por encima">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <span id="dndLabel">No molestar</span>
+      </button>
+      <div class="dnd-menu" id="dndMenu">
+        <div class="head">Silenciar los avisos durante</div>
+        <button onclick="ponerDnd(15)">15 minutos</button>
+        <button onclick="ponerDnd(30)">30 minutos</button>
+        <button onclick="ponerDnd(60)">1 hora</button>
+        <button onclick="ponerDnd(120)">2 horas</button>
+        <button onclick="ponerDnd(480)">8 horas</button>
+        <div class="sep"></div>
+        <button onclick="ponerDnd(0)">Hasta que lo quite</button>
+        <button id="dndOff" onclick="ponerDnd(null)" style="display:none">Quitar el modo no molestar</button>
+      </div>
     </div>
     <div id="navButtons" style="display:flex;gap:8px;-webkit-app-region:no-drag">
       <button class="btn-ghost" onclick="openCalendar()" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">
@@ -662,6 +708,8 @@ function render(state) {
   }
   // Dentro de la barra flotante la navegación ya está arriba en las pestañas: repetirla
   // aquí y otra vez abajo eran tres sitios para lo mismo.
+  renderDnd(state.settings);
+
   const nav = document.getElementById('navButtons');
   if (nav) nav.style.display = IS_EMBEDDED ? 'none' : 'flex';
 
@@ -740,6 +788,51 @@ function flushActiveNote() {
 }
 
 function abrirImpute() { ipcRenderer.send('action', { type:'open-impute-url' }); }
+
+// ── No molestar ──────────────────────────────────────────────────────────────
+function toggleDndMenu(e) {
+  e.stopPropagation();
+  document.getElementById('dndMenu').classList.toggle('open');
+}
+document.addEventListener('click', () => {
+  const m = document.getElementById('dndMenu');
+  if (m) m.classList.remove('open');
+});
+function ponerDnd(minutes) {
+  document.getElementById('dndMenu').classList.remove('open');
+  ipcRenderer.send('action', { type:'set-dnd', payload:{ minutes } });
+}
+
+// Cuánto queda, redondeado hacia arriba: "1 min" es más honesto que "0 min".
+function restanteDnd(hasta) {
+  const min = Math.ceil((hasta - Date.now()) / 60000);
+  if (min <= 0) return '';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+// La cuenta atrás del botón tiene que bajar aunque no llegue estado nuevo (sin tarea
+// en marcha, el estado no viaja cada segundo).
+let ultimosAjustes = null;
+setInterval(() => { if (ultimosAjustes) renderDnd(ultimosAjustes); }, 15000);
+
+function renderDnd(settings) {
+  const btn = document.getElementById('dndBtn');
+  if (!btn || !settings) return;
+  ultimosAjustes = settings;
+  const d = Number(settings.dndUntil) || 0;
+  const activo = d === -1 || d > Date.now();
+  btn.classList.toggle('on', activo);
+  document.getElementById('dndOff').style.display = activo ? '' : 'none';
+  const etiqueta = !activo ? 'No molestar'
+    : d === -1 ? 'No molestar'
+    : `No molestar · ${restanteDnd(d)}`;
+  document.getElementById('dndLabel').textContent = etiqueta;
+  btn.title = activo
+    ? 'No molestar puesto: no saldrá ningún aviso por encima. Haz clic para cambiarlo.'
+    : 'No molestar: silencia el recordatorio de horas, los ojos del 20-20-20 y las notificaciones.';
+}
 
 // La última que estuvo en marcha: la entrada más reciente de todas manda.
 function ultimaTarea() {

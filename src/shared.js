@@ -91,6 +91,8 @@ function computeBackMinutes(minId, timeId) {
 const TUTORIAL_STEPS = [
   { id:'main-total',     window:'main', version:'1.2.19', selector:'.total-banner',
     title:'Total de hoy', text:'Aquí ves el tiempo acumulado de todas tus tareas de hoy, sumando en tiempo real.' },
+  { id:'main-dnd',       window:'main', version:'2.4.3', selector:'#dndBtn',
+    title:'No molestar', text:'Silencia de golpe todo lo que sale por encima: el recordatorio de las horas, los ojos del 20-20-20 y las notificaciones. Lo pones los minutos u horas que quieras, y los cronómetros siguen contando igual.' },
   { id:'main-hero',      window:'main', version:'2.3.2', selector:'#heroCard',
     title:'La tarea en marcha', text:'Lo que estés haciendo ahora ocupa el sitio de honor: su cronómetro en grande, su nota y el botón de pausar. Cuando no hay nada corriendo, esta misma tarjeta te lo dice.' },
   { id:'main-nav',       window:'main', version:'1.2.19', selector:'#quickGrid',

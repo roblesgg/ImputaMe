@@ -1,4 +1,4 @@
 {
-  "version": "2.4.2",
-  "notes": "imputa.me 2.4.2 (beta). Arreglado que crear una subtarea desde el calendario no guardara nada: se creaba de verdad, pero el desplegable se quedaba con la lista vieja y al guardar iba sin subtarea. La barra flotante ya no se queda detrás de lo que pongas a pantalla completa. Y con el clic derecho sobre ella salen opciones: esconderla un rato, cambiar de pantalla o de borde, pausar la tarea, ir al calendario, imputar, o pasarte al modo clásico de ventanas."
+  "version": "2.4.3",
+  "notes": "imputa.me 2.4.3 (beta). Modo No molestar, en el Panel junto al total del día: mientras está puesto no sale ningún aviso por encima de lo que estés haciendo — ni el recordatorio de las horas, ni los ojos del 20-20-20, ni las notificaciones de hora de salida o de actualización. Se pone los minutos u horas que quieras, o hasta que lo quites, y el botón te dice cuánto le queda. Los cronómetros siguen contando igual. También está en el clic derecho de la barra flotante y en la bandeja."
 }

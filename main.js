@@ -233,6 +233,7 @@ let settings = {
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
   dockDisplayKey: null, // huella de esa pantalla: al reconectarla Windows puede darle otro id
   dockHiddenUntil: 0,   // 0 = visible; -1 = escondida a mano; si no, marca de tiempo en la que vuelve
+  dndUntil: 0,          // No molestar: 0 = apagado; -1 = hasta apagarlo; si no, cuándo se apaga solo
   theme: DEFAULT_THEME, // fondo/paleta base de toda la app (ver THEMES)
   accent: null,         // color de acento; null = el que trae el tema (ver ACCENTS)
   dockAnchor: 'right', // borde al que se pega la barrita: left | right | top | bottom
@@ -381,6 +382,7 @@ function buildTrayMenu() {
     { label: 'Ajustes', click: () => openSettings() },
     { label: `Sincronizar (móvil)${syncStatus.loggedIn ? ' ✓' : ''}…`, click: () => openSync() },
     { label: 'Pausar', click: () => pauseActive(), enabled: !!active },
+    { label: 'No molestar', type: 'checkbox', checked: dndActive(), click: () => setDnd(dndActive() ? null : 0) },
     { type: 'separator' },
     // Interruptor de escape: permite salir del modo dock desde la bandeja aunque su
     // interfaz no se viera bien, sin depender de abrir Ajustes dentro del propio dock.
@@ -758,9 +760,38 @@ function resetReminderTimer() {
 
 function showReminder() {
   if (!state.activeTaskId) return;
+  if (dndActive()) { reminderTimer = setTimeout(showReminder, getReminderMs()); return; }
   if (widgetWin && !widgetWin.isDestroyed()) { widgetWin.showInactive(); scheduleWidgetAutoHide(); }
   else createWidgetWindow();
   reminderTimer = setTimeout(showReminder, getReminderMs());
+}
+
+// ── No molestar ──────────────────────────────────────────────────────────────
+// Mientras está puesto no sale NINGÚN aviso por encima de lo que estés haciendo: ni
+// el recordatorio de las horas, ni los ojos del 20-20-20, ni las notificaciones de
+// hora de salida o de actualización. Lo que sí sigue funcionando es lo que no
+// interrumpe: los cronómetros cuentan igual y, si lo pediste, la tarea se para sola
+// a tu hora aunque no te lo diga.
+function dndActive() {
+  const d = Number(settings.dndUntil) || 0;
+  if (d === -1) return true;
+  if (d > Date.now()) return true;
+  if (d !== 0) { settings.dndUntil = 0; saveSettings(); broadcastState(); }   // ya venció
+  return false;
+}
+
+// minutos = 0 lo deja puesto hasta que se quite; null lo quita.
+function setDnd(minutos) {
+  if (minutos === null) settings.dndUntil = 0;
+  else if (!minutos) settings.dndUntil = -1;
+  else settings.dndUntil = Date.now() + minutos * 60000;
+  saveSettings();
+  if (dndActive()) {
+    // Lo que ya estuviera asomando se retira en el acto.
+    hideEyeCare();
+    try { if (widgetWin && !widgetWin.isDestroyed()) widgetWin.hide(); } catch {}
+  }
+  broadcastState(); updateTrayTitle();
 }
 
 // ── Aviso de hora de salida ──────────────────────────────────────────────────
@@ -790,6 +821,10 @@ function checkLeaveTime() {
   const objetivo = new Date();
   objetivo.setHours(h, m, 0, 0);
 
+  // Con No molestar puesto no se avisa, y tampoco se marca como avisado: si se quita
+  // dentro de la ventana de una hora, el aviso todavía llega.
+  if (dndActive() && !settings.leaveAutoStop) return;
+
   const retraso = Date.now() - objetivo.getTime();
   // Se avisa desde la hora en punto y hasta una hora después: así el aviso no se
   // pierde si el ordenador estaba suspendido justo en ese minuto, pero tampoco salta
@@ -803,7 +838,7 @@ function checkLeaveTime() {
     pauseActive();
     saveData(); broadcastState(); updateTrayTitle();
   }
-  notifyLeaveTime(task, settings.leaveAutoStop);
+  if (!dndActive()) notifyLeaveTime(task, settings.leaveAutoStop);
 }
 
 function notifyLeaveTime(task, parada) {
@@ -855,6 +890,15 @@ function showDockContextMenu() {
       ? { label: `Pausar «${activa.name}»`, click: () => pauseActive() }
       : { label: 'No hay ninguna tarea en marcha', enabled: false },
     { type: 'separator' },
+    dndActive()
+      ? { label: 'Quitar el modo no molestar', click: () => setDnd(null) }
+      : {
+          label: 'No molestar',
+          submenu: [15, 30, 60, 120, 480].map(m => ({
+            label: m < 60 ? `${m} minutos` : `${m / 60} hora${m > 60 ? 's' : ''}`,
+            click: () => setDnd(m),
+          })).concat([{ type: 'separator' }, { label: 'Hasta que lo quite', click: () => setDnd(0) }]),
+        },
     {
       label: 'Esconder la barra',
       submenu: [
@@ -976,7 +1020,9 @@ function createEyeCareWindow() {
   return eyeCareWin;
 }
 
-function showEyeCare(segundos) {
+function showEyeCare(segundos, forzar) {
+  // forzar = la vista previa de Ajustes, que la pide el usuario a propósito.
+  if (dndActive() && !forzar) return;
   const win = createEyeCareWindow();
   if (!win || win.isDestroyed()) return;
   const secs = Math.max(1, Number(segundos) || Number(settings.eyeCareRest) || 20);
@@ -2009,7 +2055,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       saveSettingsSoon(); broadcastState();
       startEyeCareTimer();
       // Al tocar la posición o el tamaño se enseña un momento, para verlo mientras se ajusta.
-      if (p.preview) showEyeCare(p.previewSeconds || 3);
+      if (p.preview) showEyeCare(p.previewSeconds || 3, true);
       break;
     }
     case 'eye-done': hideEyeCare(); break;
@@ -2131,6 +2177,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       dockBarRect = (payload && payload.barRect) || null;
       updateDockHitTest();
       break;
+    case 'set-dnd': setDnd(payload && payload.minutes === null ? null : Number(payload && payload.minutes) || 0); break;
     case 'dock-context-menu': showDockContextMenu(); break;
     case 'show-dock-bar': hideDockFor(null); break;
     case 'dock-expand':            // la barrita pide abrir el panel
@@ -2518,6 +2565,7 @@ function setupAutoUpdate() {
 }
 
 function notifyUpdateAvailable(version) {
+  if (dndActive()) return;   // el botón del panel sigue estando; el aviso encima, no
   try {
     if (!Notification.isSupported()) return;
     const n = new Notification({
@@ -2557,6 +2605,8 @@ app.whenReady().then(() => {
   if (!(settings.tutorialSeenSteps || []).length) tourActive = true;
   startLeaveWatcher();
   startEyeCareTimer();
+  // No molestar se apaga solo al vencer: dndActive() lo caduca y avisa a las vistas.
+  setInterval(() => { if (settings.dndUntil) dndActive(); }, 30000);
 
   // Sincronización opcional (Supabase). Si hay sesión guardada, arranca sola.
   if (sync) sync.init({
