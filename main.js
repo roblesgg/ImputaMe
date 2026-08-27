@@ -404,7 +404,7 @@ function toggleDockMode() {
 }
 
 // ── Acciones ─────────────────────────────────────────────────────────────────
-function startTask(taskId, backMinutes, subId) {
+function startTask(taskId, backMinutes, subId, note) {
   pauseActive();
   const task = state.tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -418,6 +418,9 @@ function startTask(taskId, backMinutes, subId) {
   // guarda el suyo por lo mismo: borrarla no debe reescribir el historial.
   const entry = { start, end: null, nameAtTime: task.name };
   if (sub) { entry.subId = sub.id; entry.subNameAtTime = sub.name; }
+  // Al continuar desde una entrada anterior se hereda su nota: sigues en lo mismo.
+  const n = (note || '').trim().slice(0, 500);
+  if (n) entry.note = n;
   task.entries.push(entry);
   saveData(); broadcastState(); resetReminderTimer();
 }
@@ -452,12 +455,12 @@ function setActiveEntryNote(note) {
   saveData(); broadcastState();
 }
 
-function switchTask(taskId, backMinutes, subId) {
+function switchTask(taskId, backMinutes, subId, note) {
   // Pulsar el play de lo que ya está corriendo lo pausa; si es otra tarea u otra
   // subtarea de la misma tarea, se cambia a ella.
   const mismaSub = (state.activeSubId || null) === (subId || null);
   if (state.activeTaskId === taskId && mismaSub) pauseActive();
-  else startTask(taskId, backMinutes, subId);
+  else startTask(taskId, backMinutes, subId, note);
 }
 
 // ── Subtareas ────────────────────────────────────────────────────────────────
@@ -528,6 +531,9 @@ function resumeEntry(taskId, entryIndex) {
   task.entries.splice(entryIndex, 1);
   task.entries.push(entry);
   state.activeTaskId = taskId;
+  // La entrada se reanuda entera: vuelve con su subtarea y con su nota. Sin esta línea
+  // el panel se quedaba creyendo que no había subtarea en marcha.
+  state.activeSubId = entry.subId || null;
   saveData(); broadcastState(); resetReminderTimer();
 }
 
@@ -1008,12 +1014,22 @@ function showCalendarContextMenu(taskId, entryIndex) {
     if (task.archived) {
       plantilla.push({ label: 'Sacar de Guardadas', click: () => unarchiveTask(task.id) });
     }
-    plantilla.push(
-      { type: 'separator' },
-      enMarcha
-        ? { label: 'Pausar', click: () => pauseActive() }
-        : { label: 'Reanudar esta tarea', click: () => startTask(task.id) },
-    );
+    // Mismos controles que el popup de la entrada, para no tener que abrirlo.
+    const entrada = task.entries[entryIndex];
+    const enCurso = entrada && entrada.end == null;
+    plantilla.push({ type: 'separator' });
+    if (enMarcha && enCurso) {
+      plantilla.push({ label: 'Pausar', click: () => pauseActive() });
+    } else if (entrada && !enMarcha) {
+      // Las dos maneras de retomar: una entrada nueva desde ahora, o estirar esta
+      // hasta ahora. En ambas se conservan la subtarea y la nota de este rato.
+      const sub = entrada.subId && (task.subtasks || []).some(x => x.id === entrada.subId)
+        ? entrada.subId : undefined;
+      plantilla.push(
+        { label: 'Nueva entrada desde ahora', click: () => startTask(task.id, 0, sub, entrada.note) },
+        { label: 'Alargar esta hasta ahora', click: () => resumeEntry(task.id, entryIndex) },
+      );
+    }
   }
 
   plantilla.push(
@@ -2097,7 +2113,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'rename-subtask': renameSubtask(payload.taskId, payload.subId, payload.name); break;
     case 'delete-subtask': deleteSubtask(payload.taskId, payload.subId); break;
     case 'pause':         pauseActive(); break;
-    case 'switch-task':   switchTask(payload.taskId, payload.backMinutes, payload.subId); break;
+    case 'switch-task':   switchTask(payload.taskId, payload.backMinutes, payload.subId, payload.note); break;
     case 'restart-task-with-note': restartActiveTaskWithNote(payload && payload.note); break;
     case 'resume-entry':  resumeEntry(payload.taskId, payload.entryIndex); break;
     case 'create-task': {

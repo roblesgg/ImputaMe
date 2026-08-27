@@ -1,4 +1,4 @@
 {
-  "version": "2.4.7",
-  "notes": "imputa.me 2.4.7 (beta). Arreglado el \"No se puede cerrar imputa.me\" que salía al actualizar y obligaba a reintentar varias veces: ahora la app se cierra a conciencia (ventanas y bandeja) antes de lanzar el instalador. 24 colores para las tareas en vez de 8, en una cuadrícula de claros, medios y oscuros. Y en el selector de tarea del calendario, botones para abrir y cerrar todas las secciones de golpe."
+  "version": "2.4.8",
+  "notes": "imputa.me 2.4.8 (beta). El clic derecho sobre una entrada del calendario ofrece ya las dos formas de retomarla: \"Nueva entrada desde ahora\" y \"Alargar esta hasta ahora\". Las dos conservan la subtarea y la nota de ese rato, así que continúas exactamente en lo mismo. De paso, alargar una entrada ya devuelve su subtarea al panel, que antes se quedaba como si no hubiera ninguna."
 }

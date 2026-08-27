@@ -1376,7 +1376,8 @@ function renderPopupQuickActions(task, entryIndex, entry) {
       // Se reanuda en la misma subtarea en la que estaba, si la entrada era de una y
       // esa subtarea sigue existiendo.
       const sub = entry.subId && (task.subtasks || []).some(x => x.id === entry.subId) ? entry.subId : undefined;
-      ipcRenderer.send('action', { type:'switch-task', payload:{ taskId: task.id, subId: sub } });
+      // Se continúa con lo mismo: misma subtarea y misma nota que este rato.
+      ipcRenderer.send('action', { type:'switch-task', payload:{ taskId: task.id, subId: sub, note: entry.note } });
       closePopup();
     }));
     wrap.appendChild(mkBtn(PQA_ICON_EXTEND, 'Alargar esta hasta ahora', 'pqa-accent', () => {
