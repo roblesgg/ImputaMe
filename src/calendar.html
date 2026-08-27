@@ -476,6 +476,16 @@
   </div>
 
   <!-- Popup de confirmación con el estilo de la app (sustituye a confirm() nativo) -->
+  <div class="popup-backdrop" id="taskColorBackdrop" style="display:none" onclick="cerrarColorTarea()"></div>
+  <div class="entry-popup" id="taskColorPopup" style="display:none">
+    <div class="entry-popup-title" id="taskColorTitle">Color de la tarea</div>
+    <div class="color-row" id="taskColorPicker"></div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="cerrarColorTarea()">Cerrar</button>
+    </div>
+  </div>
+
   <div class="popup-backdrop confirm-backdrop" id="confirmPopupBackdrop" style="display:none" onclick="closeConfirmPopup()"></div>
   <div class="entry-popup confirm-popup" id="confirmPopup" style="display:none">
     <div class="entry-popup-title" id="confirmPopupTitle">Confirmar</div>
@@ -647,12 +657,38 @@ function renderTotalsInto(listId, totals, vacio) {
 
 function abrirImpute() { ipcRenderer.send('action', { type:'open-impute-url' }); }
 
+// ── Color de una tarea, desde los puntitos de la barra lateral ───────────────
+let colorTareaId = null;
+function abrirColorTarea(task) {
+  colorTareaId = task.id;
+  document.getElementById('taskColorTitle').textContent = task.name;
+  const picker = document.getElementById('taskColorPicker');
+  picker.innerHTML = '';
+  COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch' + (task.color === c ? ' selected' : '');
+    sw.style.background = c;
+    sw.onclick = () => {
+      ipcRenderer.send('action', { type:'edit-task-color', payload:{ taskId: colorTareaId, color: c } });
+      cerrarColorTarea();
+    };
+    picker.appendChild(sw);
+  });
+  document.getElementById('taskColorBackdrop').style.display = 'block';
+  document.getElementById('taskColorPopup').style.display = 'flex';
+}
+function cerrarColorTarea() {
+  document.getElementById('taskColorBackdrop').style.display = 'none';
+  document.getElementById('taskColorPopup').style.display = 'none';
+  colorTareaId = null;
+}
+
 // El menú del clic derecho no puede pedir texto por su cuenta: pide a la vista que lo
 // haga y le devuelva el nombre de la sección nueva.
 ipcRenderer.on('ask-new-group', async (_, taskId) => {
   const nombre = await askText({
     title: 'Guardar en una sección nueva',
-    text: 'La tarea se archivará en Guardadas dentro de esta sección.',
+    text: 'La tarea se archivará en esta sección, y la verás en Tareas.',
     placeholder: 'Nombre de la sección',
     okLabel: 'Guardar', maxLength: 60,
   });

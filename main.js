@@ -407,7 +407,7 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: 'Panel', click: () => openMain() },
     { label: 'Calendario', click: () => openCalendar() },
-    { label: 'Guardadas', click: () => openGroups() },
+    { label: 'Tareas', click: () => openGroups() },
     { label: 'Ajustes', click: () => openSettings() },
     { label: `Sincronizar (móvil)${syncStatus.loggedIn ? ' ✓' : ''}…`, click: () => openSync() },
     { label: 'Pausar', click: () => pauseActive(), enabled: !!active },
@@ -984,7 +984,7 @@ function showDockContextMenu() {
     },
     { type: 'separator' },
     { label: 'Calendario', click: () => openCalendar() },
-    { label: 'Guardadas', click: () => openGroups() },
+    { label: 'Tareas', click: () => openGroups() },
     { label: 'Ajustes', click: () => openSettings() },
   ];
 

@@ -105,7 +105,7 @@ const TUTORIAL_STEPS = [
   { id:'main-hero',      window:'main', version:'2.3.2', selector:'#heroCard',
     title:'La tarea en marcha', text:'Lo que estés haciendo ahora ocupa el sitio de honor: su cronómetro en grande, su nota y el botón de pausar. Cuando no hay nada corriendo, esta misma tarjeta te lo dice.' },
   { id:'main-nav',       window:'main', version:'1.2.19', selector:'#quickGrid',
-    title:'Accesos rápidos', text:'Desde aquí abres el Calendario (tu historial completo, editable), las tareas Guardadas (archivadas por secciones) y los Ajustes. El cuarto botón vuelve a poner en marcha la última tarea que estuviste haciendo.' },
+    title:'Accesos rápidos', text:'Desde aquí abres el Calendario (tu historial completo, editable), todas tus Tareas (con sus secciones) y los Ajustes. El cuarto botón vuelve a poner en marcha la última tarea que estuviste haciendo.' },
   { id:'main-note',      window:'main', version:'1.2.19', selector:'#activeNoteRow',
     title:'Nota rápida', text:'Anota qué estás haciendo exactamente ahora mismo dentro de esta tarea. Se ve reflejada en el calendario y se borra sola al pausar.' },
   { id:'main-update',    window:'main', version:'1.2.19', selector:'#updateBtn',
@@ -125,7 +125,7 @@ const TUTORIAL_STEPS = [
   { id:'main-color',     window:'main', version:'1.2.19', selector:'#tasksList .task-dot',
     title:'Color', text:'Haz clic en el punto de color para cambiarlo.' },
   { id:'main-save',      window:'main', version:'1.2.19', selector:'#tasksList .icon-btn[title="Guardar en un grupo"]',
-    title:'Guardar en un grupo', text:'Archiva la tarea en "Guardadas" para tenerla ordenada, sin que ocupe sitio en el panel principal. Podrás retomarla cuando quieras.' },
+    title:'Guardar en una sección', text:'Archiva la tarea en una sección para tenerla ordenada, sin que ocupe sitio en el panel principal. Sigue estando en Tareas, y puedes retomarla cuando quieras.' },
   { id:'main-addtask',   window:'main', version:'1.2.19', selector:'.new-task-area .btn-primary',
     title:'Añadir tarea', text:'Crea una tarea nueva. En cuanto le des a play, empieza a contar el tiempo.' },
 
