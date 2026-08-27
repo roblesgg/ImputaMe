@@ -295,6 +295,28 @@
     </div>
   </div>
 
+  <!-- ── Calendario ─────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Calendario</div>
+    <div class="card">
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:11px">
+        <div class="row-text">
+          <span class="row-title">Días que se ven</span>
+          <span class="row-desc">Quita los que no trabajes y las columnas se reparten el hueco. Si una semana suelta necesitas meter un sábado, se hace desde el botón "Días" del propio calendario, solo para esa semana.</span>
+        </div>
+        <div class="seg" id="weekDaysSeg" style="flex-wrap:wrap">
+          <button type="button" data-day="1">Lun</button>
+          <button type="button" data-day="2">Mar</button>
+          <button type="button" data-day="3">Mié</button>
+          <button type="button" data-day="4">Jue</button>
+          <button type="button" data-day="5">Vie</button>
+          <button type="button" data-day="6">Sáb</button>
+          <button type="button" data-day="0">Dom</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Enlace para imputar ────────────────────────────────── -->
   <div class="section">
     <div class="section-label">Enlace para imputar</div>
@@ -716,6 +738,25 @@ function applyLeave() {
 });
 document.getElementById('leaveTime').addEventListener('change', applyLeave);
 
+// ---------- Días visibles del calendario ----------
+let weekDays = [1, 2, 3, 4, 5, 6, 0];
+
+function pintarWeekDays() {
+  document.querySelectorAll('#weekDaysSeg button').forEach(b =>
+    b.classList.toggle('active', weekDays.includes(Number(b.dataset.day))));
+}
+
+document.querySelectorAll('#weekDaysSeg button').forEach(b => {
+  b.addEventListener('click', () => {
+    const d = Number(b.dataset.day);
+    const nuevos = weekDays.includes(d) ? weekDays.filter(x => x !== d) : [...weekDays, d];
+    if (!nuevos.length) return;   // sin ningún día el calendario no tendría nada que enseñar
+    weekDays = nuevos;
+    pintarWeekDays();
+    ipcRenderer.send('action', { type:'set-week-days', payload:{ days: weekDays } });
+  });
+});
+
 // ---------- Enlace para imputar ----------
 // Se guarda al salir del campo (y con Enter): guardar en cada tecla dejaria a medias
 // direcciones sin terminar y el boton apareceria y desapareceria mientras escribes.
@@ -911,6 +952,9 @@ ipcRenderer.on('settings', (_, s) => {
   document.getElementById('autohideRange').value = secs;
   document.getElementById('autohideValueLabel').textContent = secs + 's';
   updateAutohideVisibility();
+
+  weekDays = (Array.isArray(s.weekDays) && s.weekDays.length) ? s.weekDays : [1, 2, 3, 4, 5, 6, 0];
+  pintarWeekDays();
 
   document.getElementById('imputeUrl').value = s.imputeUrl || '';
 

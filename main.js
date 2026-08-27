@@ -231,6 +231,13 @@ let settings = {
   tutorialSeenSteps: [], // ids de pasos del tutorial guiado ya vistos u omitidos (ver TUTORIAL_STEPS en shared.js)
   groupSort: 'created',  // orden de las secciones en Guardadas: 'created' | 'alpha' | 'custom'
   groupSortDir: 'asc',   // y en qué sentido: 'asc' | 'desc'
+  // Días que se ven en el calendario, por getDay() (0 = domingo ... 6 = sábado). Por
+  // defecto la semana entera; quien no trabaje el fin de semana puede quitarlo y las
+  // columnas se reparten el hueco.
+  weekDays: [1, 2, 3, 4, 5, 6, 0],
+  // Excepciones para UNA semana concreta: { 'AAAA-MM-DD del lunes': [días visibles] }.
+  // Sirve para el sábado suelto que sí se trabaja sin cambiar el ajuste general.
+  weekOverrides: {},
   dockMode: true,      // modo barra flotante lateral: es el modo por defecto (instalación nueva)
   dockDisplayId: null, // en qué pantalla se ancla el dock (null = la de referencia)
   dockDisplayKey: null, // huella de esa pantalla: al reconectarla Windows puede darle otro id
@@ -973,6 +980,69 @@ function showDockContextMenu() {
   );
 
   try { Menu.buildFromTemplate(plantilla).popup({ window: dockWin }); } catch {}
+}
+
+// ── Días visibles del calendario ─────────────────────────────────────────────
+const DIAS_SEMANA = [[1, 'Lunes'], [2, 'Martes'], [3, 'Miércoles'], [4, 'Jueves'],
+                     [5, 'Viernes'], [6, 'Sábado'], [0, 'Domingo']];
+
+function defaultWeekDays() {
+  const d = Array.isArray(settings.weekDays) ? settings.weekDays : [];
+  return d.length ? d : [1, 2, 3, 4, 5, 6, 0];
+}
+
+function weekDaysFor(clave) {
+  const ov = settings.weekOverrides && settings.weekOverrides[clave];
+  return Array.isArray(ov) ? ov : defaultWeekDays();
+}
+
+// Las excepciones son de usar y tirar: pasado un año no le importan a nadie y solo
+// engordarían el fichero de ajustes.
+function pruneWeekOverrides() {
+  const ovs = settings.weekOverrides;
+  if (!ovs) return;
+  const limite = Date.now() - 365 * 86400000;
+  Object.keys(ovs).forEach(k => {
+    const t = Date.parse(k + 'T00:00:00');
+    if (Number.isFinite(t) && t < limite) delete ovs[k];
+  });
+}
+
+// Menú para elegir qué días se ven. Los cambios de aquí son SOLO de esa semana; el
+// ajuste permanente está en Ajustes, y desde aquí se puede volver a él.
+function showWeekDaysMenu(clave) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(clave || ''))) return;
+  const win = BrowserWindow.getFocusedWindow() || dockPanelWin || calendarWin;
+  const visibles = weekDaysFor(clave);
+  const hayExcepcion = !!(settings.weekOverrides && settings.weekOverrides[clave]);
+
+  const plantilla = [
+    { label: 'Días de esta semana', enabled: false },
+    { type: 'separator' },
+    ...DIAS_SEMANA.map(([n, etiqueta]) => ({
+      label: etiqueta,
+      type: 'checkbox',
+      checked: visibles.includes(n),
+      click: () => {
+        const nuevos = visibles.includes(n) ? visibles.filter(x => x !== n) : [...visibles, n];
+        if (!nuevos.length) return;   // dejar la semana sin días no tiene sentido
+        if (!settings.weekOverrides) settings.weekOverrides = {};
+        settings.weekOverrides[clave] = nuevos;
+        pruneWeekOverrides(); saveSettings(); broadcastState();
+      },
+    })),
+    { type: 'separator' },
+    {
+      label: 'Volver a mis días de siempre',
+      enabled: hayExcepcion,
+      click: () => {
+        delete settings.weekOverrides[clave];
+        saveSettings(); broadcastState();
+      },
+    },
+    { label: 'Cambiar mis días de siempre…', click: () => openSettings() },
+  ];
+  try { Menu.buildFromTemplate(plantilla).popup(win ? { window: win } : {}); } catch {}
 }
 
 // ── Menú del clic derecho sobre una entrada del calendario ───────────────────
@@ -2212,6 +2282,28 @@ ipcMain.on('action', (event, { type, payload }) => {
       break;
     }
     case 'open-impute-url': openImputeUrl(); break;
+    case 'set-week-days': {
+      const dias = Array.isArray(payload && payload.days)
+        ? payload.days.map(Number).filter(d => d >= 0 && d <= 6) : [];
+      settings.weekDays = dias.length ? [...new Set(dias)] : [1, 2, 3, 4, 5, 6, 0];
+      saveSettings(); broadcastState();
+      break;
+    }
+    case 'set-week-override': {
+      const clave = String((payload && payload.week) || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(clave)) break;
+      if (!settings.weekOverrides || typeof settings.weekOverrides !== 'object') settings.weekOverrides = {};
+      if (payload.days === null) {
+        delete settings.weekOverrides[clave];   // vuelve a lo de siempre
+      } else {
+        const dias = Array.isArray(payload.days) ? payload.days.map(Number).filter(d => d >= 0 && d <= 6) : [];
+        settings.weekOverrides[clave] = [...new Set(dias)];
+      }
+      pruneWeekOverrides();
+      saveSettings(); broadcastState();
+      break;
+    }
+    case 'week-days-menu': showWeekDaysMenu(payload && payload.week); break;
     case 'set-group-sort':
       if (payload && payload.sort !== undefined) {
         settings.groupSort = ['alpha', 'created', 'custom'].includes(payload.sort) ? payload.sort : 'created';
@@ -2742,6 +2834,7 @@ app.whenReady().then(() => {
   DATA_FILE = path.join(app.getPath('userData'), 'imputa-tasks.json');
   SETTINGS_FILE = path.join(app.getPath('userData'), 'imputa-settings.json');
   loadData();
+  pruneWeekOverrides();
   applySystemThemeSource();
   // Instalación nueva: el recorrido va solo por las cuatro pantallas. En cualquier otro
   // caso hay que pedirlo desde Ajustes; si no, a quien le quedaran pasos sueltos se lo

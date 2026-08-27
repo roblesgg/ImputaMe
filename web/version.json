@@ -1,4 +1,4 @@
 {
-  "version": "2.4.10",
-  "notes": "imputa.me 2.4.10 (beta). Animaciones más fluidas por dos vías. Una: Chromium frena las animaciones de las ventanas que no tienen el foco, y la barra flotante nunca lo tiene y la de los ojos ni siquiera puede tenerlo — justo las que más animan eran las que iban a menos fotogramas. Desactivado ese frenado. Y dos: las animaciones de tamaño y desvanecido se movían con un temporizador de 16 ms, que en Windows acaba disparando a 15,6 o a 31 y provoca fotogramas dobles; ahora se piden muchos más y manda el ritmo de la pantalla, saltándose los que no cambian nada."
+  "version": "2.4.11",
+  "notes": "imputa.me 2.4.11 (beta). Ya puedes elegir qué días se ven en el calendario: quita el sábado y el domingo en Ajustes → Calendario y las columnas se reparten el hueco. Y si una semana suelta sí trabajas un sábado, el botón \"Días\" del calendario te lo mete solo en esa semana, sin tocar tu configuración de siempre (y con un aviso en el botón de que esa semana va distinta)."
 }

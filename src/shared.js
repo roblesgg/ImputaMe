@@ -135,6 +135,8 @@ const TUTORIAL_STEPS = [
     title:'Clic derecho en un bloque', text:'Desde aquí guardas la tarea en una sección (o la mueves a otra) sin pasar por el panel, la pausas o la reanudas, y editas o eliminas ese rato concreto.' },
   { id:'cal-subtarea',   window:'calendar', version:'2.4.1', selector:'#gridScroll',
     title:'La subtarea de cada rato', text:'Al hacer clic en un bloque puedes elegir a qué subtarea fue ese rato, y crear, renombrar o borrar subtareas ahí mismo. Como el nombre y la nota, el cambio es solo de esa entrada.' },
+  { id:'cal-dias',       window:'calendar', version:'2.4.11', selector:'#weekDaysBtn',
+    title:'Los días que trabajas', text:'Quita el sábado y el domingo si no los trabajas y las columnas se reparten el hueco. Lo que elijas aquí vale solo para la semana que estés viendo: para cambiarlo siempre, en Ajustes → Calendario.' },
   { id:'cal-day',        window:'calendar', version:'1.2.19', selector:'#weekHeader',
     title:'Elegir día', text:'Haz clic en la cabecera de un día para seleccionarlo: se marca aquí y se resume en el panel de la izquierda.' },
   { id:'cal-summary',    window:'calendar', version:'1.2.19', selector:'.day-totals',
