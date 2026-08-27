@@ -324,11 +324,15 @@
       <div class="row" style="flex-direction:column;align-items:stretch;gap:11px">
         <div class="row-text">
           <span class="row-title">A dónde imputas de verdad</span>
-          <span class="row-desc">Pega aquí la dirección del sitio donde metes las horas (el portal de tu empresa, una hoja de cálculo...). En cuanto pongas una, aparece un botón "Imputar" en el Panel y en el Calendario que te lleva ahí. Déjalo vacío para quitarlo.</span>
+          <span class="row-desc">Las direcciones de los sitios donde metes las horas (el portal de tu empresa, una hoja de cálculo...). Puedes poner los que quieras: con uno solo, el botón "Imputar" del Panel y del Calendario te lleva directo; con varios, te deja elegir a cuál ir o abrirlos todos de golpe.</span>
         </div>
+        <div id="imputeList" style="display:flex;flex-direction:column;gap:8px"></div>
         <div style="display:flex;gap:8px">
-          <input type="text" id="imputeUrl" placeholder="https://..." maxlength="2000" style="flex:1">
-          <button class="btn-ghost" id="imputeTest" onclick="probarImpute()" style="white-space:nowrap;padding:0 14px">Probar</button>
+          <button class="btn-ghost" onclick="anadirImpute()" style="white-space:nowrap;padding:9px 14px;display:flex;align-items:center;gap:6px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Añadir enlace
+          </button>
+          <button class="btn-ghost" onclick="probarImpute()" style="white-space:nowrap;padding:9px 14px">Probar</button>
         </div>
       </div>
     </div>
@@ -757,20 +761,65 @@ document.querySelectorAll('#weekDaysSeg button').forEach(b => {
   });
 });
 
-// ---------- Enlace para imputar ----------
-// Se guarda al salir del campo (y con Enter): guardar en cada tecla dejaria a medias
-// direcciones sin terminar y el boton apareceria y desapareceria mientras escribes.
-function guardarImpute() {
-  ipcRenderer.send('action', { type:'set-impute-url', payload:{ url: document.getElementById('imputeUrl').value } });
+// ---------- Enlaces para imputar ----------
+// Se guarda al salir de un campo (y con Enter), no en cada tecla: si no, una dirección
+// a medio escribir haría aparecer y desaparecer el botón mientras la tecleas.
+let imputeUrls = [];
+
+function pintarImpute() {
+  const cont = document.getElementById('imputeList');
+  cont.innerHTML = '';
+  const filas = imputeUrls.length ? imputeUrls : [''];
+  filas.forEach((url, i) => {
+    const fila = document.createElement('div');
+    fila.style.cssText = 'display:flex;gap:8px;align-items:center';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'https://...';
+    input.maxLength = 2000;
+    input.value = url;
+    input.style.flex = '1';
+    const guardar = () => {
+      imputeUrls[i] = input.value.trim();
+      guardarImpute();
+    };
+    input.addEventListener('change', guardar);
+    input.addEventListener('blur', guardar);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { guardar(); showToast('Enlaces guardados'); }
+    });
+    fila.appendChild(input);
+
+    const quitar = document.createElement('button');
+    quitar.className = 'btn-ghost';
+    quitar.title = 'Quitar este enlace';
+    quitar.style.cssText = 'padding:0 12px;color:var(--text2)';
+    quitar.innerHTML = '<svg width="12" height="12" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    quitar.onclick = () => { imputeUrls.splice(i, 1); pintarImpute(); guardarImpute(); };
+    fila.appendChild(quitar);
+
+    cont.appendChild(fila);
+  });
 }
-document.getElementById('imputeUrl').addEventListener('change', guardarImpute);
-document.getElementById('imputeUrl').addEventListener('blur', guardarImpute);
-document.getElementById('imputeUrl').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { guardarImpute(); showToast('Enlace guardado'); }
-});
+
+function guardarImpute() {
+  const limpias = imputeUrls.map(u => (u || '').trim()).filter(Boolean);
+  ipcRenderer.send('action', { type:'set-impute-urls', payload:{ urls: limpias } });
+}
+
+function anadirImpute() {
+  imputeUrls.push('');
+  pintarImpute();
+  const inputs = document.querySelectorAll('#imputeList input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
 function probarImpute() {
   guardarImpute();
-  ipcRenderer.send('action', { type:'open-impute-url' });
+  const limpias = imputeUrls.map(u => (u || '').trim()).filter(Boolean);
+  if (!limpias.length) return;
+  // Con varios, se abren todos: es la forma de comprobar de una vez que van bien.
+  ipcRenderer.send('action', { type:'open-impute-url', payload: limpias.length > 1 ? { all: true } : {} });
 }
 
 // ---------- Regla 20-20-20 ----------
@@ -956,7 +1005,8 @@ ipcRenderer.on('settings', (_, s) => {
   weekDays = (Array.isArray(s.weekDays) && s.weekDays.length) ? s.weekDays : [1, 2, 3, 4, 5, 6, 0];
   pintarWeekDays();
 
-  document.getElementById('imputeUrl').value = s.imputeUrl || '';
+  imputeUrls = Array.isArray(s.imputeUrls) ? [...s.imputeUrls] : (s.imputeUrl ? [s.imputeUrl] : []);
+  pintarImpute();
 
   document.getElementById('eyeCareEnabled').checked = !!s.eyeCareEnabled;
   document.getElementById('eyeCareEvery').value = s.eyeCareEvery || 20;

@@ -156,6 +156,7 @@ const WHATS_NEW = {
   '2.5.3': NOVEDADES_2_5,
   '2.5.4': NOVEDADES_2_5,
   '2.5.5': NOVEDADES_2_5,
+  '2.5.6': NOVEDADES_2_5,
 };
 
 // Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el
@@ -236,7 +237,8 @@ let settings = {
   reminderMinutes: 10,
   // Enlace a donde imputas de verdad las horas (el portal de tu empresa, una hoja...).
   // Si está puesto, aparece un botón "Imputar" en el Panel y en el Calendario.
-  imputeUrl: '',
+  imputeUrl: '',      // se conserva por compatibilidad; al arrancar se vuelca a imputeUrls
+  imputeUrls: [],     // quien imputa en varios sitios puede tener todos los que quiera
   // ── Hora de salida ──────────────────────────────────────────────────────────
   // Aviso al terminar la jornada para que no se quede una tarea corriendo toda la
   // noche. Viene apagado: la hora de salida es cosa de cada uno, no hay defecto que
@@ -1000,7 +1002,7 @@ function showDockContextMenu() {
     { label: 'Ajustes', click: () => openSettings() },
   ];
 
-  if (normalizeUrl(settings.imputeUrl)) {
+  if (imputeUrls().length) {
     plantilla.push({ label: 'Imputar…', click: () => openImputeUrl() });
   }
 
@@ -1060,7 +1062,12 @@ function showWeekDaysMenu(clave) {
         if (!nuevos.length) return;   // dejar la semana sin días no tiene sentido
         if (!settings.weekOverrides) settings.weekOverrides = {};
         settings.weekOverrides[clave] = nuevos;
-        pruneWeekOverrides(); saveSettings(); broadcastState();
+        pruneWeekOverrides();
+  // Antes solo se podía guardar un enlace. El que hubiera pasa a ser el primero de la
+  // lista, sin que el usuario tenga que volver a escribirlo.
+  if (!Array.isArray(settings.imputeUrls)) settings.imputeUrls = [];
+  if (!settings.imputeUrls.length && settings.imputeUrl) settings.imputeUrls = [settings.imputeUrl];
+  settings.imputeUrls = settings.imputeUrls.map(normalizeUrl).filter(Boolean); saveSettings(); broadcastState();
       },
     })),
     { type: 'separator' },
@@ -1157,10 +1164,23 @@ function normalizeUrl(url) {
   } catch { return ''; }
 }
 
-function openImputeUrl() {
-  const url = normalizeUrl(settings.imputeUrl);
-  if (!url) return;
-  try { require('electron').shell.openExternal(url); } catch {}
+function imputeUrls() {
+  return (settings.imputeUrls || []).map(normalizeUrl).filter(Boolean);
+}
+
+// Sin argumentos abre el único que haya; con uno concreto, ese; con todos:true, los
+// abre en orden y separados unas décimas para que el navegador no se atragante y se
+// coma alguna pestaña.
+function openImputeUrl(cual) {
+  const lista = imputeUrls();
+  if (!lista.length) return;
+  const shell = require('electron').shell;
+  if (cual && cual.all) {
+    lista.forEach((u, i) => setTimeout(() => { try { shell.openExternal(u); } catch {} }, i * 250));
+    return;
+  }
+  const url = cual && cual.url ? normalizeUrl(cual.url) : lista[0];
+  if (url && lista.includes(url)) { try { shell.openExternal(url); } catch {} }
 }
 
 // ── Regla 20-20-20 ───────────────────────────────────────────────────────────
@@ -2289,13 +2309,17 @@ ipcMain.on('action', (event, { type, payload }) => {
       startLeaveWatcher();
       break;
     }
-    case 'set-impute-url': {
-      const url = String((payload && payload.url) || '').trim().slice(0, 2000);
-      settings.imputeUrl = normalizeUrl(url);
+    case 'set-impute-urls': {
+      const lista = Array.isArray(payload && payload.urls) ? payload.urls : [];
+      settings.imputeUrls = lista
+        .map(u => normalizeUrl(String(u || '').trim().slice(0, 2000)))
+        .filter(Boolean)
+        .filter((u, i, a) => a.indexOf(u) === i);   // sin repetidos
+      settings.imputeUrl = settings.imputeUrls[0] || '';   // el viejo ajuste, al día
       saveSettings(); broadcastState();
       break;
     }
-    case 'open-impute-url': openImputeUrl(); break;
+    case 'open-impute-url': openImputeUrl(payload); break;
     case 'set-week-days': {
       const dias = Array.isArray(payload && payload.days)
         ? payload.days.map(Number).filter(d => d >= 0 && d <= 6) : [];

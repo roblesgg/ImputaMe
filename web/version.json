@@ -1,4 +1,4 @@
 {
-  "version": "2.5.5",
-  "notes": "imputa.me 2.5.5. Arreglado que el recorrido de novedades no llegara a salir: estaba escrito solo para la 2.5.0, así que quien viniera de la 2.4 y cayera directamente en una 2.5.x posterior no veía nada. Ahora sale en toda la serie, con dos capítulos nuevos sobre la pestaña Tareas y el Panel de recientes, y encadena como siempre con el recorrido guiado que te lo enseña en su sitio. Sale una sola vez."
+  "version": "2.5.6",
+  "notes": "imputa.me 2.5.6. Ahora puedes guardar varios enlaces para imputar, para quien mete las horas en más de un sitio. Con uno solo, el botón \"Imputar\" te lleva directo como hasta ahora; con varios, te enseña cada web con su icono para que elijas, y un botón para abrirlas todas de una vez. El enlace que ya tuvieras guardado pasa solo a ser el primero de la lista."
 }

@@ -655,7 +655,13 @@ function renderTotalsInto(listId, totals, vacio) {
   list.appendChild(suma);
 }
 
-function abrirImpute() { ipcRenderer.send('action', { type:'open-impute-url' }); }
+async function abrirImpute() {
+  const urls = (currentState && currentState.settings && currentState.settings.imputeUrls) || [];
+  if (!urls.length) return;
+  if (urls.length === 1) { ipcRenderer.send('action', { type:'open-impute-url' }); return; }
+  const eleccion = await pickImputeUrl(urls);
+  if (eleccion) ipcRenderer.send('action', { type:'open-impute-url', payload: eleccion });
+}
 
 // ── Color de una tarea, desde los puntitos de la barra lateral ───────────────
 let colorTareaId = null;
@@ -709,7 +715,7 @@ function renderDayTotals() {
   if (!currentState) return;
   // El botón de imputar solo existe si hay enlace puesto en Ajustes.
   const imp = document.getElementById('imputeBtn');
-  if (imp) imp.style.display = (currentState.settings && currentState.settings.imputeUrl) ? 'flex' : 'none';
+  if (imp) imp.style.display = (currentState.settings && (currentState.settings.imputeUrls || []).length) ? 'flex' : 'none';
   const day = startOfDay(selectedDate || today0);
 
   // Día

@@ -21,10 +21,10 @@ const GLOBALS = new Set(['require', 'setTimeout', 'setInterval', 'clearTimeout',
   'Object', 'Symbol', 'Promise', 'Error', 'Date', 'Math', 'JSON', 'console', 'process', 'fetch',
   'encodeURIComponent', 'decodeURIComponent', 'queueMicrotask', 'structuredClone',
   'requestAnimationFrame', 'alert', 'confirm', 'prompt', 'Event', 'URLSearchParams', 'performance',
-  'Set', 'Map', 'WeakMap', 'WeakSet', 'RegExp', 'Proxy', 'Reflect', 'async', 'URL',
+  'Set', 'Map', 'WeakMap', 'WeakSet', 'RegExp', 'Proxy', 'Reflect', 'async', 'URL', 'Image',
   // definidas en shared.js, que las páginas cargan con <script src> aparte:
   'isViewVisibleToUser', 'startTutorialIfNeeded', 'computeBackMinutes', 'contrastTextColor',
-  'applyThemeVars', 'tutAllStepIds', 'tutIsVisible', 'runTutorial', 'askText']);
+  'applyThemeVars', 'tutAllStepIds', 'tutIsVisible', 'runTutorial', 'askText', 'pickImputeUrl']);
 
 const KEYWORDS = /^(if|for|while|switch|catch|return|typeof|function|new|await|case|do|else|of|in|delete|void|throw|yield|super|this)$/;
 

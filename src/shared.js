@@ -177,8 +177,8 @@ const TUTORIAL_STEPS = [
     title:'La barra flotante', text:'Es el modo por defecto: una barra discreta en el borde. Aquí ajustas su borde, color, largo, grosor, transparencia, monitor y cuándo se cierra sola.' },
   { id:'set-beta',       window:'settings', version:'2.2.2', selector:'.row:has(#betaUpdates)',
     title:'Versiones de prueba', text:'Enciéndelo y recibirás las versiones nada más publicarse, antes que nadie. Apagado, solo llegan las estables.' },
-  { id:'set-impute',     window:'settings', version:'2.4.0', selector:'#imputeUrl',
-    title:'Enlace para imputar', text:'Pega aquí la dirección del sitio donde metes las horas de verdad. En cuanto la pongas, sale un botón "Imputar" en el Panel y en el Calendario que te lleva ahí.' },
+  { id:'set-impute',     window:'settings', version:'2.4.0', selector:'#imputeList',
+    title:'Enlaces para imputar', text:'Pega aquí las direcciones donde metes las horas de verdad, las que hagan falta. Aparecerá un botón "Imputar" en el Panel y en el Calendario: con un enlace te lleva directo, y con varios te deja elegir a cuál ir o abrirlos todos.' },
   { id:'set-leave',      window:'settings', version:'2.4.0', selector:'.row:has(#leaveEnabled)',
     title:'Hora de salida', text:'Dile a qué hora terminas y te aviso si sigue habiendo una tarea en marcha. Puedes poner la misma hora toda la semana o una distinta cada día, cancelar los que no trabajes, y hasta que te pare la tarea sola.' },
   { id:'set-eyecare',    window:'settings', version:'2.4.0', selector:'.row:has(#eyeCareEnabled)',
@@ -439,5 +439,110 @@ function askText({ title, text, value = '', okLabel = 'Guardar', placeholder = '
     document.body.appendChild(card);
     input.focus();
     input.select();
+  });
+}
+
+// ── Elegir a qué sitio imputar ───────────────────────────────────────────────
+// Cuando hay varios enlaces guardados, el botón "Imputar" no puede adivinar cuál: se
+// enseñan todos con su icono para elegir, y un botón para abrirlos todos de golpe.
+// El icono se pide al propio sitio (su /favicon.ico); si no contesta, se dibuja la
+// inicial de su dominio. No se usa ningún servicio de terceros a propósito: la lista de
+// sitios donde imputas no tiene por qué salir de tu ordenador.
+function pickImputeUrl(urls) {
+  return new Promise((resolve) => {
+    if (!document.getElementById('imp-styles')) {
+      const st = document.createElement('style');
+      st.id = 'imp-styles';
+      st.textContent = `
+        .imp-backdrop { position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);-webkit-app-region:no-drag; }
+        .imp-card {
+          position:fixed;z-index:10001;left:50%;top:50%;transform:translate(-50%,-50%);
+          width:min(340px, calc(100vw - 40px));
+          background:var(--surface, #1c1c2a);border:1px solid var(--border, #333);
+          border-radius:var(--radius-sm, 12px);padding:18px;
+          display:flex;flex-direction:column;gap:9px;
+          box-shadow:0 20px 60px rgba(0,0,0,.55);-webkit-app-region:no-drag;
+        }
+        .imp-title { font-size:14px;font-weight:700;color:var(--text, #fff);margin-bottom:2px; }
+        .imp-item {
+          display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+          background:var(--bg2, #222);border:1px solid var(--border, #333);
+          color:var(--text, #fff);font-family:inherit;font-size:13px;cursor:pointer;text-align:left;
+          transition:background .12s,border-color .12s;
+        }
+        .imp-item:hover { background:var(--bg3, #2a2a2a);border-color:var(--accent, #818cf8); }
+        .imp-ico {
+          width:22px;height:22px;border-radius:6px;flex-shrink:0;object-fit:contain;background:var(--bg, #111);
+        }
+        .imp-letra {
+          width:22px;height:22px;border-radius:6px;flex-shrink:0;
+          display:flex;align-items:center;justify-content:center;
+          background:var(--accent2, #6366f1);color:#fff;font-size:12px;font-weight:800;
+        }
+        .imp-txt { min-width:0;flex:1; }
+        .imp-dom { font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        .imp-url { font-size:11px;color:var(--text2, #999);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        .imp-actions { display:flex;gap:8px;margin-top:4px; }
+        .imp-btn {
+          flex:1;border:none;border-radius:9px;font-family:inherit;font-size:12.5px;font-weight:600;
+          padding:9px 12px;cursor:pointer;
+        }
+        .imp-btn.ghost { background:var(--bg2, #222);color:var(--text, #fff);border:1px solid var(--border, #333); }
+        .imp-btn.ghost:hover { background:var(--bg3, #2a2a2a); }
+        .imp-btn.primary { background:var(--accent2, #6366f1);color:#fff; }
+        .imp-btn.primary:hover { filter:brightness(1.08); }
+      `;
+      document.head.appendChild(st);
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'imp-backdrop';
+    const card = document.createElement('div');
+    card.className = 'imp-card';
+    card.innerHTML = '<div class="imp-title">¿Dónde vas a imputar?</div>';
+
+    let cerrado = false;
+    const cerrar = (res) => {
+      if (cerrado) return; cerrado = true;
+      document.removeEventListener('keydown', onKey, true);
+      backdrop.remove(); card.remove();
+      resolve(res);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); cerrar(null); } };
+    document.addEventListener('keydown', onKey, true);
+    backdrop.onclick = () => cerrar(null);
+
+    urls.forEach(url => {
+      let dominio = url;
+      try { dominio = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+      const item = document.createElement('button');
+      item.className = 'imp-item';
+      item.innerHTML = `
+        <div class="imp-letra">${(dominio[0] || '?').toUpperCase()}</div>
+        <div class="imp-txt"><div class="imp-dom"></div><div class="imp-url"></div></div>`;
+      item.querySelector('.imp-dom').textContent = dominio;
+      item.querySelector('.imp-url').textContent = url;
+      // El icono real sustituye a la inicial solo si el sitio lo sirve.
+      try {
+        const ico = new Image();
+        ico.className = 'imp-ico';
+        ico.onload = () => { const l = item.querySelector('.imp-letra'); if (l) l.replaceWith(ico); };
+        ico.src = new URL('/favicon.ico', url).toString();
+      } catch {}
+      item.onclick = () => cerrar({ url });
+      card.appendChild(item);
+    });
+
+    const acciones = document.createElement('div');
+    acciones.className = 'imp-actions';
+    acciones.innerHTML = `
+      <button class="imp-btn ghost">Cancelar</button>
+      <button class="imp-btn primary">Abrir todos (${urls.length})</button>`;
+    acciones.querySelector('.ghost').onclick = () => cerrar(null);
+    acciones.querySelector('.primary').onclick = () => cerrar({ all: true });
+    card.appendChild(acciones);
+
+    document.body.appendChild(backdrop);
+    document.body.appendChild(card);
   });
 }

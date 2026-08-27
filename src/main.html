@@ -726,7 +726,7 @@ function render(state) {
 
   // El botón de imputar solo existe si hay enlace puesto en Ajustes.
   const imp = document.getElementById('imputeBtn');
-  if (imp) imp.style.display = (state.settings && state.settings.imputeUrl) ? 'flex' : 'none';
+  if (imp) imp.style.display = (state.settings && (state.settings.imputeUrls || []).length) ? 'flex' : 'none';
 
   const noteRow = document.getElementById('activeNoteRow');
   const noteInput = document.getElementById('activeNoteInput');
@@ -806,7 +806,13 @@ function flushActiveNote() {
   ipcRenderer.send('action', { type:'set-active-note', payload:{ note } });
 }
 
-function abrirImpute() { ipcRenderer.send('action', { type:'open-impute-url' }); }
+async function abrirImpute() {
+  const urls = (currentState && currentState.settings && currentState.settings.imputeUrls) || [];
+  if (!urls.length) return;
+  if (urls.length === 1) { ipcRenderer.send('action', { type:'open-impute-url' }); return; }
+  const eleccion = await pickImputeUrl(urls);
+  if (eleccion) ipcRenderer.send('action', { type:'open-impute-url', payload: eleccion });
+}
 
 // ── No molestar ──────────────────────────────────────────────────────────────
 function toggleDndMenu(e) {
