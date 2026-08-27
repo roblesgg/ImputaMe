@@ -1,4 +1,4 @@
 {
-  "version": "2.5.0",
-  "notes": "imputa.me 2.5. No molestar para silenciar todos los avisos. La barra flotante con menú de clic derecho y sin quedarse detrás de lo que va a pantalla completa. Guardadas convertida en un esquema con las subtareas de cada tarea, y ordenable en los dos sentidos. Elegir qué días se ven en el calendario, con excepciones para una semana suelta. Clic derecho sobre cualquier rato del calendario para archivarlo, retomarlo o alargarlo conservando su subtarea y su nota. 24 colores de tarea, animaciones bastante más fluidas, y el instalador ya no te pide cerrar la app a mano al actualizar."
+  "version": "2.5.1",
+  "notes": "imputa.me 2.5.1. Arreglado de raíz el botón de esconder el panel flotante: vivía en una ventana propia siempre-encima que peleaba por el orden con las otras dos del dock, y ahí se perdían los clics. Ahora se pinta dentro de la ventana de la barra, que es la que ya tenía un sistema de zonas pulsables que funciona — una ventana menos y tres fallos que no pueden repetirse. Y en Guardadas ya puedes cambiar el color de una tarea pulsando su punto, sin tener que desarchivarla."
 }

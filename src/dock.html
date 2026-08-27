@@ -72,6 +72,30 @@
     100% { transform:translate(-50%,-50%) scale(1, 1); }
   }
 
+
+  /* ── Botón de esconder el panel ─────────────────────────────────────────── */
+  .hide-btn {
+    position:fixed; left:0; top:0; width:34px; height:34px; padding:0;
+    margin:-17px 0 0 -17px;            /* las coordenadas que llegan son las del CENTRO */
+    border-radius:50%;
+    display:none; align-items:center; justify-content:center;
+    background:var(--surface); color:var(--text2);
+    border:1px solid color-mix(in srgb, var(--text) 22%, transparent);
+    box-shadow:0 4px 18px rgba(0,0,0,.5);
+    cursor:pointer; z-index:20;
+    transition:background .18s, color .18s, transform .22s cubic-bezier(.34,1.5,.5,1), box-shadow .18s, opacity .16s;
+  }
+  .hide-btn.visible { display:flex; }
+  .hide-btn svg { transition:transform .22s cubic-bezier(.34,1.5,.5,1); }
+  .hide-btn:hover {
+    background:var(--accent2); color:#fff;
+    box-shadow:0 6px 22px color-mix(in srgb, var(--accent2) 60%, transparent);
+  }
+  .hide-btn:active { transform:scale(.94); }
+  /* La flecha apunta hacia el lado por el que se va el panel al esconderse. */
+  .a-left  ~ .hide-btn svg { transform:scaleX(-1); }
+  .a-top   ~ .hide-btn svg { transform:rotate(-90deg); }
+  .a-bottom ~ .hide-btn svg { transform:rotate(90deg); }
 </style>
 </head>
 <body>
@@ -79,11 +103,22 @@
   <div class="dock-bar" id="dockBar" title="imputa.me — clic para desplegar"></div>
 </div>
 
+<!-- Botón de esconder el panel. Vivía en una ventana propia siempre-encima y no
+     enfocable, y ese montaje dio tres fallos seguidos: la sombra recortada en cuadrado,
+     la posición calculada con unos límites del panel que aún no eran los definitivos, y
+     la pelea de orden entre las tres ventanas del dock, que lo dejaba sin recibir los
+     clics. Aquí dentro no hay nada de eso: es la misma ventana de la barra, cuyo
+     sistema de zonas clicables ya funciona. -->
+<button class="hide-btn" id="hideBtn" title="Esconder">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+</button>
+
 <script src="shared.js"></script>
 <script>
 const { ipcRenderer } = require('electron');
 const root = document.getElementById('dockRoot');
 const bar = document.getElementById('dockBar');
+const hideBtn = document.getElementById('hideBtn');
 
 const ANCHORS = ['left','right','top','bottom'];
 const HOLD_MS = 650;      // cuánto hay que mantener pulsado para poder moverla
@@ -124,7 +159,8 @@ function sendHitRects() {
   if (barDrag && barDrag.dragging) {
     rects.push({ x:0, y:0, w:window.innerWidth, h:window.innerHeight });   // arrastrando: todo
   } else {
-    push(bar);   // el botón de esconder vive ahora en la ventana del panel
+    push(bar);
+    if (hideBtn.classList.contains('visible')) push(hideBtn);
   }
   const br = bar.getBoundingClientRect();
   const barRect = { x:Math.round(br.left), y:Math.round(br.top), w:Math.round(br.width), h:Math.round(br.height) };
@@ -144,6 +180,20 @@ bar.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   if (barDrag) return;
   ipcRenderer.send('action', { type: 'dock-context-menu' });
+});
+
+// El proceso principal manda dónde va el botón (centro, en coordenadas de esta
+// ventana) y si toca enseñarlo.
+ipcRenderer.on('dock-hide-btn', (_, info) => {
+  if (!info || !info.visible) { hideBtn.classList.remove('visible'); sendHitRects(); return; }
+  hideBtn.style.left = info.x + 'px';
+  hideBtn.style.top = info.y + 'px';
+  hideBtn.classList.add('visible');
+  sendHitRects();
+});
+hideBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  ipcRenderer.send('action', { type: 'dock-collapse-panel' });
 });
 
 ipcRenderer.on('dock-bar-near', (_, near) => {
