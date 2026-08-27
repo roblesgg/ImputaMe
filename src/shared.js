@@ -106,6 +106,8 @@ const TUTORIAL_STEPS = [
     title:'La tarea en marcha', text:'Lo que estés haciendo ahora ocupa el sitio de honor: su cronómetro en grande, su nota y el botón de pausar. Cuando no hay nada corriendo, esta misma tarjeta te lo dice.' },
   { id:'main-nav',       window:'main', version:'1.2.19', selector:'#quickGrid',
     title:'Accesos rápidos', text:'Desde aquí abres el Calendario (tu historial completo, editable), todas tus Tareas (con sus secciones) y los Ajustes. El cuarto botón vuelve a poner en marcha la última tarea que estuviste haciendo.' },
+  { id:'main-recientes', window:'main', version:'2.5.3', selector:'#tasksList',
+    title:'Las últimas que has usado', text:'El Panel enseña solo las tareas que has tocado hace poco, la más reciente arriba. Todas están en la pestaña Tareas, con sus secciones; aquí solo las tienes a mano.' },
   { id:'main-note',      window:'main', version:'1.2.19', selector:'#activeNoteRow',
     title:'Nota rápida', text:'Anota qué estás haciendo exactamente ahora mismo dentro de esta tarea. Se ve reflejada en el calendario y se borra sola al pausar.' },
   { id:'main-update',    window:'main', version:'1.2.19', selector:'#updateBtn',

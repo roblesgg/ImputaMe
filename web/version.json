@@ -1,4 +1,4 @@
 {
-  "version": "2.5.2",
-  "notes": "imputa.me 2.5.2. \"Guardadas\" pasa a llamarse \"Tareas\" y deja de ser solo el archivo: ahora están todas, incluidas las que no pertenecen a ninguna sección, que van agrupadas al principio para que las repartas cuando quieras. Cada una tiene su botón de play (o de pausa), y la que esté corriendo aparece resaltada con su punto latiendo. Además, el color de una tarea se puede cambiar también desde ahí y desde los puntitos de las listas del calendario."
+  "version": "2.5.3",
+  "notes": "imputa.me 2.5.3. Arreglado que la pestaña Tareas saliera completamente vacía: un fallo mío en la 2.5.2 reventaba el pintado en la primera sección y se llevaba por delante toda la lista. Tus secciones y tareas estaban intactas, solo no se dibujaban. El Panel pasa a enseñar las tareas más recientes (la última usada arriba) con un enlace a Tareas para verlas todas. \"Guardadas\" ahora es \"Tareas\" y están todas dentro, con su botón de play y la que corre resaltada, y el color se puede cambiar también desde ahí y desde los puntitos del calendario."
 }

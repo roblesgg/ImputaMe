@@ -103,6 +103,13 @@
   .hero-btn.ghost:hover { background:var(--bg3);color:var(--text); }
 
   .section-label { font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px; }
+  .ver-todas {
+    background:transparent;border:none;color:var(--accent);cursor:pointer;padding:2px 4px;
+    font-family:inherit;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    border-radius:5px;-webkit-app-region:no-drag;display:none;
+  }
+  .ver-todas:hover { background:var(--bg3); }
+  .ver-todas.visible { display:inline-block; }
 
   .tasks-list { display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow-y:auto;padding-right:4px; }
 
@@ -317,7 +324,10 @@
 
   <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <div class="section-label" style="margin-bottom:0">Tareas</div>
+      <div class="section-label" style="margin-bottom:0;display:flex;align-items:center;gap:8px">
+        <span>Recientes</span>
+        <button class="ver-todas" id="verTodasBtn" onclick="openGroups()" title="Ver todas las tareas">ver todas</button>
+      </div>
       <div class="back-row" style="margin:0;flex-wrap:wrap;row-gap:4px">
         <span class="back-label">Al iniciar, llevo:</span>
         <input type="number" id="startBackMin" placeholder="0" min="0" max="600"
@@ -429,6 +439,7 @@ const SVG_PENCIL = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" 
 const SVG_SUB_DEL = `<svg width="11" height="11" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
 
 let lastRenderedIds = null;
+const MAX_RECIENTES = 8;   // cuántas tareas recientes caben en el Panel sin que estorbe
 
 // Tareas con las subtareas desplegadas. Solo mientras dure la ventana: es un gesto de
 // consulta, no un ajuste que merezca guardarse en disco.
@@ -734,10 +745,18 @@ function render(state) {
   }
 
   const list = document.getElementById('tasksList');
-  // La tarea en marcha ya está arriba en grande: abajo va todo lo demás.
-  const restantes = visibleTasks.filter(t => t.id !== state.activeTaskId);
+  // El Panel es acceso rápido, no el inventario: se enseñan las últimas que se han
+  // usado (la más reciente primero) y el resto se consulta en Tareas. La que está en
+  // marcha ya sale arriba en grande, así que aquí no se repite.
+  const ultimoUso = (t) => t.entries.reduce((max, e) => Math.max(max, e.start), 0);
+  const todas = visibleTasks
+    .filter(t => t.id !== state.activeTaskId)
+    .sort((a, b) => ultimoUso(b) - ultimoUso(a));
+  const restantes = todas.slice(0, MAX_RECIENTES);
+  const verTodas = document.getElementById('verTodasBtn');
+  if (verTodas) verTodas.classList.toggle('visible', todas.length > restantes.length);
   if (!restantes.length) {
-    list.innerHTML = `<div class="empty-state">${visibleTasks.length ? 'No tienes más tareas sueltas.' : 'Sin tareas. Crea una abajo ↓'}</div>`;
+    list.innerHTML = `<div class="empty-state">${visibleTasks.length ? 'No has usado ninguna otra tarea últimamente.' : 'Sin tareas. Crea una abajo ↓'}</div>`;
     lastRenderedIds = null;
     return;
   }

@@ -534,7 +534,8 @@ function renderGroups() {
     // Renombrar es cosa del lápiz: el doble clic era un gesto que no se veía por ningún lado.
     const btnEdit = header.querySelector('.group-edit');
     if (btnEdit) btnEdit.onclick = (e) => { e.stopPropagation(); openSectionPopup('rename', g.id, g.name); };
-    header.querySelector('.group-tree-btn').onclick = (e) => {
+    const btnTree = header.querySelector('.group-tree-btn');
+    if (btnTree) btnTree.onclick = (e) => {
       e.stopPropagation();
       // Si hay alguna abierta, el botón las cierra todas; si no, las abre todas.
       const conSubs = tasksInGroup.filter(t => (t.subtasks || []).length);
@@ -542,7 +543,8 @@ function renderGroups() {
       conSubs.forEach(t => { if (algunaAbierta) subsAbiertas.delete(t.id); else subsAbiertas.add(t.id); });
       renderGroups();
     };
-    header.querySelector('.group-del').onclick = (e) => {
+    const btnDel = header.querySelector('.group-del');
+    if (btnDel) btnDel.onclick = (e) => {
       e.stopPropagation();
       if (confirm(`¿Eliminar la sección "${g.name}"?\nLas tareas que contenga volverán al panel principal (no se borran).`))
         ipcRenderer.send('action', { type: 'delete-group', payload: { groupId: g.id } });
@@ -636,7 +638,8 @@ function renderGroups() {
     card.appendChild(tasksWrap);
 
     // ── Orden personalizado: la sección se arrastra por su asa ────────────────
-    if (currentSort() === 'custom' && !query) {
+    // El orden personalizado no aplica a "Sin sección": no se arrastra a ningún sitio.
+    if (currentSort() === 'custom' && !query && !g.virtual) {
       card.classList.add('sortable');
       const grip = header.querySelector('.group-grip');
       // El truco de siempre: la tarjeta solo se vuelve arrastrable mientras se
