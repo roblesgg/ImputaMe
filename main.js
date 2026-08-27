@@ -163,6 +163,7 @@ let reminderTimer = null;
 let leaveTimer = null;
 let eyeCareWin = null;
 let eyeCareTimer = null;
+let eyeCareNextAt = 0;       // momento del próximo aviso de la regla 20-20-20
 let eyeCareHideTimer = null;
 let leaveNotifiedOn = null;   // 'YYYY-MM-DD' del último aviso, para no repetirlo
 let tickTimer = null;
@@ -1132,12 +1133,34 @@ function hideEyeCare() {
   try { if (eyeCareWin && !eyeCareWin.isDestroyed()) eyeCareWin.hide(); } catch {}
 }
 
-function startEyeCareTimer() {
+function eyeCareEveryMin() {
+  return Math.max(1, Math.min(180, Number(settings.eyeCareEvery) || 20));
+}
+
+// Se lleva la HORA del próximo aviso en vez de un setInterval largo. Dos motivos:
+//   - startEyeCareTimer() se llamaba en cada cambio de Ajustes, y Ajustes lo manda en
+//     cada movimiento de deslizador, así que toquetear el tamaño o la posición
+//     reiniciaba la cuenta y el aviso se iba retrasando indefinidamente.
+//   - un setInterval de 20 minutos no corre mientras el ordenador está suspendido, así
+//     que al despertar la cuenta iba desfasada.
+// Con una hora objetivo y un latido corto, ninguna de las dos cosas afecta.
+function reprogramEyeCare(desdeCero) {
+  if (!settings.eyeCareEnabled) { eyeCareNextAt = 0; return; }
+  if (desdeCero || !eyeCareNextAt) eyeCareNextAt = Date.now() + eyeCareEveryMin() * 60000;
+}
+
+function startEyeCareTimer(desdeCero) {
   if (eyeCareTimer) { clearInterval(eyeCareTimer); eyeCareTimer = null; }
-  hideEyeCare();
-  if (!settings.eyeCareEnabled) return;
-  const min = Math.max(1, Math.min(180, Number(settings.eyeCareEvery) || 20));
-  eyeCareTimer = setInterval(() => showEyeCare(), min * 60000);
+  if (!settings.eyeCareEnabled) { hideEyeCare(); eyeCareNextAt = 0; return; }
+  reprogramEyeCare(desdeCero);
+  eyeCareTimer = setInterval(tickEyeCare, 15000);
+}
+
+function tickEyeCare() {
+  if (!settings.eyeCareEnabled || !eyeCareNextAt) return;
+  if (Date.now() < eyeCareNextAt) return;
+  eyeCareNextAt = Date.now() + eyeCareEveryMin() * 60000;
+  showEyeCare();
 }
 
 let widgetHideTimer = null;
@@ -1623,7 +1646,9 @@ function syncDockBounds() {
     try { dockWin.setBounds(want); } catch {}
   }
   // El panel abierto también se recoloca, por si cambió la pantalla bajo sus pies.
-  if (dockExpanded && dockPanelWin && !dockPanelWin.isDestroyed()) {
+  // Si el panel se está redimensionando (cambio de pestaña), no se le toca: colocarlo
+  // de golpe a medio camino rompería la animación.
+  if (dockExpanded && dockPanelWin && !dockPanelWin.isDestroyed() && !dockPanelWin.__boundsTween) {
     const pb = computePanelBounds(dockPanelView);
     try { dockPanelWin.setBounds(pb); } catch {}
     positionDockHide(pb);
@@ -2136,13 +2161,18 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'move-task-to-group': moveTaskToGroup(payload.taskId, payload.groupId); break;
     case 'set-eye-care': {
       const p = payload || {};
+      const antesActivo = !!settings.eyeCareEnabled;
+      const antesCada = settings.eyeCareEvery;
       if (p.eyeCareEnabled !== undefined) settings.eyeCareEnabled = !!p.eyeCareEnabled;
       if (p.eyeCareEvery !== undefined) settings.eyeCareEvery = Math.max(1, Math.min(180, Number(p.eyeCareEvery) || 20));
       if (p.eyeCareRest !== undefined) settings.eyeCareRest = Math.max(5, Math.min(120, Number(p.eyeCareRest) || 20));
       if (p.eyeCarePos !== undefined) settings.eyeCarePos = p.eyeCarePos;
       if (p.eyeCareSize !== undefined) settings.eyeCareSize = Math.max(80, Math.min(420, Number(p.eyeCareSize) || 150));
       saveSettingsSoon(); broadcastState();
-      startEyeCareTimer();
+      // La cuenta atrás solo vuelve a empezar si se acaba de encender o si cambia cada
+      // cuánto avisa. Mover el tamaño o la posición no debe retrasar el próximo aviso.
+      const reiniciar = (!antesActivo && settings.eyeCareEnabled) || antesCada !== settings.eyeCareEvery;
+      startEyeCareTimer(reiniciar);
       // Al tocar la posición o el tamaño se enseña un momento, para verlo mientras se ajusta.
       if (p.preview) showEyeCare(p.previewSeconds || 3, true);
       break;
@@ -2285,11 +2315,15 @@ ipcMain.on('action', (event, { type, payload }) => {
       if (payload && payload.view) {
         dockPanelView = payload.view;
         rememberView(payload.view);
-        // El calendario tiene su propio ancho: al cambiar de vista se reajusta.
+        // El calendario tiene su propio ancho: al cambiar de vista se reajusta. La
+        // ventana se ANIMA hasta el tamaño nuevo en vez de dar el salto: así se ve que
+        // el panel se adapta, no solo que un contenido sustituye al otro. El punto de
+        // partida se lee aquí y se pasa explícito (ver animateWindowBounds).
         if (dockPanelWin && !dockPanelWin.isDestroyed()) {
+          let desde = null;
+          try { desde = dockPanelWin.getBounds(); } catch {}
           const nb = computePanelBounds(dockPanelView);
-          try { dockPanelWin.setBounds(nb); } catch {}
-          positionDockHide(nb);
+          animateWindowBounds(dockPanelWin, nb, 260, desde, (b) => positionDockHide(b));
         }
       }
       break;

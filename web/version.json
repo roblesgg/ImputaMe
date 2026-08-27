@@ -1,4 +1,4 @@
 {
-  "version": "2.4.8",
-  "notes": "imputa.me 2.4.8 (beta). El clic derecho sobre una entrada del calendario ofrece ya las dos formas de retomarla: \"Nueva entrada desde ahora\" y \"Alargar esta hasta ahora\". Las dos conservan la subtarea y la nota de ese rato, así que continúas exactamente en lo mismo. De paso, alargar una entrada ya devuelve su subtarea al panel, que antes se quedaba como si no hubiera ninguna."
+  "version": "2.4.9",
+  "notes": "imputa.me 2.4.9 (beta). Al cambiar de pestaña, la ventana flotante ahora se ANIMA hasta su nuevo tamaño en vez de dar el salto, así que se ve cómo se adapta. Y arreglado el temporizador de la regla 20-20-20: no avisaba cada X minutos de verdad, porque cualquier cambio en Ajustes (incluido mover un deslizador) reiniciaba la cuenta desde cero, y además un temporizador largo no corre mientras el ordenador está suspendido. Ahora se lleva la hora del próximo aviso, así que ni toquetear los ajustes ni suspender el equipo lo desvían."
 }
