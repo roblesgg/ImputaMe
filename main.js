@@ -1008,9 +1008,14 @@ function createEyeCareWindow() {
   const b = eyeCareBounds();
   eyeCareWin = new BrowserWindow({
     ...b,
+    // backgroundColor transparente EXPLÍCITO: sin él, una ventana transparent:true en
+    // Windows se pinta con fondo opaco (negro) y ese fondo asoma por fuera del redondeo
+    // de la burbuja. Es lo que dejaba las esquinas cuadradas negras. Las otras ventanas
+    // transparentes (la barra y el botón de ocultar) ya lo llevaban; a esta se me pasó.
     // roundedCorners:false porque el redondeo lo pone el CSS de la burbuja; dejando
     // que Windows redondee además la ventana solo se añaden recortes raros encima.
-    frame: false, transparent: true, hasShadow: false, resizable: false, roundedCorners: false,
+    frame: false, transparent: true, hasShadow: false, backgroundColor: '#00000000',
+    resizable: false, roundedCorners: false,
     // focusable:false para no sacar al usuario de lo que esté haciendo; el clic para
     // quitarla de en medio sigue llegando igual.
     skipTaskbar: true, alwaysOnTop: true, focusable: false, show: false,
@@ -1822,7 +1827,7 @@ function createSplash() {
   splashWin = new BrowserWindow({
     width: S, height: S,
     x: Math.round((width - S) / 2), y: Math.round((height - S) / 2),
-    frame: false, transparent: true, hasShadow: false,
+    frame: false, transparent: true, hasShadow: false, backgroundColor: '#00000000',
     resizable: false, movable: false, alwaysOnTop: true, skipTaskbar: true,
     show: false,
     icon: APP_ICON_PATH,

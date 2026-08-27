@@ -1,4 +1,4 @@
 {
-  "version": "2.4.4",
-  "notes": "imputa.me 2.4.4 (beta). Guardadas se convierte en un esquema: cada tarea guardada despliega sus subtareas con su tiempo acumulado, y desde una subtarea puedes retomar la tarea directamente en ella. Botones nuevos de Expandir todo y Colapsar todo, y cada sección tiene el suyo para abrir o cerrar las subtareas de sus tareas. El botón de ordenar deja de ser un icono diminuto: ahora dice por qué criterio está ordenando y permite elegir ascendente o descendente."
+  "version": "2.4.5",
+  "notes": "imputa.me 2.4.5 (beta). Esta vez sí: el cuadrado negro detrás de los ojos era el fondo de su ventana. A las ventanas transparentes de Windows hay que decirles explícitamente que su fondo también es transparente; a esta se me pasó, y por eso asomaba por fuera del redondeo. Corregido ahí y en la pantalla de bienvenida, que tenía el mismo descuido."
 }
