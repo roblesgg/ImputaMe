@@ -2431,6 +2431,10 @@ ipcMain.on('action', (event, { type, payload }) => {
           try { desde = dockPanelWin.getBounds(); } catch {}
           const nb = computePanelBounds(dockPanelView);
           animateWindowBounds(dockPanelWin, nb, 260, desde, (b) => positionDockHide(b));
+          // Y al acabar, siempre. onFrame no basta: si el tamaño no cambia entre dos
+          // vistas (panel, guardadas y ajustes son igual de anchos), la animación no
+          // llega a dar un solo fotograma y el botón se quedaba donde estuviera.
+          setTimeout(() => positionDockHide(computePanelBounds(dockPanelView)), 300);
         }
       }
       break;

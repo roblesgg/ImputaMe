@@ -1,4 +1,4 @@
 {
-  "version": "2.4.11",
-  "notes": "imputa.me 2.4.11 (beta). Ya puedes elegir qué días se ven en el calendario: quita el sábado y el domingo en Ajustes → Calendario y las columnas se reparten el hueco. Y si una semana suelta sí trabajas un sábado, el botón \"Días\" del calendario te lo mete solo en esa semana, sin tocar tu configuración de siempre (y con un aviso en el botón de que esa semana va distinta)."
+  "version": "2.4.12",
+  "notes": "imputa.me 2.4.12 (beta). Arreglado que el botón de ocultar el panel flotante dejara de funcionar: en la 2.4.10 optimicé las animaciones para saltarse los fotogramas que no cambian nada, y resulta que el botón solo se recolocaba desde ahí — al pasar entre Panel, Guardadas y Ajustes, que son igual de anchos, no había ni un fotograma y el botón se quedaba descolgado. Además, ya puedes elegir qué días se ven en el calendario (Ajustes → Calendario), y meter un sábado suelto en una semana concreta con el botón \"Días\" sin tocar tu configuración de siempre."
 }
