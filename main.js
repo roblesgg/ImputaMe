@@ -132,6 +132,10 @@ const NOVEDADES_2_5 = {
       text:'Quita el sábado y el domingo del calendario y las columnas se reparten el hueco. Y si una semana suelta sí trabajas un sábado, lo metes solo en esa semana desde el botón "Días".' },
     { icon:'pencil', title:'Clic derecho en el calendario',
       text:'Sobre cualquier rato del calendario: guardar la tarea en una sección, retomarla desde ahora o alargar ese rato hasta ahora — conservando su subtarea y su nota — y editarlo o eliminarlo.' },
+    { icon:'lista', title:'"Guardadas" ahora es "Tareas"',
+      text:'Y ya no es solo el archivo: están todas tus tareas, con las que no tienen sección agrupadas al principio. Cada una con su play, su papelera y su color, y la que esté corriendo resaltada con su punto latiendo. Borrar una la manda a la papelera y NO toca el calendario: lo que registraste sigue ahí.' },
+    { icon:'guide', title:'El Panel, solo lo reciente',
+      text:'Como todas viven en Tareas, el Panel enseña únicamente las que has usado hace poco, la última arriba, con un "ver todas" al lado cuando hay más.' },
     { icon:'spark', title:'Y por debajo',
       text:'24 colores de tarea en vez de 8, animaciones bastante más fluidas, el panel flotante se adapta de tamaño con animación al cambiar de pestaña, los ojos avisan cuando toca de verdad, y el instalador ya no te pide cerrar la app a mano al actualizar.' },
   ],
@@ -144,6 +148,14 @@ const WHATS_NEW = {
   '2.4.0': NOVEDADES_2_4,
   '2.4.1': NOVEDADES_2_4_1,
   '2.5.0': NOVEDADES_2_5,
+  // Mismas novedades para toda la serie 2.5: sin esto, quien viniera de la 2.4 y cayera
+  // directamente en una 2.5.x posterior no veía nada. El guardarraíl de repetición vive
+  // en otro sitio (lastSeenWhatsNew compara de qué hablaba lo último que se enseñó).
+  '2.5.1': NOVEDADES_2_5,
+  '2.5.2': NOVEDADES_2_5,
+  '2.5.3': NOVEDADES_2_5,
+  '2.5.4': NOVEDADES_2_5,
+  '2.5.5': NOVEDADES_2_5,
 };
 
 // Color de acento (botones, resaltados) elegible aparte del fondo: cada tema trae el

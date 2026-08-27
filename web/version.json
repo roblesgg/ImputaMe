@@ -1,4 +1,4 @@
 {
-  "version": "2.5.4",
-  "notes": "imputa.me 2.5.4. Las tareas ya se pueden eliminar desde la pestaña Tareas, con el botón de papelera de cada fila. Van a la papelera y se pueden restaurar durante 30 días, y el calendario NO se toca: todo el tiempo que ya habías registrado con esa tarea se sigue viendo igual, con el nombre que tenía entonces. El aviso de confirmación lo deja claro antes de que borres nada."
+  "version": "2.5.5",
+  "notes": "imputa.me 2.5.5. Arreglado que el recorrido de novedades no llegara a salir: estaba escrito solo para la 2.5.0, así que quien viniera de la 2.4 y cayera directamente en una 2.5.x posterior no veía nada. Ahora sale en toda la serie, con dos capítulos nuevos sobre la pestaña Tareas y el Panel de recientes, y encadena como siempre con el recorrido guiado que te lo enseña en su sitio. Sale una sola vez."
 }
