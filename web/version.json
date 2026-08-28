@@ -1,4 +1,4 @@
 {
-  "version": "2.5.7",
-  "notes": "imputa.me 2.5.7. Ahora sí se puede cambiar el color de una tarea desde el calendario, pulsando su puntito en las listas de día, semana y mes: lo anuncié en la 2.5.5 y se me quedó a medias, sin llegar a enganchar. Al crear una tarea desde Tareas eliges ya su sección. Arrastrar una tarea hacia el final de la lista ya no obliga a pegarla al borde: la lista baja sola desde bastante antes. Y en el calendario hay un botón nuevo, encima del de imputar, para poner una tarea en marcha desde ahí: te enseña las últimas que has usado para elegir, o creas una nueva con su sección sin salir del popup."
+  "version": "2.5.8",
+  "notes": "imputa.me 2.5.8. En \"Empezar tarea\" del calendario, cada tarea tiene ahora una flecha que despliega sus subtareas: puedes arrancar directamente dentro de una, y crear una subtarea nueva ahí mismo que empieza a contar al momento. Pulsar la tarea sigue arrancándola a secas, que es lo más rápido. Y arreglado que la lupa se superpusiera con el texto del buscador."
 }

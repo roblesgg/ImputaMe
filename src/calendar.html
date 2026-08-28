@@ -156,6 +156,29 @@
   .emp-sec { font-size:11px;color:var(--text2);flex-shrink:0; }
   .emp-sep { height:1px;background:var(--border);margin:5px 4px; }
   .emp-nueva { display:flex;flex-direction:column;gap:8px; }
+  .emp-fila { display:flex;align-items:center;gap:2px; }
+  .emp-fila .emp-item { flex:1;min-width:0; }
+  .emp-chevron {
+    width:26px;height:26px;flex-shrink:0;border:none;background:transparent;color:var(--text2);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:7px;
+    transition:transform .16s ease,color .12s,background .12s;
+  }
+  .emp-chevron:hover { color:var(--text);background:var(--bg3); }
+  .emp-chevron.abierta { transform:rotate(90deg); }
+  .emp-subs {
+    display:flex;flex-direction:column;gap:2px;
+    margin:2px 0 5px 26px;padding-left:10px;border-left:1.5px solid var(--border);
+  }
+  .emp-sub {
+    display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;
+    background:transparent;border:none;color:var(--text);font-family:inherit;font-size:12.5px;
+    text-align:left;cursor:pointer;width:100%;
+  }
+  .emp-sub:hover { background:var(--bg3); }
+  .emp-sub.nueva { color:var(--text2);border:1px dashed var(--border); }
+  .emp-sub.nueva:hover { color:var(--text);border-color:var(--accent);border-style:solid; }
+  .emp-sub-bullet { width:5px;height:5px;border-radius:50%;background:var(--text2);opacity:.55;flex-shrink:0; }
+  .emp-sub-t { font-size:11px;color:var(--text2);flex-shrink:0;font-variant-numeric:tabular-nums; }
   .export-btn { width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:13px;padding:9px 0;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px; }
   .export-btn:hover { background:var(--bg3); }
 
@@ -322,7 +345,7 @@
   .tp-label { font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em; }
   .tp-search-wrap { position:relative;display:flex;align-items:center; }
   .tp-search-wrap svg { position:absolute;left:10px;color:var(--text2);pointer-events:none; }
-  #popupTaskSearch { padding-left:32px !important; }
+  .tp-search-wrap input { padding-left:32px !important; }
   .task-picker {
     height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);
     background:var(--bg2);padding:4px;-webkit-app-region:no-drag;
@@ -729,7 +752,10 @@ async function abrirImpute() {
 // Sin salir de aquí: elige una de las que ya tienes, o escribe una nueva con su
 // sección. Solo puede haber una tarea en marcha, así que si hay otra corriendo se
 // avisa de que se va a pausar (que es justo lo que se suele querer al cambiar de tarea).
+const empSubsAbiertas = new Set();
+
 function abrirEmpezar() {
+  empSubsAbiertas.clear();
   document.getElementById('empezarBuscar').value = '';
   document.getElementById('empezarNombre').value = '';
 
@@ -783,6 +809,12 @@ function renderEmpezar() {
     return;
   }
   lista.forEach(t => {
+    const nSubs = (t.subtasks || []).length;
+    const abierta = empSubsAbiertas.has(t.id);
+
+    const fila = document.createElement('div');
+    fila.className = 'emp-fila';
+
     const b = document.createElement('button');
     b.className = 'emp-item' + (t.id === currentState.activeTaskId ? ' activa' : '');
     b.innerHTML = `
@@ -790,15 +822,66 @@ function renderEmpezar() {
       <span class="emp-nombre"></span>
       <span class="emp-sec"></span>`;
     b.querySelector('.emp-nombre').textContent = t.name;
-    b.querySelector('.emp-sec').textContent = t.id === currentState.activeTaskId ? 'en marcha' : nombreSec(t);
-    b.onclick = () => {
-      if (t.id !== currentState.activeTaskId) {
-        ipcRenderer.send('action', { type: 'switch-task', payload: { taskId: t.id } });
-      }
+    b.querySelector('.emp-sec').textContent = t.id === currentState.activeTaskId
+      ? 'en marcha' : (nSubs ? `${nSubs} subtareas` : nombreSec(t));
+    // Pulsar la tarea la arranca a secas: es el camino rápido y el más frecuente.
+    b.onclick = () => empezarCon(t, null);
+    fila.appendChild(b);
+
+    // La flecha abre sus subtareas, para arrancar dentro de una en vez de la tarea
+    // entera. Sale siempre, también sin subtareas, porque desde ahí se crea la primera.
+    const chev = document.createElement('button');
+    chev.className = 'emp-chevron' + (abierta ? ' abierta' : '');
+    chev.title = nSubs ? 'Ver sus subtareas' : 'Empezar en una subtarea nueva';
+    chev.innerHTML = '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg>';
+    chev.onclick = (e) => {
+      e.stopPropagation();
+      if (empSubsAbiertas.has(t.id)) empSubsAbiertas.delete(t.id); else empSubsAbiertas.add(t.id);
+      renderEmpezar();
+    };
+    fila.appendChild(chev);
+    cont.appendChild(fila);
+
+    if (!abierta) return;
+    const subs = document.createElement('div');
+    subs.className = 'emp-subs';
+    (t.subtasks || []).forEach(sub => {
+      const sb = document.createElement('button');
+      sb.className = 'emp-sub';
+      sb.innerHTML = '<span class="emp-sub-bullet"></span><span class="emp-nombre"></span><span class="emp-sub-t"></span>';
+      sb.querySelector('.emp-nombre').textContent = sub.name;
+      sb.querySelector('.emp-sub-t').textContent = formatDur((sub.totalSecs || 0) * 1000);
+      sb.onclick = () => empezarCon(t, sub.id);
+      subs.appendChild(sb);
+    });
+    const nueva = document.createElement('button');
+    nueva.className = 'emp-sub nueva';
+    nueva.innerHTML = '<span class="emp-sub-bullet"></span><span class="emp-nombre">Nueva subtarea…</span>';
+    nueva.onclick = async () => {
+      const nombre = await askText({
+        title: 'Nueva subtarea',
+        text: `Se creará dentro de "${t.name}" y empezará a contar ya.`,
+        placeholder: 'Nombre de la subtarea',
+        okLabel: 'Crear y empezar', maxLength: 120,
+      });
+      if (nombre === null) return;
+      const n = nombre.trim();
+      if (!n) return;
+      ipcRenderer.send('action', { type: 'add-subtask-and-start', payload: { taskId: t.id, name: n } });
       cerrarEmpezar();
     };
-    cont.appendChild(b);
+    subs.appendChild(nueva);
+    cont.appendChild(subs);
   });
+}
+
+// Arranca la tarea (en su subtarea, si se ha elegido una). Si ya es justo lo que está
+// corriendo, no se toca nada: volver a lanzarla partiría el rato en dos sin motivo.
+function empezarCon(task, subId) {
+  const yaVa = task.id === currentState.activeTaskId
+    && (currentState.activeSubId || null) === (subId || null);
+  if (!yaVa) ipcRenderer.send('action', { type: 'switch-task', payload: { taskId: task.id, subId: subId || undefined } });
+  cerrarEmpezar();
 }
 
 function crearYEmpezar() {

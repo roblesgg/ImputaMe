@@ -2249,6 +2249,15 @@ ipcMain.on('action', (event, { type, payload }) => {
   switch (type) {
     case 'start-task':    startTask(payload.taskId, payload.backMinutes, payload.subId); break;
     case 'add-subtask':    addSubtask(payload.taskId, payload.name); break;
+    // Crear y arrancar de una vez: quien la crea desde "Empezar tarea" la quiere ya en
+    // marcha, y desde el renderer no se puede porque el id lo pone este proceso.
+    case 'add-subtask-and-start': {
+      addSubtask(payload.taskId, payload.name);
+      const task = state.tasks.find(t => t.id === payload.taskId);
+      const sub = task && (task.subtasks || [])[task.subtasks.length - 1];
+      if (sub) startTask(task.id, payload.backMinutes, sub.id);
+      break;
+    }
     case 'rename-subtask': renameSubtask(payload.taskId, payload.subId, payload.name); break;
     case 'delete-subtask': deleteSubtask(payload.taskId, payload.subId); break;
     case 'pause':         pauseActive(); break;
