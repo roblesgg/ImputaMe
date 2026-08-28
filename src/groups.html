@@ -269,8 +269,12 @@
   <div class="popup-backdrop" id="startPopupBackdrop" style="display:none" onclick="closeStartPopup()"></div>
   <div class="entry-popup" id="startPopup" style="display:none">
     <div class="entry-popup-title" id="startPopupTitle">Nueva tarea</div>
-    <div id="startPopupNameFields">
+    <div id="startPopupNameFields" style="display:flex;flex-direction:column;gap:8px">
       <input type="text" id="startPopupName" placeholder="Nombre de la tarea..." maxlength="120">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="back-label" style="flex-shrink:0">Sección</span>
+        <select id="startPopupGroup" style="flex:1"></select>
+      </div>
     </div>
     <div id="startPopupColorSection" style="display:none">
       <div class="colors-label">Color</div>
@@ -397,6 +401,49 @@ function closeColorPopup() {
   colorPopupTaskId = null;
 }
 
+// ── Desplazamiento automático al arrastrar ───────────────────────────────────
+// Arrastrando una tarea hacia el final de una lista larga había que pegarla al borde
+// mismo para que la lista bajara. Ahora la zona sensible es ancha (90 px) y la
+// velocidad crece según lo cerca que estés del borde, así que se llega abajo sin pelear.
+const ZONA_SCROLL = 90;
+let scrollAuto = null;
+
+function autoScrollArrastrando(y) {
+  const lista = document.getElementById('groupsList');
+  if (!lista) return;
+  const r = lista.getBoundingClientRect();
+  let velocidad = 0;
+  if (y < r.top + ZONA_SCROLL) {
+    velocidad = -Math.ceil((ZONA_SCROLL - (y - r.top)) / 5);
+  } else if (y > r.bottom - ZONA_SCROLL) {
+    velocidad = Math.ceil((ZONA_SCROLL - (r.bottom - y)) / 5);
+  }
+  if (!velocidad) { pararAutoScroll(); return; }
+  if (scrollAuto) { scrollAuto.v = velocidad; return; }
+  scrollAuto = { v: velocidad };
+  const paso = () => {
+    if (!scrollAuto) return;
+    lista.scrollTop += scrollAuto.v;
+    scrollAuto.raf = requestAnimationFrame(paso);
+  };
+  scrollAuto.raf = requestAnimationFrame(paso);
+}
+
+function pararAutoScroll() {
+  if (!scrollAuto) return;
+  cancelAnimationFrame(scrollAuto.raf);
+  scrollAuto = null;
+}
+
+// dragover salta constantemente mientras se arrastra, y trae la posición del ratón.
+document.addEventListener('dragover', (e) => {
+  if (!draggedTaskId && !draggedGroupId) return;
+  e.preventDefault();
+  autoScrollArrastrando(e.clientY);
+});
+document.addEventListener('drop', pararAutoScroll);
+document.addEventListener('dragend', pararAutoScroll);
+
 // ── Esquema: qué tareas guardadas tienen sus subtareas a la vista ────────────
 const subsAbiertas = new Set();
 
@@ -490,17 +537,16 @@ function renderGroups() {
 
   const query = document.getElementById('searchInput').value.trim().toLowerCase();
   const groups = currentState.groups || [];
-  const archivedTasks = currentState.tasks.filter(t => t.archived && !t.deleted);
-  // Esta pantalla ya no es solo el archivo: son TODAS las tareas. Las que no están en
-  // ninguna sección (las del panel, y las archivadas cuya sección ya no existe) van en
-  // un grupo propio al principio, para poder repartirlas desde aquí cuando se quiera.
-  const sinSeccion = currentState.tasks.filter(t =>
-    !t.deleted && !groups.some(g => g.id === t.groupId));
+  // Esta pantalla son TODAS las tareas, archivadas o no: aquí la sección es una
+  // etiqueta (groupId) y "archivada" solo decide si además sigue saliendo en el Panel.
+  // Las que no tienen sección (o la tienen borrada) van juntas al principio, para poder
+  // repartirlas desde aquí.
+  const vivas = currentState.tasks.filter(t => !t.deleted);
+  const sinSeccion = vivas.filter(t => !groups.some(g => g.id === t.groupId));
 
-  // No es una sección de verdad: ni se renombra ni se borra. Soltar una tarea encima
-  // la saca de Guardadas y la devuelve al panel.
+  // No es una sección de verdad: ni se renombra ni se borra.
   const secciones = [{ id: PANEL_SEC, name: 'Sin sección', tasks: sinSeccion, virtual: true }]
-    .concat(groups.map(g => ({ id: g.id, name: g.name, tasks: archivedTasks.filter(t => t.groupId === g.id) })));
+    .concat(groups.map(g => ({ id: g.id, name: g.name, tasks: vivas.filter(t => t.groupId === g.id) })));
 
   let anyVisible = false;
   secciones.forEach(g => {
@@ -713,9 +759,9 @@ El calendario NO se toca: todo el tiempo que ya has registrado con ella se sigue
       const task = currentState.tasks.find(t => t.id === taskId);
       if (!task) return;
       if (g.virtual) {
-        // Fuera de toda sección: vuelve al panel principal.
-        if (task.archived) ipcRenderer.send('action', { type: 'unarchive-task', payload: { taskId } });
-      } else if (task.groupId !== g.id || !task.archived) {
+        // Fuera de toda sección: se le quita la etiqueta y vuelve al panel.
+        ipcRenderer.send('action', { type: 'unarchive-task', payload: { taskId } });
+      } else if (task.groupId !== g.id) {
         ipcRenderer.send('action', { type: 'move-task-to-group', payload: { taskId, groupId: g.id } });
       }
     });
@@ -799,8 +845,11 @@ function renderTrash(list) {
 }
 
 // ---------- Popup nueva tarea / empezar guardada ----------
-function openStartPopup(task, subId) {
+let startPopupGroupId = null;   // sección propuesta al crear desde una sección concreta
+
+function openStartPopup(task, subId, groupId) {
   const isNew = !task;
+  startPopupGroupId = groupId || null;
   startPopupTaskId = isNew ? null : task.id;
   startPopupSubId = subId || null;
 
@@ -809,6 +858,24 @@ function openStartPopup(task, subId) {
     isNew ? 'Nueva tarea' : (sub ? `${task.name} · ${sub.name}` : task.name);
   document.getElementById('startPopupNameFields').style.display = isNew ? 'block' : 'none';
   document.getElementById('startPopupName').value = '';
+
+  // Al crear una tarea se elige ya su sección, que es lo natural estando en esta
+  // pantalla; si se está creando desde una sección concreta, viene preseleccionada.
+  if (isNew) {
+    const sel = document.getElementById('startPopupGroup');
+    sel.innerHTML = '';
+    const ninguna = document.createElement('option');
+    ninguna.value = '';
+    ninguna.textContent = 'Sin sección';
+    sel.appendChild(ninguna);
+    (currentState ? currentState.groups : []).forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = g.name;
+      sel.appendChild(opt);
+    });
+    sel.value = startPopupGroupId || '';
+  }
 
   const manualColors = currentState && currentState.settings && currentState.settings.colorMode === 'manual';
   document.getElementById('startPopupColorSection').style.display = (isNew && manualColors) ? '' : 'none';
@@ -844,7 +911,8 @@ function confirmStart() {
   } else {
     const name = document.getElementById('startPopupName').value.trim();
     if (!name) { alert('Ponle un nombre a la tarea'); return; }
-    ipcRenderer.send('action', { type: 'create-task', payload: { name, color: startPopupColor, backMinutes } });
+    const grupo = document.getElementById('startPopupGroup').value || undefined;
+    ipcRenderer.send('action', { type: 'create-task', payload: { name, color: startPopupColor, backMinutes, groupId: grupo } });
   }
   closeStartPopup();
 }

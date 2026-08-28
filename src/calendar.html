@@ -73,7 +73,11 @@
   .legend-item:hover { background:var(--bg3); }
   .legend-item.hidden-task { opacity:.4; }
   .legend-item.active-task { background:rgba(52,211,153,.10); }
-  .legend-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+  .legend-dot {
+    width:10px;height:10px;border-radius:50%;flex-shrink:0;cursor:pointer;
+    transition:transform .14s, box-shadow .14s;
+  }
+  .legend-dot:hover { transform:scale(1.5);box-shadow:0 0 0 3px color-mix(in srgb, var(--text) 14%, transparent); }
   .legend-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
   .legend-deleted-tag { font-size:10.5px;color:var(--text2);font-style:italic; }
   .legend-live-dot { width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;animation:legendPulse 1.4s ease-in-out infinite; }
@@ -124,6 +128,34 @@
     color:var(--text) !important;
   }
   .impute-btn:hover { background:color-mix(in srgb, var(--accent2) 34%, transparent) !important; }
+  .empezar-btn {
+    background:color-mix(in srgb, var(--success) 20%, transparent) !important;
+    border-color:color-mix(in srgb, var(--success) 45%, transparent) !important;
+    color:var(--text) !important;
+  }
+  .empezar-btn:hover { background:color-mix(in srgb, var(--success) 32%, transparent) !important; }
+
+  /* Popup de "Empezar tarea": la lista con buscador y el bloque de crear una nueva. */
+  .emp-aviso {
+    font-size:11.5px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);
+    border-radius:8px;padding:8px 10px;line-height:1.4;
+  }
+  .emp-lista {
+    display:flex;flex-direction:column;gap:3px;max-height:260px;overflow-y:auto;
+    border:1px solid var(--border);border-radius:10px;padding:5px;
+  }
+  .emp-item {
+    display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;
+    background:transparent;border:none;color:var(--text);font-family:inherit;font-size:13px;
+    text-align:left;cursor:pointer;width:100%;
+  }
+  .emp-item:hover { background:var(--bg3); }
+  .emp-item.activa { background:color-mix(in srgb, var(--accent2) 20%, transparent); }
+  .emp-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
+  .emp-nombre { flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .emp-sec { font-size:11px;color:var(--text2);flex-shrink:0; }
+  .emp-sep { height:1px;background:var(--border);margin:5px 4px; }
+  .emp-nueva { display:flex;flex-direction:column;gap:8px; }
   .export-btn { width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-size:13px;padding:9px 0;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px; }
   .export-btn:hover { background:var(--bg3); }
 
@@ -378,6 +410,10 @@
     </div>
 
     <div class="sidebar-footer">
+      <button class="export-btn empezar-btn" onclick="abrirEmpezar()" title="Poner una tarea en marcha desde ahora mismo">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M3 2l7 4-7 4V2z"/></svg>
+        Empezar tarea
+      </button>
       <button class="export-btn impute-btn" id="imputeBtn" style="display:none" onclick="abrirImpute()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
         Imputar
@@ -476,6 +512,30 @@
   </div>
 
   <!-- Popup de confirmación con el estilo de la app (sustituye a confirm() nativo) -->
+  <div class="popup-backdrop" id="empezarBackdrop" style="display:none" onclick="cerrarEmpezar()"></div>
+  <div class="entry-popup" id="empezarPopup" style="display:none">
+    <div class="entry-popup-title">Empezar una tarea ahora</div>
+    <div class="emp-aviso" id="empezarAviso"></div>
+    <div class="tp-search-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="text" id="empezarBuscar" placeholder="Buscar tarea..." oninput="renderEmpezar()">
+    </div>
+    <div class="emp-lista" id="empezarLista"></div>
+    <div class="emp-sep"></div>
+    <div class="emp-nueva">
+      <input type="text" id="empezarNombre" placeholder="...o escribe el nombre de una tarea nueva" maxlength="120">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="back-label" style="flex-shrink:0">Sección</span>
+        <select id="empezarSeccion" style="flex:1"></select>
+      </div>
+    </div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="cerrarEmpezar()">Cancelar</button>
+      <button class="btn-primary" onclick="crearYEmpezar()">Crear y empezar</button>
+    </div>
+  </div>
+
   <div class="popup-backdrop" id="taskColorBackdrop" style="display:none" onclick="cerrarColorTarea()"></div>
   <div class="entry-popup" id="taskColorPopup" style="display:none">
     <div class="entry-popup-title" id="taskColorTitle">Color de la tarea</div>
@@ -640,13 +700,15 @@ function renderTotalsInto(listId, totals, vacio) {
       (task.id === currentState.activeTaskId ? ' active-task' : '');
     item.title = oculta ? 'Mostrar en el calendario' : 'Ocultar del calendario';
     item.innerHTML = `
-      <div class="legend-dot" style="background:${task.color}"></div>
+      <div class="legend-dot" style="background:${task.color}" title="Cambiar color"></div>
       <span class="legend-name">${task.name}${task.deleted ? ' <span class="legend-deleted-tag">(eliminada)</span>' : ''}</span>
       <span class="day-total-time">${formatDur(secs * 1000)}</span>`;
     item.onclick = () => {
       if (oculta) hiddenTaskIds.delete(task.id); else hiddenTaskIds.add(task.id);
       renderDayTotals(); renderWeek();
     };
+    // El punto de color va aparte: cambia el color en vez de mostrar/ocultar.
+    item.querySelector('.legend-dot').onclick = (e) => { e.stopPropagation(); abrirColorTarea(task); };
     list.appendChild(item);
   });
   const suma = document.createElement('div');
@@ -661,6 +723,90 @@ async function abrirImpute() {
   if (urls.length === 1) { ipcRenderer.send('action', { type:'open-impute-url' }); return; }
   const eleccion = await pickImputeUrl(urls);
   if (eleccion) ipcRenderer.send('action', { type:'open-impute-url', payload: eleccion });
+}
+
+// ── Empezar una tarea desde el calendario ───────────────────────────────────
+// Sin salir de aquí: elige una de las que ya tienes, o escribe una nueva con su
+// sección. Solo puede haber una tarea en marcha, así que si hay otra corriendo se
+// avisa de que se va a pausar (que es justo lo que se suele querer al cambiar de tarea).
+function abrirEmpezar() {
+  document.getElementById('empezarBuscar').value = '';
+  document.getElementById('empezarNombre').value = '';
+
+  const sel = document.getElementById('empezarSeccion');
+  sel.innerHTML = '';
+  const ninguna = document.createElement('option');
+  ninguna.value = '';
+  ninguna.textContent = 'Sin sección';
+  sel.appendChild(ninguna);
+  ((currentState && currentState.groups) || []).forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = g.name;
+    sel.appendChild(opt);
+  });
+
+  renderEmpezar();
+  document.getElementById('empezarBackdrop').style.display = 'block';
+  document.getElementById('empezarPopup').style.display = 'flex';
+  document.getElementById('empezarBuscar').focus();
+}
+
+function cerrarEmpezar() {
+  document.getElementById('empezarBackdrop').style.display = 'none';
+  document.getElementById('empezarPopup').style.display = 'none';
+}
+
+function renderEmpezar() {
+  if (!currentState) return;
+  const activa = currentState.tasks.find(t => t.id === currentState.activeTaskId);
+  document.getElementById('empezarAviso').textContent = activa
+    ? `Ahora mismo corre "${activa.name}". Al empezar otra, esta se pausa sola.`
+    : 'No hay ninguna tarea en marcha: la que elijas empieza a contar desde ahora.';
+
+  const q = document.getElementById('empezarBuscar').value.trim().toLowerCase();
+  const secciones = (currentState.groups || []);
+  const nombreSec = (t) => (secciones.find(g => g.id === t.groupId) || {}).name || '';
+
+  // Las últimas usadas primero: al cambiar de tarea casi siempre vuelves a una de ellas.
+  const ultimoUso = (t) => t.entries.reduce((max, e) => Math.max(max, e.start), 0);
+  const lista = currentState.tasks
+    .filter(t => !t.deleted)
+    .filter(t => !q || t.name.toLowerCase().includes(q) || nombreSec(t).toLowerCase().includes(q))
+    .sort((a, b) => ultimoUso(b) - ultimoUso(a))
+    .slice(0, 40);
+
+  const cont = document.getElementById('empezarLista');
+  cont.innerHTML = '';
+  if (!lista.length) {
+    cont.innerHTML = '<div style="font-size:11.5px;color:var(--text2);padding:8px 10px">Sin resultados. Escribe abajo para crear una nueva.</div>';
+    return;
+  }
+  lista.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'emp-item' + (t.id === currentState.activeTaskId ? ' activa' : '');
+    b.innerHTML = `
+      <span class="emp-dot" style="background:${t.color}"></span>
+      <span class="emp-nombre"></span>
+      <span class="emp-sec"></span>`;
+    b.querySelector('.emp-nombre').textContent = t.name;
+    b.querySelector('.emp-sec').textContent = t.id === currentState.activeTaskId ? 'en marcha' : nombreSec(t);
+    b.onclick = () => {
+      if (t.id !== currentState.activeTaskId) {
+        ipcRenderer.send('action', { type: 'switch-task', payload: { taskId: t.id } });
+      }
+      cerrarEmpezar();
+    };
+    cont.appendChild(b);
+  });
+}
+
+function crearYEmpezar() {
+  const nombre = document.getElementById('empezarNombre').value.trim();
+  if (!nombre) { document.getElementById('empezarNombre').focus(); return; }
+  const grupo = document.getElementById('empezarSeccion').value || undefined;
+  ipcRenderer.send('action', { type: 'create-task', payload: { name: nombre, groupId: grupo } });
+  cerrarEmpezar();
 }
 
 // ── Color de una tarea, desde los puntitos de la barra lateral ───────────────

@@ -20,7 +20,7 @@ const GLOBALS = new Set(['require', 'setTimeout', 'setInterval', 'clearTimeout',
   'setImmediate', 'parseInt', 'parseFloat', 'isNaN', 'String', 'Number', 'Boolean', 'Array',
   'Object', 'Symbol', 'Promise', 'Error', 'Date', 'Math', 'JSON', 'console', 'process', 'fetch',
   'encodeURIComponent', 'decodeURIComponent', 'queueMicrotask', 'structuredClone',
-  'requestAnimationFrame', 'alert', 'confirm', 'prompt', 'Event', 'URLSearchParams', 'performance',
+  'requestAnimationFrame', 'cancelAnimationFrame', 'alert', 'confirm', 'prompt', 'Event', 'URLSearchParams', 'performance',
   'Set', 'Map', 'WeakMap', 'WeakSet', 'RegExp', 'Proxy', 'Reflect', 'async', 'URL', 'Image',
   // definidas en shared.js, que las páginas cargan con <script src> aparte:
   'isViewVisibleToUser', 'startTutorialIfNeeded', 'computeBackMinutes', 'contrastTextColor',
@@ -28,9 +28,27 @@ const GLOBALS = new Set(['require', 'setTimeout', 'setInterval', 'clearTimeout',
 
 const KEYWORDS = /^(if|for|while|switch|catch|return|typeof|function|new|await|case|do|else|of|in|delete|void|throw|yield|super|this)$/;
 
+// Funciones declaradas que no llama nadie. Suena a mania del orden, pero ha cazado ya
+// tres veces lo mismo: un parche que se aplica a medias deja la funcion escrita y sin
+// enganchar, y la interfaz simplemente no reacciona (el color desde el calendario, la
+// subtarea nueva desde su popup, esta misma comprobacion). Sintaxis correcta,
+// referencias correctas: lo que falta es la llamada.
+// OJO: se mira el fichero CRUDO, no el que pasa por stripNoise. Muchas funciones solo
+// se llaman desde un onclick="..." del HTML, y stripNoise se lleva por delante lo que
+// va entre comillas: sobre el texto limpio parecerian todas muertas.
+function huerfanas(src) {
+  const declaradas = [...src.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)/g)].map(m => m[1]);
+  return [...new Set(declaradas)].filter(n => {
+    if (GLOBALS.has(n)) return false;   // vive en shared.js y la usan otras paginas
+    const usos = src.match(new RegExp('\\b' + n + '\\b', 'g')) || [];
+    return usos.length <= 1;            // solo aparece en su propia declaracion
+  });
+}
+
 let bad = 0;
 for (const file of process.argv.slice(2)) {
-  const code = stripNoise(fs.readFileSync(file, 'utf8'));
+  const crudo = fs.readFileSync(file, 'utf8');
+  const code = stripNoise(crudo);
   const declared = new Set(GLOBALS);
 
   for (const m of code.matchAll(/\b(?:function\s*\*?\s*|class\s+)([A-Za-z_$][\w$]*)/g)) declared.add(m[1]);
@@ -55,7 +73,9 @@ for (const file of process.argv.slice(2)) {
     missing.add(name);
   }
 
-  if (missing.size) { bad = 1; console.log(file + '  ->  SIN DEFINIR: ' + [...missing].join(', ')); }
-  else console.log(file + '  ->  ok');
+  const sueltas = huerfanas(crudo);
+  const aviso = sueltas.length ? '   (declaradas y sin usar: ' + sueltas.join(', ') + ')' : '';
+  if (missing.size) { bad = 1; console.log(file + '  ->  SIN DEFINIR: ' + [...missing].join(', ') + aviso); }
+  else console.log(file + '  ->  ok' + aviso);
 }
 process.exit(bad);

@@ -735,6 +735,8 @@ function deleteGroup(groupId) {
 }
 
 // Mueve una tarea (ya guardada) de una sección a otra sin sacarla de "Guardadas".
+// Cambia la sección de una tarea. Ya no la archiva: en la pestaña Tareas la sección es
+// una etiqueta, y "archivada" solo decide si sigue apareciendo en el Panel.
 function moveTaskToGroup(taskId, groupId) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task || !state.groups.some(g => g.id === groupId)) return;
@@ -1798,13 +1800,6 @@ function fadeWindow(win, from, to, ms, done) {
   win.__fade = setTimeout(paso, 0);
 }
 
-function offscreenPanelBounds(b, anchor) {
-  if (anchor === 'right')  return { ...b, x: b.x - PANEL_SLIDE };
-  if (anchor === 'left')   return { ...b, x: b.x + PANEL_SLIDE };
-  if (anchor === 'bottom') return { ...b, y: b.y - PANEL_SLIDE };
-  return { ...b, y: b.y + PANEL_SLIDE };   // top
-}
-
 // Entra deslizando LA VENTANA desde fuera de la pantalla. Animar solo el contenido
 // dejaba a la vista el rectángulo acrílico de la ventana (el "panel gris" de detrás).
 function showDockPanel() {
@@ -2262,6 +2257,12 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'resume-entry':  resumeEntry(payload.taskId, payload.entryIndex); break;
     case 'create-task': {
       const id = createTask(payload.name, payload.color);
+      // La sección es solo su etiqueta: se le pone y sigue sin archivar, así que nace
+      // dentro de su sección en Tareas y a la vez a mano en el Panel.
+      if (payload.groupId && state.groups.some(g => g.id === payload.groupId)) {
+        const t = state.tasks.find(x => x.id === id);
+        if (t) t.groupId = payload.groupId;
+      }
       startTask(id, payload.backMinutes);
       openMain();
       break;
