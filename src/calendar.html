@@ -1690,7 +1690,31 @@ function renderPopupQuickActions(task, entryIndex, entry) {
         closePopup();
       });
     }));
-  } else if (!isLiveEntry && !taskIsActive) {
+  } else if (taskIsActive) {
+    // Entrada vieja de una tarea que ya corre en otro rato. Antes aquí no salía nada, y
+    // como depende de qué tarea esté activa, parecía que los botones iban y venían.
+    // No se ofrece "alargar": reabrir este rato hasta ahora se solaparía con el que está
+    // en marcha, y el calendario acabaría con dos bloques pisándose.
+    const label = document.createElement('span');
+    label.className = 'pqa-label';
+    label.textContent = 'Esta tarea ya está en marcha:';
+    wrap.appendChild(label);
+    wrap.appendChild(mkBtn(PQA_ICON_PAUSE, 'Pausar la tarea', 'pqa-danger', () => {
+      ipcRenderer.send('action', { type:'pause' }); closePopup();
+    }));
+    wrap.appendChild(mkBtn(PQA_ICON_RESTART, 'Cortar y empezar un rato nuevo', 'pqa-accent', () => {
+      askText({
+        title: 'Empezar un rato nuevo',
+        text: 'Se cierra el rato que está corriendo ahora y empieza otro desde este momento, en la misma tarea.',
+        placeholder: 'Nota para la nueva sesión (opcional)',
+        okLabel: 'Empezar', maxLength: 500,
+      }).then(note => {
+        if (note === null) return;
+        ipcRenderer.send('action', { type:'restart-task-with-note', payload:{ note } });
+        closePopup();
+      });
+    }));
+  } else {
     const label = document.createElement('span');
     label.className = 'pqa-label';
     label.textContent = 'Reanudar esta tarea:';
@@ -1712,8 +1736,6 @@ function renderPopupQuickActions(task, entryIndex, entry) {
       );
     }));
   }
-  // Si la tarea está activa por OTRA entrada (esta que se edita es una antigua), no se
-  // ofrece ningún control rápido: seguirá pudiendo editarse a mano (nombre/hora/nota).
 }
 
 function onPopupTaskChange() {

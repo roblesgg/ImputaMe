@@ -1,4 +1,4 @@
 {
-  "version": "2.5.8",
-  "notes": "imputa.me 2.5.8. En \"Empezar tarea\" del calendario, cada tarea tiene ahora una flecha que despliega sus subtareas: puedes arrancar directamente dentro de una, y crear una subtarea nueva ahí mismo que empieza a contar al momento. Pulsar la tarea sigue arrancándola a secas, que es lo más rápido. Y arreglado que la lupa se superpusiera con el texto del buscador."
+  "version": "2.5.9",
+  "notes": "imputa.me 2.5.9. Arreglado que los botones de reanudar no salieran a veces al pulsar una tarea del calendario. Pasaba en un caso concreto: cuando esa misma tarea ya estaba corriendo en OTRO rato distinto del que pulsabas, el popup se quedaba sin acciones. Ahora ese caso tiene las suyas propias (pausar la tarea, o cortar el rato en curso y empezar uno nuevo). Igual en el menú del clic derecho."
 }

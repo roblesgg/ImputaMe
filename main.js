@@ -1132,7 +1132,12 @@ function showCalendarContextMenu(taskId, entryIndex) {
     plantilla.push({ type: 'separator' });
     if (enMarcha && enCurso) {
       plantilla.push({ label: 'Pausar', click: () => pauseActive() });
-    } else if (entrada && !enMarcha) {
+    } else if (enMarcha) {
+      // Rato viejo de una tarea que ya corre en otro. Sin esto el menú se quedaba sin
+      // acciones y parecía que iban y venían. No se ofrece alargar: reabrir este rato
+      // hasta ahora se solaparía con el que está en marcha.
+      plantilla.push({ label: 'Pausar la tarea', click: () => pauseActive() });
+    } else if (entrada) {
       // Las dos maneras de retomar: una entrada nueva desde ahora, o estirar esta
       // hasta ahora. En ambas se conservan la subtarea y la nota de este rato.
       const sub = entrada.subId && (task.subtasks || []).some(x => x.id === entrada.subId)
