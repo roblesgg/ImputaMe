@@ -77,8 +77,11 @@
     50%     { box-shadow:0 0 0 8px color-mix(in srgb, var(--accent) 6%, transparent); }
   }
   .hero-name {
-    font-size:15px;font-weight:650;line-height:1.3;min-width:0;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:15px;font-weight:650;line-height:1.3;min-width:0;text-align:center;
+    /* Hasta dos líneas: con "Tarea · subtarea" en una sola, los puntos suspensivos se
+       comían justo la parte que dice en qué estás. */
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;overflow-wrap:anywhere;
   }
   .hero-time {
     font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--accent);

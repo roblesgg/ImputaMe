@@ -520,7 +520,45 @@ function dropGroupOn(targetId, above) {
   ipcRenderer.send('action', { type: 'reorder-groups', payload: { ids } });
 }
 
-function renderGroups() {
+// Retrato de lo que ESTA pintado: si no cambia, no hay por que rehacer nada. Los
+// tiempos quedan fuera a proposito, porque cambian cada segundo y no alteran la
+// estructura: esos se refrescan aparte.
+function firmaGroups() {
+  if (!currentState) return '';
+  const secciones = (currentState.groups || []).map(g => g.id + ':' + g.name).join('|');
+  const tareas = currentState.tasks
+    .filter(t => !t.deleted)
+    .map(t => [t.id, t.name, t.color, t.groupId, t.archived ? 1 : 0,
+               (t.subtasks || []).map(x => x.id + x.name).join(','),
+               subsAbiertas.has(t.id) ? 1 : 0].join('~'))
+    .join('|');
+  const papelera = currentState.tasks.filter(t => t.deleted).map(t => t.id).join(',');
+  return [secciones, tareas, papelera, currentState.activeTaskId, currentState.activeSubId,
+          currentSort(), currentSortDir(), trashCollapsed ? 1 : 0,
+          [...collapsedGroups].sort().join(','),
+          document.getElementById('searchInput').value].join('§');
+}
+
+let ultimaFirma = null;
+
+// Refresco barato: solo los numeros que corren.
+function refrescarTiempos() {
+  if (!currentState) return;
+  currentState.tasks.forEach(t => {
+    const fila = document.querySelector(`.archived-task-row[data-task-id="${t.id}"]`);
+    if (!fila) return;
+    const tiempo = fila.querySelector('.archived-task-time');
+    if (tiempo) tiempo.textContent = fmt(t.totalSecs);
+    const subs = fila.parentElement && fila.parentElement.querySelectorAll('.archived-sub .sub-tiempo');
+    if (subs) (t.subtasks || []).forEach((sub, i) => { if (subs[i]) subs[i].textContent = fmt(sub.totalSecs); });
+  });
+}
+
+function renderGroups(forzar) {
+  const firma = firmaGroups();
+  if (!forzar && firma === ultimaFirma) { refrescarTiempos(); return; }
+  ultimaFirma = firma;
+
   const list = document.getElementById('groupsList');
   // Marca en el menú el criterio y el sentido activos, y el botón dice cuál es.
   document.querySelectorAll('.sort-opt[data-sort]').forEach(o =>

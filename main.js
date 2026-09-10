@@ -859,61 +859,84 @@ function setDnd(minutos) {
 }
 
 // ── Aviso de hora de salida ──────────────────────────────────────────────────
-// Fecha local en 'AAAA-MM-DD'. No vale toISOString(), que pasa a UTC y a última hora
-// de la tarde ya devuelve el día siguiente.
-function ymd(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 // Devuelve la hora de salida de hoy ('HH:MM') o null si hoy no toca avisar.
-function leaveTimeForToday() {
+// Hora de salida de un dia concreto ('HH:MM'), o null si ese dia no toca avisar.
+function leaveTimeForDate(d) {
   if (!settings.leaveEnabled) return null;
   if (settings.leaveSameEveryDay) return settings.leaveTime || null;
   const dias = settings.leaveDays || {};
-  return dias[new Date().getDay()] || null;
+  return dias[d.getDay()] || null;
+}
+
+// Primera hora de salida que ya ha pasado desde que empezo el rato en curso. Se recorre
+// dia a dia desde que arranco, no solo hoy: si el ordenador se suspende (o se apaga) a
+// las tres de la tarde y no se vuelve a tocar hasta mañana, la hora de salida de AYER
+// tambien cuenta. Antes solo se miraba la de hoy y ademas se descartaba pasada una hora,
+// asi que en el caso para el que existe esto -te vas y dejas el equipo- no hacia nada.
+function primeraSalidaPasada(desdeMs) {
+  const ahora = Date.now();
+  const dia = new Date(desdeMs); dia.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 40; i++) {          // tope de seguridad, no un limite real
+    if (dia.getTime() > ahora) break;
+    const hhmm = leaveTimeForDate(dia);
+    if (hhmm) {
+      const [h, m] = String(hhmm).split(':').map(Number);
+      if (Number.isFinite(h) && Number.isFinite(m)) {
+        const corte = new Date(dia); corte.setHours(h, m, 0, 0);
+        const t = corte.getTime();
+        if (t > desdeMs && t <= ahora) return t;
+      }
+    }
+    dia.setDate(dia.getDate() + 1);
+  }
+  return null;
 }
 
 function checkLeaveTime() {
-  const hhmm = leaveTimeForToday();
-  if (!hhmm || !state.activeTaskId) return;   // sin tarea corriendo no hay nada que parar
+  if (!settings.leaveEnabled || !state.activeTaskId) return;   // sin nada corriendo, nada que parar
+  const task = getActiveTask();
+  const last = task && task.entries[task.entries.length - 1];
+  if (!last || last.end) return;
 
-  const hoy = ymd(new Date());
-  if (leaveNotifiedOn === hoy) return;
+  const corte = primeraSalidaPasada(last.start);
+  if (corte == null) return;
+  if (leaveNotifiedOn === corte) return;   // ya atendido (la marca es el corte, no el dia)
 
-  const [h, m] = String(hhmm).split(':').map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return;
-  const objetivo = new Date();
-  objetivo.setHours(h, m, 0, 0);
-
-  // Con No molestar puesto no se avisa, y tampoco se marca como avisado: si se quita
-  // dentro de la ventana de una hora, el aviso todavía llega.
+  // Con No molestar puesto no se avisa, pero si se para: parar no interrumpe nada, y es
+  // justo lo que se ha pedido que pase. Sin parada automatica, se deja sin marcar para
+  // que el aviso llegue en cuanto se quite el silencio.
   if (dndActive() && !settings.leaveAutoStop) return;
+  leaveNotifiedOn = corte;
 
-  const retraso = Date.now() - objetivo.getTime();
-  // Se avisa desde la hora en punto y hasta una hora después: así el aviso no se
-  // pierde si el ordenador estaba suspendido justo en ese minuto, pero tampoco salta
-  // a deshora si se abre la app por la noche.
-  if (retraso < 0 || retraso > 60 * 60000) return;
-
-  leaveNotifiedOn = hoy;
-  // Se lee la tarea ANTES de pararla: si no, el aviso no sabría de qué hablar.
-  const task = state.tasks.find(t => t.id === state.activeTaskId);
   if (settings.leaveAutoStop) {
-    pauseActive();
-    saveData(); broadcastState(); updateTrayTitle();
+    // El rato se cierra A LA HORA DE SALIDA, no en el momento en que la app se entera:
+    // si el equipo estuvo suspendido, apuntar la hora de encenderlo seria contar horas
+    // que nadie ha trabajado.
+    last.end = Math.max(last.start, corte);
+    state.activeTaskId = null;
+    state.activeSubId = null;
+    saveData(); broadcastState(); updateTrayTitle(); resetReminderTimer();
+    if (!dndActive()) notifyLeaveTime(task, true, corte);
+    return;
   }
-  if (!dndActive()) notifyLeaveTime(task, settings.leaveAutoStop);
+
+  // Solo aviso: aqui si tiene sentido rendirse si ya es tarde. Un recordatorio de que
+  // pares la tarea saltando a las tres de la madrugada no le sirve a nadie.
+  if (Date.now() - corte > 60 * 60000) return;
+  if (!dndActive()) notifyLeaveTime(task, false, corte);
 }
 
-function notifyLeaveTime(task, parada) {
+function notifyLeaveTime(task, parada, corte) {
   const nombre = task ? task.name : 'una tarea';
   const llevas = task ? fmtDuration(todaySecondsForTask(task)) : '';
+  const hora = corte ? `${String(new Date(corte).getHours()).padStart(2, '0')}:${String(new Date(corte).getMinutes()).padStart(2, '0')}` : '';
   try {
     if (!Notification.isSupported()) return;
     const n = new Notification({
       title: 'imputa.me · hora de salida',
       body: parada
-        ? `He parado "${nombre}"${llevas ? ` (${llevas} hoy)` : ''}. Hasta mañana.`
+        ? `He parado "${nombre}"${hora ? ` a las ${hora}` : ''}. Hasta mañana.`
         : `Sigues con "${nombre}"${llevas ? ` (${llevas} hoy)` : ''}. ¿La paras antes de irte?`,
       icon: APP_ICON_PATH,
       silent: false,

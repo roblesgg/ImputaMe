@@ -95,8 +95,14 @@ for (const esc of escenarios) {
     document.getElementById('searchInput').value = '';
     (manejadores.state || []).forEach(fn => fn(null, esc.estado));   // como el IPC real
     const pintado = document.getElementById('groupsList').children.length;
-    console.log(`  ${esc.nombre.padEnd(24)} -> ok (${pintado} tarjetas)`);
+    // Segunda pasada con el MISMO estado, que es lo que llega cada segundo mientras hay
+    // una tarea corriendo. Si el atajo de "no ha cambiado nada" se equivoca, la lista se
+    // queda vacia y aqui se ve.
+    (manejadores.state || []).forEach(fn => fn(null, esc.estado));
+    const trasRepetir = document.getElementById('groupsList').children.length;
+    console.log(`  ${esc.nombre.padEnd(24)} -> ok (${pintado} tarjetas, ${trasRepetir} tras repetir estado)`);
     if (esc.estado.groups.length && pintado === 0) { console.log('     AVISO: no ha pintado nada'); fallos++; }
+    if (trasRepetir < pintado) { console.log('     AVISO: al repetir el estado se ha perdido contenido'); fallos++; }
   } catch (e) {
     console.log(`  ${esc.nombre.padEnd(24)} -> REVIENTA: ${e.message}`);
     fallos++;

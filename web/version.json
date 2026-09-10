@@ -1,4 +1,4 @@
 {
-  "version": "2.5.9",
-  "notes": "imputa.me 2.5.9. Arreglado que los botones de reanudar no salieran a veces al pulsar una tarea del calendario. Pasaba en un caso concreto: cuando esa misma tarea ya estaba corriendo en OTRO rato distinto del que pulsabas, el popup se quedaba sin acciones. Ahora ese caso tiene las suyas propias (pausar la tarea, o cortar el rato en curso y empezar uno nuevo). Igual en el menú del clic derecho."
+  "version": "2.6.0",
+  "notes": "imputa.me 2.6. La parada automática a la hora de salida ya funciona de verdad, incluso si dejas el equipo encendido y no lo tocas hasta el día siguiente: el rato se cierra a la hora que tocaba, no a la de volver. En el calendario, los ratos cortos se dibujan con su duración real (antes se pintaban más altos de lo que son y por eso el tirador de abajo parecía mover el otro extremo), y los de 30 minutos ya se leen. La lista de Tareas deja de rehacerse cada segundo, así que el desplegable de subtareas no se cierra solo. Y los nombres largos de subtarea se parten en dos líneas en vez de cortarse."
 }
