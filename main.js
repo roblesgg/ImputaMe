@@ -3010,7 +3010,16 @@ function installUpdateNow() {
   BrowserWindow.getAllWindows().forEach(w => { try { w.destroy(); } catch {} });
   // setImmediate para dejar que el ciclo de eventos procese las destrucciones antes
   // de lanzar el instalador.
-  setImmediate(() => { try { autoUpdater.quitAndInstall(false, true); } catch {} });
+  setImmediate(() => {
+    try { autoUpdater.quitAndInstall(false, true); } catch {}
+    // Salida a la fuerza si en unos segundos seguimos vivos. quitAndInstall lanza el
+    // instalador y PIDE salir, pero si algo se resiste (un temporizador, una ventana
+    // que no se fue, otro proceso de la app) el instalador se encuentra la aplicación
+    // en marcha: enseña "no se puede cerrar imputa.me", y si ahí se cancela, ya ha
+    // borrado los ficheros viejos y la instalación se queda inservible. Es justo lo que
+    // pasó: la carpeta acabó con un icono suelto y sin ejecutable.
+    setTimeout(() => { try { app.exit(0); } catch {} }, 4000);
+  });
 }
 
 app.on('window-all-closed', e => e.preventDefault());

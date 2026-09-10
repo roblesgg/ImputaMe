@@ -1,4 +1,4 @@
 {
-  "version": "2.6.1",
-  "notes": "imputa.me 2.6.1. Arreglado que el desplegable de subtareas del calendario se cerrara solo al segundo de abrirlo: la app repinta la ventana cada segundo mientras hay una tarea corriendo, y al rehacer las opciones el navegador cerraba el desplegable que tenías abierto. Ahora solo se rehace si la lista ha cambiado de verdad, y nunca mientras lo estás usando."
+  "version": "2.6.2",
+  "notes": "imputa.me 2.6.2. Protección contra la actualización que se queda a medias. Si al instalar una versión nueva la app no termina de cerrarse, el instalador enseña \"no se puede cerrar imputa.me\" — y si ahí cancelas, ya ha borrado los ficheros viejos y la instalación se queda inservible (sin logo en el icono y sin abrir). Ahora la app se cierra a la fuerza si en unos segundos sigue viva, así que el instalador se la encuentra fuera de en medio."
 }
