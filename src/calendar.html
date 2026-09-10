@@ -1538,6 +1538,12 @@ function openEditPopup(task, entryIndex, entry) {
 // nota, el cambio es de ESTA entrada: no toca el resto del historial.
 let popupSubId = null;
 
+// Sello de la lista de subtareas que hay pintada, para no rehacerla si no ha cambiado.
+function firmaSubtareas(task, entry) {
+  return (task.subtasks || []).map(x => x.id + ':' + x.name).join('|')
+    + '§' + (entry.subId || '') + '§' + (entry.subNameAtTime || '');
+}
+
 function renderPopupSubtasks(task, entry) {
   const fila = document.getElementById('popupSubRow');
   // En una tarea eliminada el registro se mira, no se toca.
@@ -1566,6 +1572,7 @@ function renderPopupSubtasks(task, entry) {
     sel.appendChild(opt);
   }
   sel.value = popupSubId;
+  sel.dataset.firma = firmaSubtareas(task, entry);
   actualizarBotonesSub(task);
 
   sel.onchange = () => { popupSubId = sel.value; actualizarBotonesSub(task); };
@@ -1619,8 +1626,22 @@ function refrescarFilaSubtarea() {
   const entry = task.entries[popupCtx.entryIndex];
   if (!entry) return;
 
+  const sel0 = document.getElementById('popupSubSelect');
+
+  // El estado llega cada segundo, y aquí se rehacían las opciones del desplegable cada
+  // vez. Si lo tenías abierto, el navegador lo cerraba al destruirlas: parecía que se
+  // plegaba solo al segundo. Solo se rehace si de verdad ha cambiado la lista.
+  const firma = firmaSubtareas(task, entry);
+  const esperandoNueva = !!subEsperando;
+  if (!esperandoNueva && sel0 && firma === sel0.dataset.firma) { actualizarBotonesSub(task); return; }
+
+  // Y aunque haya cambiado: si lo estás usando ahora mismo, se deja en paz. Lo nuevo
+  // entrará la próxima vez que lo abras.
+  if (sel0 && document.activeElement === sel0) return;
+
   const elegida = popupSubId;
   renderPopupSubtasks(task, entry);
+
 
   // Si acabamos de crear una, se selecciona ella; si no, se respeta lo que hubiera.
   const nueva = subEsperando && (task.subtasks || []).find(x => x.name === subEsperando.name);

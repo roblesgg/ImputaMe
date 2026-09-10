@@ -1,4 +1,4 @@
 {
-  "version": "2.6.0",
-  "notes": "imputa.me 2.6. La parada automática a la hora de salida ya funciona de verdad, incluso si dejas el equipo encendido y no lo tocas hasta el día siguiente: el rato se cierra a la hora que tocaba, no a la de volver. En el calendario, los ratos cortos se dibujan con su duración real (antes se pintaban más altos de lo que son y por eso el tirador de abajo parecía mover el otro extremo), y los de 30 minutos ya se leen. La lista de Tareas deja de rehacerse cada segundo, así que el desplegable de subtareas no se cierra solo. Y los nombres largos de subtarea se parten en dos líneas en vez de cortarse."
+  "version": "2.6.1",
+  "notes": "imputa.me 2.6.1. Arreglado que el desplegable de subtareas del calendario se cerrara solo al segundo de abrirlo: la app repinta la ventana cada segundo mientras hay una tarea corriendo, y al rehacer las opciones el navegador cerraba el desplegable que tenías abierto. Ahora solo se rehace si la lista ha cambiado de verdad, y nunca mientras lo estás usando."
 }
