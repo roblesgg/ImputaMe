@@ -227,7 +227,7 @@ try { sync = require('./sync'); } catch {}
 
 // ── Estado ──────────────────────────────────────────────────────────────────
 let state = {
-  tasks: [],           // { id, name, color, subtasks: [{id,name}], entries: [{start, end, subId}], archived, groupId }
+  tasks: [],           // { id, name, color, subtasks: [{id,name}], entries: [{start, end, subId, note}], archived, groupId, taskType, memo }
   groups: [],          // { id, name }
   activeTaskId: null,
   activeSubId: null,   // subtarea en marcha dentro de la tarea activa (null = la tarea a secas)
@@ -321,6 +321,10 @@ function loadData() {
     // cada entrada nueva guarda el suyo propio y ya no cambia si renombras la tarea.
     t.entries.forEach(e => { if (e.nameAtTime === undefined) e.nameAtTime = t.name; });
     if (!Array.isArray(t.subtasks)) t.subtasks = [];
+    // v2.7.1: tipo (en curso vs puntual) y memo persistente (p. ej. id ERP). Aditivo; Dynamics365 puede enriquecer memo/erpId.
+    if (t.taskType !== 'ongoing' && t.taskType !== 'oneShot') t.taskType = 'ongoing';
+    if (typeof t.memo !== 'string') t.memo = (t.memo == null ? '' : String(t.memo));
+    t.memo = String(t.memo).trim().slice(0, 200);
   });
   try {
     if (fs.existsSync(SETTINGS_FILE)) settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) };
@@ -579,13 +583,44 @@ function resumeEntry(taskId, entryIndex) {
   saveData(); broadcastState(); resetReminderTimer();
 }
 
-function createTask(name, color) {
+function createTask(name, color, opts) {
   const id = Date.now().toString();
   const finalColor = settings.colorMode === 'manual' ? (color || nextAutoColor()) : nextAutoColor();
-  state.tasks.push({ id, name, color: finalColor, entries: [], archived: false, groupId: null });
+  const o = opts || {};
+  const taskType = o.taskType === 'oneShot' ? 'oneShot' : 'ongoing';
+  const memo = (o.memo || '').trim().slice(0, 200);
+  const task = { id, name, color: finalColor, entries: [], archived: false, groupId: null, taskType, memo };
+  if (o.erpId) task.erpId = String(o.erpId).trim().slice(0, 120);
+  state.tasks.push(task);
   saveData(); broadcastState();
   return id;
 }
+
+// Memo persistente + tipo: no tocan las entradas. El memo se muestra cada vez que
+// usas la tarea (id Dynamics, recordatorio fijo...); la nota de sesión sigue en entry.note.
+function updateTaskMeta(taskId, patch) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task || !patch) return;
+  if (patch.taskType === 'ongoing' || patch.taskType === 'oneShot') task.taskType = patch.taskType;
+  if (patch.memo !== undefined) {
+    task.memo = (patch.memo || '').trim().slice(0, 200);
+  }
+  if (patch.erpId !== undefined) {
+    const e = (patch.erpId || '').trim().slice(0, 120);
+    if (e) task.erpId = e; else delete task.erpId;
+  }
+  if (patch.name !== undefined) {
+    const n = (patch.name || '').trim();
+    if (n) task.name = n.slice(0, 120);
+  }
+  saveData(); broadcastState();
+}
+// Nota fija (memo) de la tarea: sobrevive entre sesiones. Local-only — sync.js no
+// la sube ni la baja; sirve p. ej. para el id de Dynamics/ERP. Max 200 chars.
+function setTaskMemo(taskId, memo) {
+  updateTaskMeta(taskId, { memo: memo == null ? '' : memo });
+}
+
 
 // Borrado "suave": la tarea desaparece del panel, de Guardadas y de los selectores,
 // pero sus entradas SIGUEN en el calendario (con su nombre, nota y horas de siempre),
@@ -746,11 +781,11 @@ function moveTaskToGroup(taskId, groupId) {
   saveData(); broadcastState();
 }
 
-function restoreAndStartTask(taskId, backMinutes, subId) {
+function restoreAndStartTask(taskId, backMinutes, subId, note) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task) return;
   task.archived = false;
-  startTask(taskId, backMinutes, subId);   // se puede retomar directamente en una subtarea
+  startTask(taskId, backMinutes, subId, note);   // se puede retomar directamente en una subtarea
   openMain();
 }
 
@@ -801,7 +836,7 @@ function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs, not
   if (!task && newTaskName) {
     const id = Date.now().toString();
     const finalColor = settings.colorMode === 'manual' ? (newTaskColor || nextAutoColor()) : nextAutoColor();
-    task = { id, name: newTaskName, color: finalColor, entries: [], archived: false, groupId: null };
+    task = { id, name: newTaskName, color: finalColor, entries: [], archived: false, groupId: null, taskType: 'ongoing', memo: '' };
     state.tasks.push(task);
   }
   if (!task || startMs == null) return;
@@ -2297,15 +2332,28 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'restart-task-with-note': restartActiveTaskWithNote(payload && payload.note); break;
     case 'resume-entry':  resumeEntry(payload.taskId, payload.entryIndex); break;
     case 'create-task': {
-      const id = createTask(payload.name, payload.color);
+      const id = createTask(payload.name, payload.color, {
+        taskType: payload.taskType,
+        memo: payload.memo,
+        erpId: payload.erpId,
+      });
       // La sección es solo su etiqueta: se le pone y sigue sin archivar, así que nace
       // dentro de su sección en Tareas y a la vez a mano en el Panel.
       if (payload.groupId && state.groups.some(g => g.id === payload.groupId)) {
         const t = state.tasks.find(x => x.id === id);
         if (t) t.groupId = payload.groupId;
       }
-      startTask(id, payload.backMinutes);
+      // Nota de esta sesión al crear+empezar (aparte del memo persistente).
+      startTask(id, payload.backMinutes, payload.subId, payload.note);
       openMain();
+      break;
+    }
+    case 'update-task-meta': {
+      updateTaskMeta(payload.taskId, payload);
+      break;
+    }
+    case 'set-task-memo': {
+      setTaskMemo(payload.taskId, payload.memo);
       break;
     }
     case 'delete-task':   deleteTask(payload.taskId); break;
@@ -2394,7 +2442,7 @@ ipcMain.on('action', (event, { type, payload }) => {
       saveSettings(); broadcastState();
       break;
     case 'reorder-groups': reorderGroups(payload && payload.ids); break;
-    case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes, payload.subId); break;
+    case 'restore-and-start-task': restoreAndStartTask(payload.taskId, payload.backMinutes, payload.subId, payload.note); break;
     case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note, payload.name, payload.subId); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
     case 'add-calendar-entry':

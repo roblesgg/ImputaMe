@@ -557,7 +557,11 @@
       <input type="time" id="popupEnd" placeholder="en curso">
     </div>
 
-    <textarea id="popupNote" placeholder="Nota para esta vez (opcional): no cambia el nombre de la tarea, solo queda aquí." maxlength="500" rows="2"></textarea>
+        <div id="popupTaskMemo" style="display:none;font-size:12px;color:var(--text2);line-height:1.35;padding:6px 10px;border-radius:8px;margin-bottom:6px;background:color-mix(in srgb, var(--accent) 10%, transparent);border:1px solid color-mix(in srgb, var(--accent) 25%, transparent)">
+      <strong style="color:var(--accent)">Nota fija:</strong> <span id="popupTaskMemoText"></span>
+    </div>
+
+    <textarea id="popupNote" placeholder="Nota de esta sesión (opcional). La nota fija de la tarea se edita en Tareas." maxlength="500" rows="2"></textarea>
 
     <div class="entry-popup-actions">
       <button class="btn-danger" id="popupDeleteBtn" style="display:none" onclick="deletePopupEntry()">Eliminar</button>
@@ -1305,7 +1309,8 @@ function renderDayEntries(col, date) {
       // subtarea también es el de entonces: borrarla no reescribe el historial.
       const entryName = (entry.nameAtTime || task.name) +
         (entry.subNameAtTime ? ` · ${entry.subNameAtTime}` : '');
-      block.title = entry.note ? `${entryName}\nNota: ${entry.note}` : entryName;
+      const memoTip = (task && (task.memo || '').trim()) ? ('\nTarea: ' + task.memo.trim()) : '';
+      block.title = (entry.note ? (entryName + '\nNota: ' + entry.note) : entryName) + memoTip;
       const durMs = (entry.end || Date.now()) - entry.start;
       const noteIcon = entry.note
         ? `<svg class="tb-note-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H9l-5 5z"/></svg>`
@@ -1466,6 +1471,7 @@ function openCreatePopup(date, startHour, endHour) {
   document.getElementById('popupStart').value = hourToHHMM(startHour);
   document.getElementById('popupEnd').value = hourToHHMM(endHour);
   document.getElementById('popupNote').value = '';
+  updatePopupTaskMemo((currentState.tasks || []).find(t => t.id === popupSelectedTaskId));
 
   buildPopupColorPicker();
   showPopup();
@@ -1492,7 +1498,7 @@ function renderTaskPicker() {
       chip.className = 'tp-section-chip'; chip.textContent = sectionName;
       el.appendChild(chip);
     }
-    el.onclick = () => { popupSelectedTaskId = id; onPopupTaskChange(); renderTaskPicker(); };
+    el.onclick = () => { popupSelectedTaskId = id; onPopupTaskChange(); renderTaskPicker(); updatePopupTaskMemo((currentState.tasks||[]).find(t=>t.id===id)); };
     list.appendChild(el);
   };
 
@@ -1554,6 +1560,16 @@ function autoGrowPopupFields() {
 document.getElementById('popupTaskNameEdit').addEventListener('input', (e) => autoGrowTextarea(e.target));
 document.getElementById('popupNote').addEventListener('input', (e) => autoGrowTextarea(e.target));
 
+
+function updatePopupTaskMemo(task) {
+  const row = document.getElementById('popupTaskMemo');
+  const txt = document.getElementById('popupTaskMemoText');
+  if (!row || !txt) return;
+  const memo = task && (task.memo || '').trim();
+  if (memo) { txt.textContent = memo; row.style.display = ''; }
+  else { txt.textContent = ''; row.style.display = 'none'; }
+}
+
 function openEditPopup(task, entryIndex, entry) {
   popupMode = 'edit';
   popupCtx = { task, entryIndex, date: startOfDay(new Date(entry.start)) };
@@ -1588,6 +1604,7 @@ function openEditPopup(task, entryIndex, entry) {
     document.getElementById('popupEnd').value = '';
   }
   document.getElementById('popupNote').value = entry.note || '';
+  updatePopupTaskMemo(task);
   renderPopupSubtasks(task, entry);
   renderPopupQuickActions(task, entryIndex, entry);
   showPopup();

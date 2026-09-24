@@ -129,11 +129,14 @@ async function pullNow() {
   for (const rt of t.data) {
     let local = byRemote.get(rt.id);
     if (!local) {
-      local = { id: rt.id, remoteId: rt.id, name: rt.nombre, color: rt.color, entries: [], archived: false, groupId: null };
+      // memo vacío: es local-only (no hay columna en Supabase). Al fusionar
+      // name/color de remoto NUNCA se toca local.memo.
+      local = { id: rt.id, remoteId: rt.id, name: rt.nombre, color: rt.color, memo: '', taskType: 'ongoing', entries: [], archived: false, groupId: null };
       st.tasks.push(local); byRemote.set(rt.id, local); changed = true;
     } else {
       if (local.name !== rt.nombre) { local.name = rt.nombre; changed = true; }
       if (local.color !== rt.color) { local.color = rt.color; changed = true; }
+      // no tocar local.memo
     }
   }
   for (const rf of f.data) {

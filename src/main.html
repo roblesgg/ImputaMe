@@ -223,6 +223,22 @@
   .active-note-row svg { flex-shrink:0;color:var(--text2); }
   .active-note-row input { flex:1; }
 
+  /* Memo persistente de la tarea en marcha (task.memo): se ve siempre que esté activa. */
+  .hero-memo { width:100%; } /* legacy chip; replaced by .task-memo-row */
+  .task-memo-row { display:none; align-items:center; gap:8px; width:100%; -webkit-app-region:no-drag; }
+  .task-memo-row.visible { display:flex; }
+  .task-memo-row svg { flex-shrink:0; color:var(--accent); }
+  .task-memo-row input { flex:1; }
+  .task-memo-preview {
+    font-size:11px; color:var(--text2); line-height:1.3; margin:2px 0 0 28px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+  }
+  .hero-notes { display:flex; flex-direction:column; gap:8px; width:100%; }
+  .active-note-wrap { display:none; flex-direction:column; gap:4px; width:100%; -webkit-app-region:no-drag; }
+  .active-note-wrap.visible { display:flex; animation: fadeSlideIn .25s ease; }
+  .task-meta-line { display:flex; align-items:center; gap:6px; min-width:0; flex:1; }
+  .panel-filter-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+
   /* Barra roja de actualización (solo visible si hay una versión nueva) */
   .update-bar {
     display:none;align-items:center;justify-content:center;gap:8px;width:100%;
@@ -304,9 +320,18 @@
         <div class="hero-name" id="heroName"></div>
       </div>
       <div class="hero-time" id="heroTime">0m 00s</div>
-      <div class="active-note-row" id="activeNoteRow">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H9l-5 5z"/></svg>
-        <input type="text" id="activeNoteInput" placeholder="¿Qué estás haciendo ahora mismo?" maxlength="500">
+      <div class="hero-notes">
+                <div class="task-memo-row" id="taskMemoRow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <input type="text" id="taskMemoInput" placeholder="Nota fija de la tarea (ej. id Dynamics)…" maxlength="200" title="Nota fija de la tarea (solo local; no se sincroniza)">
+        </div>
+        <div class="active-note-wrap" id="activeNoteRow">
+          <div class="note-field-label">Nota de esta sesión</div>
+          <div class="active-note-row" style="display:flex">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H9l-5 5z"/></svg>
+            <input type="text" id="activeNoteInput" placeholder="¿Qué estás haciendo en este rato?" maxlength="500">
+          </div>
+        </div>
       </div>
       <div class="hero-actions">
         <button class="hero-btn" id="heroPause">
@@ -326,10 +351,15 @@
   </button>
 
   <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
       <div class="section-label" style="margin-bottom:0;display:flex;align-items:center;gap:8px">
         <span>Recientes</span>
         <button class="ver-todas" id="verTodasBtn" onclick="openGroups()" title="Ver todas las tareas">ver todas</button>
+      </div>
+      <div class="filter-chips" id="panelFilter">
+        <button type="button" class="filter-chip active" data-filter="all" onclick="setPanelFilter('all')">Todas</button>
+        <button type="button" class="filter-chip" data-filter="ongoing" onclick="setPanelFilter('ongoing')">En curso</button>
+        <button type="button" class="filter-chip" data-filter="oneShot" onclick="setPanelFilter('oneShot')">Puntuales</button>
       </div>
       <div class="back-row" style="margin:0;flex-wrap:wrap;row-gap:4px">
         <span class="back-label">Al iniciar, llevo:</span>
@@ -410,6 +440,7 @@ let ticker = null;
 let colorPopupTaskId = null;
 let archivePopupTaskId = null;
 let lastNoteTaskId = null;
+let lastMemoTaskId = null;
 
 const SVG_PLAY = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M3 2l7 4-7 4V2z"/></svg>`;
 const SVG_PAUSE = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10" rx="1"/><rect x="7" y="1" width="3" height="10" rx="1"/></svg>`;
@@ -443,6 +474,30 @@ const SVG_SUB_DEL = `<svg width="11" height="11" viewBox="0 0 10 10"><path d="M1
 
 let lastRenderedIds = null;
 const MAX_RECIENTES = 8;   // cuántas tareas recientes caben en el Panel sin que estorbe
+let panelFilter = 'all'; // all | ongoing | oneShot
+
+function setPanelFilter(f) {
+  panelFilter = f;
+  document.querySelectorAll('#panelFilter .filter-chip').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === f);
+  });
+  lastRenderedIds = null;
+  if (currentState) render(currentState);
+}
+
+function taskTypeOf(t) {
+  return t && t.taskType === 'oneShot' ? 'oneShot' : 'ongoing';
+}
+
+function badgeHtml(t) {
+  const oneshot = taskTypeOf(t) === 'oneShot';
+  return '<span class="task-badge ' + (oneshot ? 'oneshot' : 'ongoing') + '">' +
+    (oneshot ? 'Puntual' : 'En curso') + '</span>';
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 // Tareas con las subtareas desplegadas. Solo mientras dure la ventana: es un gesto de
 // consulta, no un ajuste que merezca guardarse en disco.
@@ -467,10 +522,10 @@ function buildRow(t, state) {
         <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg>
       </div>
       <div class="task-dot" style="background:${t.color};cursor:pointer" title="Cambiar color" onclick="event.stopPropagation();openColorPopup('${t.id}')"></div>
-      <span class="task-name">${t.name}</span>
+      <div class="task-meta-line"><span class="task-name">${t.name}</span>${badgeHtml(t)}</div>
       <span class="task-time">${fmt(t.todaySecs)}</span>
       <div class="task-pill-actions">
-        <button class="icon-btn" title="Cambiar el nombre" onclick="event.stopPropagation();startRename('${t.id}')">
+        <button class="icon-btn" title="Cambiar el nombre" onclick="event.stopPropagation();openTaskEdit('${t.id}')">
           ${SVG_PENCIL}
         </button>
         <button class="icon-btn" title="Guardar en un grupo" onclick="event.stopPropagation();archiveTask('${t.id}')">
@@ -499,6 +554,14 @@ function buildRow(t, state) {
   linea.appendChild(pill);
   linea.appendChild(del);
   row.appendChild(linea);
+  const memoPrev = (t.memo || '').trim();
+  if (memoPrev) {
+    const prev = document.createElement('div');
+    prev.className = 'task-memo-preview';
+    prev.textContent = memoPrev.length > 60 ? memoPrev.slice(0, 60) + '…' : memoPrev;
+    prev.title = memoPrev;
+    row.appendChild(prev);
+  }
 
   pill.querySelector('.task-chevron').onclick = (e) => {
     e.stopPropagation();
@@ -576,6 +639,37 @@ async function renombrarSubtarea(t, sub) {
   const n = val.trim();
   if (!n || n === sub.name) return;
   ipcRenderer.send('action', { type:'rename-subtask', payload:{ taskId: t.id, subId: sub.id, name: n } });
+}
+
+
+// Editar nombre / tipo / memo persistente (task.memo — alineado con Dynamics365).
+async function openTaskEdit(taskId) {
+  const task = currentState && currentState.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const name = await askText({ title: 'Nombre de la tarea', value: task.name, maxLength: 120 });
+  if (name === null) return;
+  const n = name.trim();
+  if (!n) return;
+  const oneshot = taskTypeOf(task) === 'oneShot';
+  const tipo = await askText({
+    title: 'Tipo: escribe "puntual" o "en curso"',
+    value: oneshot ? 'puntual' : 'en curso',
+    maxLength: 20,
+    placeholder: 'en curso / puntual',
+  });
+  if (tipo === null) return;
+  const tt = /puntual|oneshot|one.?shot/i.test(tipo) ? 'oneShot' : 'ongoing';
+  const memo = await askText({
+    title: 'Nota de la tarea (persistente)',
+    value: task.memo || '',
+    maxLength: 200,
+    placeholder: 'Ej. id Dynamics / recordatorio fijo…',
+  });
+  if (memo === null) return;
+  ipcRenderer.send('action', {
+    type: 'update-task-meta',
+    payload: { taskId, name: n, taskType: tt, memo },
+  });
 }
 
 // Renombrado en el sitio: convierte el nombre en un textbox editable.
@@ -733,18 +827,27 @@ function render(state) {
 
   const noteRow = document.getElementById('activeNoteRow');
   const noteInput = document.getElementById('activeNoteInput');
+  const memoRow = document.getElementById('taskMemoRow');
+  const memoInput = document.getElementById('taskMemoInput');
   if (active) {
-    noteRow.style.display = 'flex';
-    // Solo rellenamos el campo cuando CAMBIA la tarea activa, no en cada refresco (el
+    noteRow.classList.add('visible');
+    if (memoRow) memoRow.classList.add('visible');
+    // Solo rellenamos los campos cuando CAMBIA la tarea activa, no en cada refresco (el
     // estado llega cada segundo): si no, le borraríamos al usuario lo que está escribiendo.
     if (active.id !== lastNoteTaskId) {
       lastNoteTaskId = active.id;
       const lastEntry = active.entries[active.entries.length - 1];
       noteInput.value = (lastEntry && lastEntry.note) || '';
     }
+    if (active.id !== lastMemoTaskId) {
+      lastMemoTaskId = active.id;
+      if (memoInput) memoInput.value = active.memo || '';
+    }
   } else {
-    noteRow.style.display = 'none';
+    noteRow.classList.remove('visible');
+    if (memoRow) memoRow.classList.remove('visible');
     lastNoteTaskId = null;
+    lastMemoTaskId = null;
   }
 
   const list = document.getElementById('tasksList');
@@ -752,24 +855,29 @@ function render(state) {
   // usado (la más reciente primero) y el resto se consulta en Tareas. La que está en
   // marcha ya sale arriba en grande, así que aquí no se repite.
   const ultimoUso = (t) => t.entries.reduce((max, e) => Math.max(max, e.start), 0);
+  // Recientes filtradas por tipo (en curso / puntual). La activa ya está en el hero.
   const todas = visibleTasks
     .filter(t => t.id !== state.activeTaskId)
+    .filter(t => panelFilter === 'all' || taskTypeOf(t) === panelFilter)
     .sort((a, b) => ultimoUso(b) - ultimoUso(a));
   const restantes = todas.slice(0, MAX_RECIENTES);
   const verTodas = document.getElementById('verTodasBtn');
-  if (verTodas) verTodas.classList.toggle('visible', todas.length > restantes.length);
+  if (verTodas) verTodas.classList.toggle('visible', visibleTasks.filter(t => t.id !== state.activeTaskId).length > restantes.length);
   if (!restantes.length) {
-    list.innerHTML = `<div class="empty-state">${visibleTasks.length ? 'No has usado ninguna otra tarea últimamente.' : 'Sin tareas. Crea una abajo ↓'}</div>`;
+    const vacio = panelFilter === 'oneShot' ? 'No hay tareas puntuales recientes.'
+      : panelFilter === 'ongoing' ? 'No hay tareas en curso recientes.'
+      : (visibleTasks.length ? 'No has usado ninguna otra tarea últimamente.' : 'Sin tareas. Crea una abajo ↓');
+    list.innerHTML = `<div class="empty-state">${vacio}</div>`;
     lastRenderedIds = null;
     return;
   }
 
-  // Si las tareas visibles son exactamente las mismas que la última vez (mismo orden),
-  // actualizamos cada fila en el sitio en vez de destruir y recrear todo el DOM: así,
-  // durante el segundo a segundo mientras hay una tarea activa, no se pierde el :hover
-  // ni parpadean los botones bajo el cursor (mismo problema que había en el calendario).
-  const ids = restantes.map(t => t.id);
-  const sameSet = lastRenderedIds && ids.length === lastRenderedIds.length && ids.every((id, i) => id === lastRenderedIds[i]);
+  // Agrupa en secciones cuando el filtro es "Todas" y hay de ambos tipos.
+  const ongoing = restantes.filter(t => taskTypeOf(t) === 'ongoing');
+  const oneshots = restantes.filter(t => taskTypeOf(t) === 'oneShot');
+  const showSections = panelFilter === 'all' && ongoing.length && oneshots.length;
+  const flatIds = restantes.map(t => t.id).join(',') + '|' + panelFilter + (showSections ? '|sec' : '');
+  const sameSet = lastRenderedIds === flatIds && !showSections;
   if (sameSet) {
     restantes.forEach(t => {
       const row = list.querySelector(`[data-task-id="${t.id}"]`);
@@ -778,9 +886,24 @@ function render(state) {
     return;
   }
 
-  lastRenderedIds = ids;
+  lastRenderedIds = flatIds;
   list.innerHTML = '';
-  restantes.forEach(t => list.appendChild(buildRow(t, state)));
+  const appendSection = (label, arr) => {
+    if (!arr.length) return;
+    if (showSections) {
+      const head = document.createElement('div');
+      head.className = 'list-section-head';
+      head.innerHTML = '<span>' + label + '</span><span class="count">' + arr.length + '</span>';
+      list.appendChild(head);
+    }
+    arr.forEach(t => list.appendChild(buildRow(t, state)));
+  };
+  if (showSections) {
+    appendSection('En curso', ongoing);
+    appendSection('Puntuales', oneshots);
+  } else {
+    restantes.forEach(t => list.appendChild(buildRow(t, state)));
+  }
 }
 
 if (ticker) clearInterval(ticker);
@@ -802,6 +925,20 @@ document.getElementById('activeNoteInput').addEventListener('input', () => {
 // Envía la nota pendiente YA (sin esperar al debounce). Se llama justo antes de
 // pausar/cambiar de tarea: si no, una nota escrita en el último medio segundo se
 // perdía, porque al llegar el guardado la entrada ya se había cerrado.
+
+let taskMemoDebounce = null;
+(function wireTaskMemo() {
+  const el = document.getElementById('taskMemoInput');
+  if (!el) return;
+  const send = () => {
+    if (!currentState || !currentState.activeTaskId) return;
+    ipcRenderer.send('action', { type:'set-task-memo', payload:{ taskId: currentState.activeTaskId, memo: el.value } });
+  };
+  el.addEventListener('input', () => { clearTimeout(taskMemoDebounce); taskMemoDebounce = setTimeout(send, 400); });
+  el.addEventListener('change', send);
+  el.addEventListener('blur', () => { clearTimeout(taskMemoDebounce); taskMemoDebounce = null; send(); });
+})();
+
 function flushActiveNote() {
   if (activeNoteDebounce) { clearTimeout(activeNoteDebounce); activeNoteDebounce = null; }
   if (!currentState || !currentState.activeTaskId) return;

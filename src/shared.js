@@ -109,7 +109,7 @@ const TUTORIAL_STEPS = [
   { id:'main-recientes', window:'main', version:'2.5.3', selector:'#tasksList',
     title:'Las últimas que has usado', text:'El Panel enseña solo las tareas que has tocado hace poco, la más reciente arriba. Todas están en la pestaña Tareas, con sus secciones; aquí solo las tienes a mano.' },
   { id:'main-note',      window:'main', version:'1.2.19', selector:'#activeNoteRow',
-    title:'Nota rápida', text:'Anota qué estás haciendo exactamente ahora mismo dentro de esta tarea. Se ve reflejada en el calendario y se borra sola al pausar.' },
+    title:'Nota de esta sesión', text:'Anota qué estás haciendo exactamente en este rato. Se guarda en la entrada y se ve en el calendario. Si la tarea tiene una nota persistente (memo), esa se muestra aparte y no se borra al pausar.' },
   { id:'main-update',    window:'main', version:'1.2.19', selector:'#updateBtn',
     title:'Actualización disponible', text:'Cuando haya una versión nueva de imputa.me, aparece este aviso. Haz clic para instalarla.' },
   { id:'main-back',      window:'main', version:'1.2.19', selector:'.back-row',

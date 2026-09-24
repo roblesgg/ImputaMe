@@ -171,3 +171,9 @@ Si en algún momento se activa el Modo de desarrollador de Windows en la máquin
 
 ### Estado en el momento de escribir esto
 No hay ningún bug conocido pendiente de arreglar. Los dos últimos encontrados en esta sesión (esquinas/blur de ventana, y la rejilla del calendario rompiéndose al arrastrar más de ~1s por culpa de los redibujados periódicos) están corregidos y verificados. El instalador y el portable en `release/` están al día con todos los cambios descritos en este documento.
+
+---
+
+## Notas de tarea (sesión vs fija)
+
+Hay dos campos distintos: `entry.note` (sesión, máx. 500) y `task.memo` (nota fija local-only, máx. 200). Detalle en [`docs/notas-tarea.md`](docs/notas-tarea.md).
