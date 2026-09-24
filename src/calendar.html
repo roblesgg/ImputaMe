@@ -256,6 +256,18 @@
   .task-block .tb-time-dur { flex-shrink:0;font-weight:700; }
   .task-block.ghost { opacity:.55;background:var(--accent2)!important;pointer-events:none; }
   .task-block.running { outline:1.5px solid var(--danger);outline-offset:1px; }
+  .task-block.selected { outline:2px solid var(--accent); outline-offset:1px; z-index:4; }
+  .task-block.moving { opacity:.35; cursor:grabbing !important; }
+  .task-block.move-ghost {
+    opacity:.55; pointer-events:none; z-index:15;
+    box-shadow:0 4px 16px rgba(0,0,0,.45);
+  }
+  /* Transicion suave solo fuera de un arrastre activo */
+  .task-block:not(.ghost):not(.move-ghost):not(.moving) {
+    transition: top .15s ease, height .15s ease;
+  }
+  .cal-app.is-dnd .task-block { transition:none !important; }
+
 
   /* Tiradores para redimensionar un bloque arrastrando su borde superior/inferior:
      una barrita flotante tipo "home indicator" de iPhone. Verde = entrada normal,
@@ -266,12 +278,12 @@
      tirador del bloque contiguo cuando dos tareas están pegadas, que era lo
      que hacía parpadear el hover. */
   .tb-handle {
-    position:absolute;left:50%;transform:translateX(-50%);width:44px;height:12px;
+    position:absolute;left:50%;transform:translateX(-50%);width:52px;height:14px;
     display:flex;align-items:center;justify-content:center;
     cursor:grab;opacity:0;transition:opacity .12s;z-index:6;
   }
   .tb-handle::after {
-    content:'';box-sizing:border-box;width:38px;height:8px;border-radius:4px;
+    content:'';box-sizing:border-box;width:42px;height:9px;border-radius:4px;
     background:var(--success);
     border:2px solid var(--handle-outline, rgba(0,0,0,.35));
     box-shadow:0 1px 4px rgba(0,0,0,.4);
@@ -627,6 +639,7 @@
 </div>
 
 <script src="shared.js"></script>
+<script src="calendar-dnd.js"></script>
 <script>
 const { ipcRenderer, shell } = require('electron');
 
@@ -649,7 +662,44 @@ let hiddenTaskIds = new Set();
 let popupMode = null;
 let popupCtx = null;
 let dragState = null;
-let resizeState = null;
+let resizeState = null; // espejo; el resize real vive en calDnD
+let moveState = null;   // espejo; el move real vive en calDnD
+let calDnDBusy = false;
+
+function findEntryIndex(task, origStartMs, fallbackIdx) {
+  if (!task || !task.entries) return -1;
+  const byStart = task.entries.findIndex(e => e.start === origStartMs);
+  if (byStart >= 0) return byStart;
+  if (fallbackIdx >= 0 && fallbackIdx < task.entries.length) return fallbackIdx;
+  return -1;
+}
+
+const calDnD = createCalendarDnD({
+  getRowH: () => ROW_H,
+  snapHour,
+  clamp,
+  startOfDay,
+  sameDay,
+  hourToHHMM,
+  timeRangeLabel,
+  formatDur,
+  neighbourLimits: (...args) => neighbourLimits(...args),
+  findEntryIndex,
+  ipcRenderer,
+  getCurrentState: () => currentState,
+  getHiddenTaskIds: () => hiddenTaskIds,
+  openEditPopup: (...args) => openEditPopup(...args),
+  isPopupOpen: () => !!popupMode,
+  onInteractionEnd: () => { lastResizeEnd = Date.now(); },
+  setBusyFlag: (busy) => {
+    calDnDBusy = !!busy;
+    resizeState = (busy && calDnD.getResizeState()) ? calDnD.getResizeState() : null;
+    moveState = (busy && calDnD.getMoveState()) ? calDnD.getMoveState() : null;
+  },
+  getDayCols: () => document.querySelectorAll("#gridBody .day-col"),
+});
+calDnD.installClipboard();
+
 let popupColor = COLORS[0];
 
 function startOfDay(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
@@ -675,6 +725,24 @@ function timeRangeLabel(startMs, endMsOrNull) {
 const today0 = startOfDay(new Date());
 
 let tutorialActive = false;
+function calendarStructuralSignature(state) {
+  if (!state) return "";
+  const parts = [];
+  parts.push("a:" + (state.activeTaskId || ""));
+  (state.tasks || []).forEach(t => {
+    parts.push(t.id, t.name, t.color, t.archived ? "1" : "0", String((t.entries || []).length));
+    (t.entries || []).forEach(e => {
+      parts.push(String(e.start), e.end == null ? "R" : String(e.end), e.note || "", e.nameAtTime || "", e.subId || "");
+    });
+  });
+  const st = state.settings || {};
+  parts.push(JSON.stringify(st.weekOverrides || {}));
+  parts.push(JSON.stringify(st.weekDays || {}));
+  return parts.join("|");
+}
+let lastCalSignature = null;
+let weekGridBuilt = false;
+
 ipcRenderer.on('state', (_, state) => {
   currentState = state;
   let firstLoad = false;
@@ -685,7 +753,17 @@ ipcRenderer.on('state', (_, state) => {
     miniViewYear = selectedDate.getFullYear();
     miniViewMonth = selectedDate.getMonth();
   }
-  renderAll();
+  const sig = calendarStructuralSignature(state);
+  const structuralChange = sig !== lastCalSignature;
+  lastCalSignature = sig;
+  if (!firstLoad && weekGridBuilt && !forceNextRenderWeek && !structuralChange && !calDnDBusy && !dragState) {
+    // Tick de tarea en curso: actualizar bloques running sin reconstruir la rejilla.
+    updateRunningBlocksLive();
+    renderDayTotals();
+    renderMiniCal();
+  } else {
+    renderAll();
+  }
   refrescarFilaSubtarea();
   if (firstLoad) scrollToNow();
   maybeStartTutorial();
@@ -1088,14 +1166,10 @@ function abrirMenuDias() {
 // ---------- Week grid ----------
 let forceNextRenderWeek = false;   // ver closePopup(): el popup tapaba el bloque, el próximo refresco no se debe saltar
 function renderWeek() {
-  // No reconstruir la rejilla mientras se está arrastrando (destruiría el elemento en uso),
-  // ni mientras el ratón está sobre una tarea: el estado llega cada segundo si hay una tarea
-  // activa, y recrear el bloque bajo el cursor le reinicia el :hover y hace parpadear los tiradores.
-  // Se consulta el :hover real en vez de llevar un contador: si un bloque se destruía con el
-  // ratón encima, su 'mouseleave' nunca llegaba, el contador se quedaba > 0 y el calendario
-  // dejaba de refrescarse (el "se buguea" al arrastrar).
-  if (dragState || resizeState) return;
-  if (!forceNextRenderWeek && document.querySelector('.task-block:hover')) return;
+  // No reconstruir la rejilla mientras hay un arrastre/resize/move activo (destruiría el DOM en uso).
+  // Ya NO se salta el render por :hover: los ticks de tarea en curso se atienden con
+  // updateRunningBlocksLive() sin tirar abajo la rejilla (ver handler de "state").
+  if (dragState || resizeState || moveState || calDnDBusy) return;
   forceNextRenderWeek = false;
   const weekEndDay = addDays(viewWeekStart, 6);
   const sameMonth = viewWeekStart.getMonth() === weekEndDay.getMonth();
@@ -1148,6 +1222,40 @@ function renderWeek() {
     renderDayEntries(col, date);
     gridBody.appendChild(col);
   });
+  weekGridBuilt = true;
+}
+
+// Actualiza altura/etiqueta de bloques en curso sin reconstruir la semana.
+function updateRunningBlocksLive() {
+  if (!currentState || dragState || resizeState || moveState || calDnDBusy) return;
+  const now = Date.now();
+  document.querySelectorAll('.task-block.running[data-task-id]').forEach(block => {
+    const col = block.closest('.day-col');
+    if (!col || !col._date) return;
+    const dayStart = startOfDay(col._date).getTime();
+    const startMs = Number(block.dataset.startMs);
+    if (!Number.isFinite(startMs)) return;
+    const startH = (Math.max(startMs, dayStart) - dayStart) / 3600000;
+    const endH = (Math.min(now, dayStart + 86400000) - dayStart) / 3600000;
+    const blockH = Math.max(6, (endH - startH) * ROW_H - 2);
+    block.style.top = (startH * ROW_H) + 'px';
+    block.style.height = blockH + 'px';
+    if (blockH < 30) { block.classList.add('mini'); block.classList.remove('corto'); }
+    else if (blockH < 58) { block.classList.add('corto'); block.classList.remove('mini'); }
+    else { block.classList.remove('mini', 'corto'); }
+    const durEl = block.querySelector('.tb-time-dur');
+    if (durEl) durEl.textContent = formatDur(now - startMs);
+    const rangeEl = block.querySelector('.tb-time-range');
+    if (rangeEl) rangeEl.textContent = timeRangeLabel(startMs, null);
+  });
+  renderNowTickOnGrid();
+}
+
+function renderNowTickOnGrid() {
+  const gutter = document.getElementById('hourGutter');
+  if (!gutter) return;
+  gutter.querySelectorAll('.now-tick').forEach(el => el.remove());
+  renderNowTick(gutter);
 }
 
 let lastResizeEnd = 0;   // momento en que terminó el último redimensionado
@@ -1208,19 +1316,18 @@ function renderDayEntries(col, date) {
         ? `<div class="tb-note-preview">${noteIcon}<span>${entry.note}</span></div>`
         : '';
       block.innerHTML = `<div class="tb-name">${entryName}</div><div class="tb-time"><span class="tb-time-top">${notePreview ? '' : noteIcon}<span class="tb-time-range">${timeRangeLabel(entry.start, entry.end)}</span></span><span class="tb-time-dur">${formatDur(durMs)}</span></div>${notePreview}`;
-      block.onclick = (ev) => {
-        ev.stopPropagation();
-        // Tras redimensionar no abrimos el popup, pero solo por un instante. Antes un
-        // flag global se tragaba el siguiente clic (aunque fuera en OTRA entrada), y por
-        // eso "a veces" no se podía abrir una tarea para eliminarla.
-        if (Date.now() - lastResizeEnd < 300) return;
-        openEditPopup(task, idx, entry);
-      };
+      block.dataset.taskId = task.id;
+      block.dataset.startMs = String(entry.start);
+      block.dataset.entryIndex = String(idx);
+      calDnD.applySelectedClass(block, task.id, entry.start);
+      // Clic / arrastre: attachMoveHandlers decide (umbral → move; si no, popup).
+      calDnD.attachMoveHandlers(block, task, idx, entry, col);
       // Clic derecho: el menú lo monta el proceso principal, que es quien tiene la
       // lista de secciones (nativo, así se pinta por encima de la rejilla sin líos).
       block.addEventListener('contextmenu', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        calDnD.markSelected(block, task.id, entry.start);
         ipcRenderer.send('action', { type: 'calendar-context-menu', payload: { taskId: task.id, entryIndex: idx } });
       });
 
@@ -1233,7 +1340,7 @@ function renderDayEntries(col, date) {
         const topHandle = document.createElement('div');
         topHandle.className = 'tb-handle tb-handle-top' + (entry.end == null ? ' running' : '') + (compactHandles ? ' compact' : '');
         topHandle.style.setProperty('--handle-outline', handleOutline);
-        attachResizeHandle(topHandle, 'start', task, idx, entry, block, col);
+        calDnD.attachResizeHandle(topHandle, 'start', task, idx, entry, block, col);
         block.appendChild(topHandle);
       }
       // El tirador inferior ajusta la hora de fin; solo si la entrada ya tiene fin
@@ -1242,7 +1349,7 @@ function renderDayEntries(col, date) {
         const bottomHandle = document.createElement('div');
         bottomHandle.className = 'tb-handle tb-handle-bottom' + (compactHandles ? ' compact' : '');
         bottomHandle.style.setProperty('--handle-outline', handleOutline);
-        attachResizeHandle(bottomHandle, 'end', task, idx, entry, block, col);
+        calDnD.attachResizeHandle(bottomHandle, 'end', task, idx, entry, block, col);
         block.appendChild(bottomHandle);
       }
 
@@ -1272,53 +1379,7 @@ function neighbourLimits(task, idx, entry, dayStart) {
   return { lower, upper };
 }
 
-function attachResizeHandle(handleEl, edge, task, idx, entry, block, col) {
-  handleEl.addEventListener('mousedown', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const dayStart = startOfDay(col._date).getTime();
-    const wasOngoing = entry.end == null;
-    let newStart = entry.start;
-    let newEnd = wasOngoing ? Date.now() : entry.end;
-    const limits = neighbourLimits(task, idx, entry, dayStart);
-    handleEl.classList.add('resizing');
-    resizeState = { edge };
-
-    function onMove(ev) {
-      const rect = col.getBoundingClientRect();
-      const hour = snapHour(clamp((ev.clientY - rect.top) / ROW_H, 0, 24));
-      const ms = dayStart + hour * 3600000;
-      // Tope contra la entrada vecina: no se puede pasar de donde llega la de al lado.
-      if (edge === 'start') newStart = Math.max(limits.lower, Math.min(ms, newEnd - 5 * 60000));
-      else newEnd = Math.min(limits.upper, Math.max(ms, newStart + 5 * 60000));
-      // Se recorta al día visible: si la entrada viene de un día anterior (o sigue al
-      // siguiente), sin recortar el bloque saltaba fuera de la columna al arrastrar.
-      const startH = (Math.max(newStart, dayStart) - dayStart) / 3600000;
-      const endH = (Math.min(newEnd, dayStart + 86400000) - dayStart) / 3600000;
-      block.style.top = (startH * ROW_H) + 'px';
-      block.style.height = Math.max(6, (endH - startH) * ROW_H - 2) + 'px';
-      const rangeEl = block.querySelector('.tb-time-range');
-      const durEl = block.querySelector('.tb-time-dur');
-      const liveEndForLabel = wasOngoing && edge === 'start' ? null : newEnd;
-      if (rangeEl) rangeEl.textContent = timeRangeLabel(newStart, liveEndForLabel);
-      if (durEl) durEl.textContent = formatDur((liveEndForLabel || Date.now()) - newStart);
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      handleEl.classList.remove('resizing');
-      resizeState = null;
-      lastResizeEnd = Date.now();   // evita abrir el popup por el clic de este arrastre
-      // Solo el borde arrastrado: así no pisamos el otro con un valor caducado.
-      const payload = { taskId: task.id, entryIndex: idx };
-      if (edge === 'start') payload.startMs = newStart; else payload.endMs = newEnd;
-      ipcRenderer.send('action', { type: 'edit-entry', payload });
-    }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-}
-
+// attachResizeHandle vive en calendar-dnd.js (calDnD.attachResizeHandle).
 function renderNowTick(gutter) {
   const weekEnd = addDays(viewWeekStart, 7);
   if (today0 < viewWeekStart || today0 >= weekEnd) return; // la semana visible no incluye hoy
@@ -1340,6 +1401,7 @@ function scrollToNow() {
 function attachDragHandlers(col) {
   col.addEventListener('mousedown', (e) => {
     if (e.target.closest('.task-block')) return;
+    if (calDnDBusy || moveState || resizeState) return;
     const rect = col.getBoundingClientRect();
     const startHour = snapHour(clamp((e.clientY - rect.top) / ROW_H, 0, 24));
     const ghost = document.createElement('div');

@@ -796,7 +796,7 @@ function deleteEntry(taskId, entryIndex) {
   saveData(); broadcastState();
 }
 
-function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs, note) {
+function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs, note, subId) {
   let task = state.tasks.find(t => t.id === taskId);
   if (!task && newTaskName) {
     const id = Date.now().toString();
@@ -808,6 +808,10 @@ function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs, not
   const entry = { start: startMs, end: endMs || null, nameAtTime: task.name };
   const n = (note || '').trim().slice(0, 500);
   if (n) entry.note = n;
+  if (subId) {
+    const sub = (task.subtasks || []).find(x => x.id === subId);
+    if (sub) { entry.subId = sub.id; entry.subNameAtTime = sub.name; }
+  }
   task.entries.push(entry);
   saveData(); broadcastState();
 }
@@ -2394,7 +2398,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note, payload.name, payload.subId); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
     case 'add-calendar-entry':
-      addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note);
+      addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note, payload.subId);
       break;
     case 'save-settings': {
       const wasDock = settings.dockMode;
