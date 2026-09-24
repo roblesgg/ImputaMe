@@ -557,7 +557,7 @@
       <input type="time" id="popupEnd" placeholder="en curso">
     </div>
 
-        <div id="popupTaskMemo" style="display:none;font-size:12px;color:var(--text2);line-height:1.35;padding:6px 10px;border-radius:8px;margin-bottom:6px;background:color-mix(in srgb, var(--accent) 10%, transparent);border:1px solid color-mix(in srgb, var(--accent) 25%, transparent)">
+        <div id="popupTaskMemo" class="task-memo-chip" style="display:none;margin-bottom:2px">
       <strong style="color:var(--accent)">Nota fija:</strong> <span id="popupTaskMemoText"></span>
     </div>
 
@@ -1566,8 +1566,15 @@ function updatePopupTaskMemo(task) {
   const txt = document.getElementById('popupTaskMemoText');
   if (!row || !txt) return;
   const memo = task && (task.memo || '').trim();
-  if (memo) { txt.textContent = memo; row.style.display = ''; }
-  else { txt.textContent = ''; row.style.display = 'none'; }
+  if (memo) {
+    txt.textContent = memo;
+    row.style.display = 'flex';
+    row.classList.add('visible');
+  } else {
+    txt.textContent = '';
+    row.style.display = 'none';
+    row.classList.remove('visible');
+  }
 }
 
 function openEditPopup(task, entryIndex, entry) {

@@ -225,14 +225,9 @@
 
   /* Memo persistente de la tarea en marcha (task.memo): se ve siempre que esté activa. */
   .hero-memo { width:100%; } /* legacy chip; replaced by .task-memo-row */
-  .task-memo-row { display:none; align-items:center; gap:8px; width:100%; -webkit-app-region:no-drag; }
-  .task-memo-row.visible { display:flex; }
-  .task-memo-row svg { flex-shrink:0; color:var(--accent); }
-  .task-memo-row input { flex:1; }
-  .task-memo-preview {
-    font-size:11px; color:var(--text2); line-height:1.3; margin:2px 0 0 28px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
-  }
+  .task-memo-row { display:none; width:100%; -webkit-app-region:no-drag; }
+  .task-memo-row.visible { display:block; }
+  .task-memo-row input { flex:1; min-width:0; }
   .hero-notes { display:flex; flex-direction:column; gap:8px; width:100%; }
   .active-note-wrap { display:none; flex-direction:column; gap:4px; width:100%; -webkit-app-region:no-drag; }
   .active-note-wrap.visible { display:flex; animation: fadeSlideIn .25s ease; }
@@ -321,9 +316,14 @@
       </div>
       <div class="hero-time" id="heroTime">0m 00s</div>
       <div class="hero-notes">
-                <div class="task-memo-row" id="taskMemoRow">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-          <input type="text" id="taskMemoInput" placeholder="Nota fija de la tarea (ej. id Dynamics)…" maxlength="200" title="Nota fija de la tarea (solo local; no se sincroniza)">
+        <div class="task-memo-row" id="taskMemoRow">
+          <div style="display:flex;flex-direction:column;gap:4px;width:100%;min-width:0">
+            <div class="note-field-label">Nota fija de la tarea</div>
+            <div style="display:flex;align-items:center;gap:8px;width:100%">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              <input type="text" id="taskMemoInput" placeholder="Ej. id Dynamics / ERP…" maxlength="200" title="Nota fija de la tarea (local; no se sincroniza). Distinta de la nota de esta sesión.">
+            </div>
+          </div>
         </div>
         <div class="active-note-wrap" id="activeNoteRow">
           <div class="note-field-label">Nota de esta sesión</div>
@@ -432,6 +432,33 @@
 </div>
 
 <script src="shared.js"></script>
+
+  <!-- Editar tarea del panel (nombre / tipo / memo) -->
+  <div class="popup-backdrop" id="panelEditBackdrop" style="display:none" onclick="closePanelEdit()"></div>
+  <div class="entry-popup" id="panelEditPopup" style="display:none">
+    <div class="entry-popup-title">Editar tarea</div>
+    <input type="text" id="panelEditName" placeholder="Nombre de la tarea…" maxlength="120"
+      onkeydown="if(event.key==='Enter')confirmPanelEdit()">
+    <div class="kind-row">
+      <div class="note-field-label">Tipo</div>
+      <div class="kind-toggle" id="panelEditKind">
+        <button type="button" data-kind="ongoing" onclick="setPanelEditKind('ongoing')">En curso</button>
+        <button type="button" data-kind="oneShot" onclick="setPanelEditKind('oneShot')">Puntual</button>
+      </div>
+      <span class="note-field-hint">En curso = semanas/ongoing. Puntual = una vez.</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="note-field-label">Nota fija de la tarea</div>
+      <textarea id="panelEditMemo" placeholder="Ej. id Dynamics / ERP…" maxlength="200" rows="2"></textarea>
+      <span class="note-field-hint">Persistente y distinta de la nota de cada sesión.</span>
+    </div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closePanelEdit()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmPanelEdit()">Guardar</button>
+    </div>
+  </div>
+
 <script>
 const { ipcRenderer } = require('electron');
 
@@ -642,34 +669,48 @@ async function renombrarSubtarea(t, sub) {
 }
 
 
-// Editar nombre / tipo / memo persistente (task.memo — alineado con Dynamics365).
-async function openTaskEdit(taskId) {
+// Editar nombre / tipo / memo persistente (task.memo) vía popup — distinto de entry.note.
+let panelEditTaskId = null;
+let panelEditKind = 'ongoing';
+
+function setPanelEditKind(k) {
+  panelEditKind = k === 'oneShot' ? 'oneShot' : 'ongoing';
+  document.querySelectorAll('#panelEditKind button').forEach(b => {
+    b.classList.toggle('active', b.dataset.kind === panelEditKind);
+  });
+}
+
+function openTaskEdit(taskId) {
   const task = currentState && currentState.tasks.find(t => t.id === taskId);
   if (!task) return;
-  const name = await askText({ title: 'Nombre de la tarea', value: task.name, maxLength: 120 });
-  if (name === null) return;
-  const n = name.trim();
-  if (!n) return;
-  const oneshot = taskTypeOf(task) === 'oneShot';
-  const tipo = await askText({
-    title: 'Tipo: escribe "puntual" o "en curso"',
-    value: oneshot ? 'puntual' : 'en curso',
-    maxLength: 20,
-    placeholder: 'en curso / puntual',
-  });
-  if (tipo === null) return;
-  const tt = /puntual|oneshot|one.?shot/i.test(tipo) ? 'oneShot' : 'ongoing';
-  const memo = await askText({
-    title: 'Nota de la tarea (persistente)',
-    value: task.memo || '',
-    maxLength: 200,
-    placeholder: 'Ej. id Dynamics / recordatorio fijo…',
-  });
-  if (memo === null) return;
+  panelEditTaskId = taskId;
+  document.getElementById('panelEditName').value = task.name || '';
+  document.getElementById('panelEditMemo').value = task.memo || '';
+  setPanelEditKind(taskTypeOf(task));
+  document.getElementById('panelEditBackdrop').style.display = '';
+  document.getElementById('panelEditPopup').style.display = '';
+  setTimeout(() => {
+    const el = document.getElementById('panelEditName');
+    el.focus(); el.select();
+  }, 30);
+}
+
+function closePanelEdit() {
+  panelEditTaskId = null;
+  document.getElementById('panelEditBackdrop').style.display = 'none';
+  document.getElementById('panelEditPopup').style.display = 'none';
+}
+
+function confirmPanelEdit() {
+  if (!panelEditTaskId) return;
+  const name = (document.getElementById('panelEditName').value || '').trim();
+  if (!name) return;
+  const memo = document.getElementById('panelEditMemo').value || '';
   ipcRenderer.send('action', {
     type: 'update-task-meta',
-    payload: { taskId, name: n, taskType: tt, memo },
+    payload: { taskId: panelEditTaskId, name, taskType: panelEditKind, memo },
   });
+  closePanelEdit();
 }
 
 // Renombrado en el sitio: convierte el nombre en un textbox editable.
@@ -759,6 +800,27 @@ function updateRowContent(row, t, state) {
   if (nameEl && !nameEl.querySelector('input') && nameEl.textContent !== t.name) {
     nameEl.textContent = t.name;
     nameEl.title = t.name;
+  }
+  const badge = pill.querySelector('.task-badge');
+  if (badge) {
+    const oneshot = taskTypeOf(t) === 'oneShot';
+    badge.className = 'task-badge ' + (oneshot ? 'oneshot' : 'ongoing');
+    badge.textContent = oneshot ? 'Puntual' : 'En curso';
+  }
+  let prev = row.querySelector(':scope > .task-memo-preview');
+  const memoSync = (t.memo || '').trim();
+  if (memoSync) {
+    if (!prev) {
+      prev = document.createElement('div');
+      prev.className = 'task-memo-preview';
+      const linea = row.querySelector('.task-row');
+      if (linea && linea.nextSibling) row.insertBefore(prev, linea.nextSibling);
+      else row.appendChild(prev);
+    }
+    prev.textContent = memoSync.length > 72 ? memoSync.slice(0, 72) + '…' : memoSync;
+    prev.title = memoSync;
+  } else if (prev) {
+    prev.remove();
   }
   const timeEl = pill.querySelector('.task-time');
   if (timeEl) timeEl.textContent = fmt(t.todaySecs);

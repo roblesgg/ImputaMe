@@ -15,14 +15,14 @@
   .app::-webkit-scrollbar-thumb:hover { background:color-mix(in srgb, var(--text) 38%, transparent); }
 
   .app-title {
-    font-size:22px;font-weight:700;letter-spacing:-.02em;
+    font-size:var(--font-xl);font-weight:var(--fw-bold);letter-spacing:-.02em;
     -webkit-app-region:drag;align-self:flex-start;flex-shrink:0;
   }
 
   /* ── Secciones ─────────────────────────────────────────────── */
   .section { display:flex;flex-direction:column;gap:2px;flex-shrink:0; }
   .section-label {
-    font-size:10.5px;font-weight:700;color:var(--text2);
+    font-size:var(--font-xs);font-weight:var(--fw-bold);color:var(--text2);
     text-transform:uppercase;letter-spacing:.1em;margin:0 0 8px 2px;
   }
   .card {
@@ -35,8 +35,8 @@
   }
   .row + .row { border-top:1px solid var(--border); }
   .row-text { flex:1;min-width:0;display:flex;flex-direction:column;gap:3px; }
-  .row-title { font-size:14px;font-weight:600;color:var(--text); }
-  .row-desc { font-size:11.5px;color:var(--text2);line-height:1.4; }
+  .row-title { font-size:var(--font-md);font-weight:var(--fw-semibold);color:var(--text); }
+  .row-desc { font-size:var(--font-xs);color:var(--text2);line-height:1.4; }
   .row-sub { padding:0 16px 15px;display:none;flex-direction:column;gap:9px; }
   .row-sub.open { display:flex; }
 

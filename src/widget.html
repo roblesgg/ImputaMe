@@ -10,22 +10,27 @@
   .card { width:100%;height:100%;padding:16px 20px;display:flex;flex-direction:column;gap:10px;position:relative;min-height:0; }
 
   .header { display:flex;align-items:center;justify-content:space-between; }
-  .label { font-size:10px;color:var(--text2);letter-spacing:.07em;text-transform:uppercase; }
+  .label { font-size:var(--font-xs);font-weight:var(--fw-bold);color:var(--text2);letter-spacing:.07em;text-transform:uppercase; }
 
   .task-row { display:flex;align-items:center;gap:10px; }
   .pulse-dot { width:9px;height:9px;border-radius:50%;background:var(--success);box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:pulse 1.6s ease-in-out infinite;flex-shrink:0; }
   @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
-  .task-label { font-size:15px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .task-label { font-size:var(--font-lg);font-weight:var(--fw-semibold);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .task-meta { display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px; }
+  .widget-memo {
+    font-size:var(--font-xs); color:var(--text2); line-height:1.35;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+  }
 
   .time-row { display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;row-gap:2px; }
-  .time-big { font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em; }
-  .time-total { font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums; }
+  .time-big { font-size:28px;font-weight:var(--fw-bold);font-variant-numeric:tabular-nums;letter-spacing:-.02em; }
+  .time-total { font-size:var(--font-sm);color:var(--text2);font-variant-numeric:tabular-nums; }
 
   .actions { display:flex;gap:8px;-webkit-app-region:no-drag; }
 
   .btn-w {
     display:flex;align-items:center;gap:6px;
-    border-radius:9px;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;transition:all .15s;border:1px solid;
+    border-radius:9px;font-size:var(--font-sm);font-weight:var(--fw-semibold);padding:6px 14px;cursor:pointer;transition:all .15s;border:1px solid;
   }
   .btn-pause-w { background:rgba(248,113,113,.18);color:var(--danger);border-color:rgba(248,113,113,.3); }
   .btn-pause-w:hover { background:rgba(248,113,113,.35); }
@@ -48,7 +53,13 @@
 
   <div class="task-row">
     <div class="pulse-dot" id="dot"></div>
-    <span class="task-label" id="taskName">—</span>
+    <div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:3px">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+        <span class="task-label" id="taskName">—</span>
+        <span class="task-badge ongoing" id="taskBadge" style="display:none">En curso</span>
+      </div>
+      <div class="widget-memo" id="taskMemo" style="display:none"></div>
+    </div>
   </div>
 
   <div class="time-row">
@@ -88,6 +99,25 @@ function render(state) {
     document.getElementById('dot').style.background = active.color || '#34d399';
     document.getElementById('taskName').textContent = active.name;
     document.getElementById('taskTime').textContent = fmt(active.todaySecs);
+    const oneshot = active.taskType === 'oneShot';
+    const badge = document.getElementById('taskBadge');
+    if (badge) {
+      badge.style.display = '';
+      badge.className = 'task-badge ' + (oneshot ? 'oneshot' : 'ongoing');
+      badge.textContent = oneshot ? 'Puntual' : 'En curso';
+    }
+    const memo = (active.memo || '').trim();
+    const memoEl = document.getElementById('taskMemo');
+    if (memoEl) {
+      if (memo) {
+        memoEl.style.display = '';
+        memoEl.textContent = memo.length > 80 ? memo.slice(0, 80) + '…' : memo;
+        memoEl.title = memo;
+      } else {
+        memoEl.style.display = 'none';
+        memoEl.textContent = '';
+      }
+    }
   }
   document.getElementById('totalTime').textContent = `Hoy: ${fmt(state.todayTotal)}`;
 }

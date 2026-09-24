@@ -53,6 +53,15 @@
   --success: #34d399;
   --radius: 16px;
   --radius-sm: 12px;
+  --font-xs: 10.5px;
+  --font-sm: 12px;
+  --font-md: 13.5px;
+  --font-lg: 15px;
+  --font-xl: 18px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
   /* Sin esto, los controles nativos (el desplegable de <select>, las flechas de
      <input type=number>, checkboxes sin marcar...) se dibujan con el tema claro
      del sistema por defecto, y con texto claro sobre fondo claro quedan
@@ -62,6 +71,9 @@
 
 body {
   font-family: 'Montserrat', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  font-size: var(--font-md);
+  font-weight: var(--fw-regular);
+  line-height: 1.45;
   background: var(--bg);
   color: var(--text);
   /* NO-DRAG por defecto. Antes el cuerpo entero era zona de arrastre de ventana y cada
@@ -125,6 +137,13 @@ button {
   font-size: 13px;
   border-radius: var(--radius-sm);
   transition: all .15s ease;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 2px;
 }
 
 .btn-primary {
@@ -420,12 +439,26 @@ select option { background: var(--surface); color: var(--text); }
 }
 .task-memo-chip .memo-body { overflow-wrap: anywhere; }
 
+
+.task-memo-preview {
+  font-size: var(--font-xs);
+  color: var(--text2);
+  line-height: 1.35;
+  margin: 2px 0 0 28px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 36px);
+  -webkit-app-region: no-drag;
+}
+
 .note-field-label {
   font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
   color: var(--text2); margin-bottom: 4px;
 }
 .note-field-hint { font-size: 11px; color: var(--text2); line-height: 1.4; opacity: .85; }
 
+.kind-row { display:flex; flex-direction:column; gap:6px; }
 .kind-toggle {
   display: flex; gap: 6px; -webkit-app-region: no-drag;
 }
