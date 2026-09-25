@@ -616,7 +616,7 @@
     <div class="confirm-popup-text" id="confirmPopupText"></div>
     <div class="entry-popup-actions">
       <div style="flex:1"></div>
-      <button class="btn-ghost" onclick="closeConfirmPopup()">Cancelar</button>
+      <button class="btn-ghost" id="confirmPopupCancelBtn" onclick="closeConfirmPopup()">Cancelar</button>
       <button class="btn-primary" id="confirmPopupOkBtn">Confirmar</button>
     </div>
   </div>
@@ -1789,8 +1789,14 @@ function showConfirmPopup(title, text, okLabel, onConfirm) {
   const okBtn = document.getElementById('confirmPopupOkBtn');
   okBtn.textContent = okLabel || 'Confirmar';
   okBtn.onclick = () => { closeConfirmPopup(); onConfirm(); };
+  document.getElementById('confirmPopupCancelBtn').style.display = '';
   document.getElementById('confirmPopupBackdrop').style.display = 'block';
   document.getElementById('confirmPopup').style.display = 'flex';
+}
+// Lo mismo para avisos (en vez del alert() nativo): un solo botón, y no hay nada que confirmar.
+function showAlertPopup(text, title) {
+  showConfirmPopup(title || 'Aviso', text, 'Entendido', () => {});
+  document.getElementById('confirmPopupCancelBtn').style.display = 'none';
 }
 function closeConfirmPopup() {
   document.getElementById('confirmPopupBackdrop').style.display = 'none';
@@ -1958,17 +1964,17 @@ function closePopup() {
 function savePopup() {
   const startVal = document.getElementById('popupStart').value;
   const endVal = document.getElementById('popupEnd').value;
-  if (!startVal) { alert('Indica una hora de inicio'); return; }
+  if (!startVal) { showAlertPopup('Indica una hora de inicio'); return; }
   const day = startOfDay(popupCtx.date);
   const startMs = day.getTime() + hhmmToHour(startVal)*3600000;
   const endMs = endVal ? day.getTime() + hhmmToHour(endVal)*3600000 : null;
-  if (endMs !== null && endMs <= startMs) { alert('La hora de fin debe ser posterior al inicio'); return; }
+  if (endMs !== null && endMs <= startMs) { showAlertPopup('La hora de fin debe ser posterior al inicio'); return; }
   const note = document.getElementById('popupNote').value.trim();
 
   if (popupMode === 'create') {
     if (popupSelectedTaskId === '__new__' || !popupSelectedTaskId) {
       const name = document.getElementById('popupNewTaskName').value.trim();
-      if (!name) { alert('Ponle un nombre a la tarea'); return; }
+      if (!name) { showAlertPopup('Ponle un nombre a la tarea'); return; }
       const newTaskGroupId = document.getElementById('popupNewTaskSection').value || undefined;
       ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:null, newTaskName:name, newTaskColor:popupColor, newTaskGroupId, startMs, endMs, note } });
     } else {
@@ -2090,18 +2096,18 @@ function exportFileName(r) {
 async function confirmExport() {
   if (!currentState) return;
   const r = currentExportRange();
-  if (!r) { alert('Indica un rango de fechas válido.'); return; }
+  if (!r) { showAlertPopup('Indica un rango de fechas válido.'); return; }
   const content = buildCSV(r.fromMs, r.toMsExcl);
-  if (content.split('\n').length <= 1) { alert('No hay actividad registrada en el rango elegido.'); return; }
+  if (content.split('\n').length <= 1) { showAlertPopup('No hay actividad registrada en el rango elegido.'); return; }
   const btn = document.getElementById('exportConfirmBtn');
   const prev = btn.textContent;
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
     const res = await ipcRenderer.invoke('export-csv', { content, defaultName: exportFileName(r) });
     if (res && res.ok) { closeExportPopup(); shell.openPath(res.path); }
-    else if (!(res && res.canceled)) { alert('No se pudo exportar: ' + ((res && res.error) || 'error desconocido')); }
+    else if (!(res && res.canceled)) { showAlertPopup('No se pudo exportar: ' + ((res && res.error) || 'error desconocido')); }
   } catch (e) {
-    alert('No se pudo exportar: ' + (e.message || e));
+    showAlertPopup('No se pudo exportar: ' + (e.message || e));
   }
   btn.disabled = false; btn.textContent = prev;
 }

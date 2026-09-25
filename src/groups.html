@@ -423,7 +423,7 @@
     <div class="confirm-popup-text" id="confirmPopupText"></div>
     <div class="entry-popup-actions">
       <div style="flex:1"></div>
-      <button class="btn-ghost" onclick="closeConfirmPopup()">Cancelar</button>
+      <button class="btn-ghost" id="confirmPopupCancelBtn" onclick="closeConfirmPopup()">Cancelar</button>
       <button class="btn-primary" id="confirmPopupOkBtn">Confirmar</button>
     </div>
   </div>
@@ -1240,7 +1240,7 @@ function confirmStart() {
     });
   } else {
     const name = document.getElementById('startPopupName').value.trim();
-    if (!name) { alert('Ponle un nombre a la tarea'); return; }
+    if (!name) { showAlertPopup('Ponle un nombre a la tarea'); return; }
     const grupo = document.getElementById('startPopupGroup').value || undefined;
     ipcRenderer.send('action', {
       type: 'create-task',
@@ -1273,7 +1273,7 @@ function closeTaskRenamePopup() {
 }
 function confirmTaskRename() {
   const name = document.getElementById('taskRenameInput').value.trim();
-  if (!name) { alert('Ponle un nombre a la tarea'); return; }
+  if (!name) { showAlertPopup('Ponle un nombre a la tarea'); return; }
   const memo = (document.getElementById('taskEditMemo') || {}).value || '';
   if (renamingTaskId) {
     ipcRenderer.send('action', {
@@ -1302,7 +1302,7 @@ function closeSectionPopup() {
 }
 function confirmSection() {
   const name = document.getElementById('sectionPopupName').value.trim();
-  if (!name) { alert('Ponle un nombre a la sección'); return; }
+  if (!name) { showAlertPopup('Ponle un nombre a la sección'); return; }
   if (sectionPopupMode === 'rename' && sectionPopupGroupId) {
     ipcRenderer.send('action', { type: 'rename-group', payload: { groupId: sectionPopupGroupId, name } });
   } else {
@@ -1320,8 +1320,14 @@ function showConfirmPopup(title, text, okLabel, onConfirm) {
   const okBtn = document.getElementById('confirmPopupOkBtn');
   okBtn.textContent = okLabel || 'Confirmar';
   okBtn.onclick = () => { closeConfirmPopup(); onConfirm(); };
+  document.getElementById('confirmPopupCancelBtn').style.display = '';
   document.getElementById('confirmPopupBackdrop').style.display = 'block';
   document.getElementById('confirmPopup').style.display = 'flex';
+}
+// Lo mismo para avisos (en vez del alert() nativo): un solo botón, y no hay nada que confirmar.
+function showAlertPopup(text, title) {
+  showConfirmPopup(title || 'Aviso', text, 'Entendido', () => {});
+  document.getElementById('confirmPopupCancelBtn').style.display = 'none';
 }
 function closeConfirmPopup() {
   document.getElementById('confirmPopupBackdrop').style.display = 'none';
