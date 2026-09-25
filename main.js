@@ -437,7 +437,7 @@ function updateTrayTitle() {
 
 function buildTrayMenu() {
   const active = getActiveTask();
-  const taskItems = state.tasks.filter(t => !t.archived && !t.deleted).map(t => ({
+  const taskItems = state.tasks.filter(t => !t.archived && !t.deleted && !isInactiveTask(t)).map(t => ({
     label: `${t.id === state.activeTaskId ? '▶ ' : '    '}${t.name}  (${formatDuration(todaySecondsForTask(t))})`,
     click: () => switchTask(t.id),
   }));

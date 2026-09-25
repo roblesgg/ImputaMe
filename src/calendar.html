@@ -1479,8 +1479,9 @@ function openCreatePopup(date, startHour, endHour) {
   document.getElementById('popupTaskSearch').value = '';
   // Preseleccionada, la que se ha usado más recientemente: es la que casi siempre toca
   // repetir, y ahora coincide con la que sale primero en la lista.
-  const activos = (currentState.tasks || []).filter(t => !t.archived && !t.deleted);
-  const candidatos = activos.length ? activos : (currentState.tasks || []).filter(t => !t.deleted);
+  // Las del Archivador tampoco: no salen en la lista, así que no pueden venir marcadas.
+  const activos = (currentState.tasks || []).filter(t => !t.archived && !t.deleted && !t.inactive);
+  const candidatos = activos.length ? activos : (currentState.tasks || []).filter(t => !t.deleted && !t.inactive);
   const first = candidatos.slice().sort((a, b) => lastUsedMs(b) - lastUsedMs(a))[0];
   popupSelectedTaskId = first ? first.id : '__new__';
   poblarPopupNewTaskSection();
