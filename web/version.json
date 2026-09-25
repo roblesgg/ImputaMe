@@ -1,4 +1,4 @@
 {
-  "version": "2.7.2",
-  "notes": "imputa.me 2.7.2. Arreglado que los desplegables se cerraran solos al pasar el ratón por las opciones: con la barra flotante activa, la app volvía a subir sus ventanas cada tres segundos y la lista desplegada, que es una ventana aparte del sistema, se quedaba debajo. Ahora con el panel abierto no se toca el orden de ventanas. Y en el Administrador de tareas la app ya aparece como \"imputa.me\" con su versión, en vez de como \"Electron\"."
+  "version": "2.7.3",
+  "notes": "imputa.me 2.7.3. URGENTE: arreglado que la pestaña Tareas saliera vacía. Un resto de código de la 2.7.1 rompía el script entero de esa página, así que no se pintaba nada. Tus tareas y secciones nunca se perdieron: seguían guardadas, solo no se dibujaban. De paso vuelve el botón de ordenar las secciones (alfabético, por creación o manual, ascendente o descendente), que se había quedado sin sitio en la barra al rediseñarla."
 }

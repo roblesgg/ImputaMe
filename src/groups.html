@@ -86,7 +86,8 @@
   .sort-menu .sort-head { font-size:10.5px;color:var(--text2);font-weight:700;padding:4px 10px 2px;letter-spacing:.04em;text-transform:uppercase; }
 
   /* Barra de expandir / colapsar */
-  .tree-bar { display:flex;gap:7px;flex-shrink:0;margin-top:-2px; }
+  .tree-bar { display:flex;gap:7px;flex-shrink:0;margin-top:-2px;align-items:center; }
+  .tree-bar .sort-wrap { margin-left:auto; }
   .tree-btn {
     display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:9px;
     background:transparent;border:1px solid var(--border);color:var(--text2);
@@ -248,6 +249,38 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></svg>
       Colapsar todo
     </button>
+
+    <div class="sort-wrap">
+      <button class="tree-btn" id="sortBtn" onclick="toggleSortMenu(event)" title="Ordenar las secciones">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13M3 12h9M3 18h5"/></svg>
+        <span id="sortBtnLabel">Ordenar</span>
+        <svg id="sortDirIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+      </button>
+      <div class="sort-menu" id="sortMenu">
+        <button class="sort-opt" data-sort="alpha" onclick="chooseSort('alpha')">
+          <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Alfabético (A → Z)
+        </button>
+        <button class="sort-opt" data-sort="created" onclick="chooseSort('created')">
+          <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Orden de creación
+        </button>
+        <button class="sort-opt" data-sort="custom" onclick="chooseSort('custom')">
+          <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Personalizado (arrastrar)
+        </button>
+        <div class="sort-sep"></div>
+        <div class="sort-head">Sentido</div>
+        <button class="sort-opt" data-dir="asc" onclick="chooseSortDir('asc')">
+          <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Ascendente
+        </button>
+        <button class="sort-opt" data-dir="desc" onclick="chooseSortDir('desc')">
+          <svg class="sort-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Descendente
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="groups-list" id="groupsList"></div>
@@ -1065,9 +1098,6 @@ function confirmTaskRename() {
       payload: { taskId: renamingTaskId, name, taskType: editPopupKind, memo },
     });
   }
-  closeTaskRenamePopup();
-}
-  if (renamingTaskId) ipcRenderer.send('action', { type:'rename-task', payload:{ taskId: renamingTaskId, name } });
   closeTaskRenamePopup();
 }
 
