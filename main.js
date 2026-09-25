@@ -1823,9 +1823,16 @@ function hideDockFor(minutos) {
 // del panel y de su boton de esconder, y el boton dejaba de recibir los clics. Aqui se
 // vuelve a dejar el orden que toca: barra, luego panel, luego boton.
 function restackDock() {
+  // CON EL PANEL ABIERTO NO SE TOCA EL ORDEN DE VENTANAS. Reafirmar el nivel vuelve a
+  // subir la ventana, y la lista de un <select> abierto es una ventana aparte del
+  // sistema: al resubir las nuestras, la lista se queda debajo y parece que el
+  // desplegable se cierra solo en cuanto pasas el ratón por las opciones.
+  //
+  // Esta reafirmación existe para que la barrita no se quede detrás de lo que va a
+  // pantalla completa, y ese caso es justo el contrario: ahí el panel está cerrado. Así
+  // que con el panel abierto no hace falta y sobra.
+  if (dockExpanded) return;
   try { if (dockWin && !dockWin.isDestroyed()) dockWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
-  if (!dockExpanded) return;
-  try { if (dockPanelWin && !dockPanelWin.isDestroyed() && dockPanelWin.isVisible()) dockPanelWin.moveTop(); } catch {}
 }
 
 function ensureDockBarVisible() {
