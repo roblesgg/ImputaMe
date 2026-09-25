@@ -250,6 +250,11 @@
   }
   .update-bar:hover { background:color-mix(in srgb, var(--danger) 82%, #000);color:#fff; }
   @keyframes updatePulse { 0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent)} 70%{box-shadow:0 0 0 7px transparent} }
+
+  /* Popup de confirmación con el estilo de la app (en vez del confirm() nativo de Windows). */
+  .confirm-backdrop { z-index:51; }
+  .confirm-popup { width:320px;z-index:52; }
+  .confirm-popup-text { font-size:13px;color:var(--text2);line-height:1.45;white-space:pre-line; }
 </style>
 </head>
 <body>
@@ -436,6 +441,18 @@
       <button class="btn-primary" onclick="confirmArchive()">Guardar</button>
     </div>
   </div>
+
+  <!-- Popup de confirmación con el estilo de la app (sustituye a confirm() nativo) -->
+  <div class="popup-backdrop confirm-backdrop" id="confirmPopupBackdrop" style="display:none" onclick="closeConfirmPopup()"></div>
+  <div class="entry-popup confirm-popup" id="confirmPopup" style="display:none">
+    <div class="entry-popup-title" id="confirmPopupTitle">Confirmar</div>
+    <div class="confirm-popup-text" id="confirmPopupText"></div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeConfirmPopup()">Cancelar</button>
+      <button class="btn-primary" id="confirmPopupOkBtn">Confirmar</button>
+    </div>
+  </div>
 </div>
 
 <script src="shared.js"></script>
@@ -578,8 +595,8 @@ function buildRow(t, state) {
   del.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
   del.style.cssText = 'padding:7px 9px;';
   del.onclick = () => {
-    if (confirm(`¿Eliminar "${t.name}"?\nIrá a la papelera (en Tareas): podrás restaurarla durante 30 días.`))
-      ipcRenderer.send('action', { type:'delete-task', payload:{ taskId:t.id } });
+    showConfirmPopup('Eliminar tarea', `¿Eliminar "${t.name}"?\nIrá a la papelera (en Tareas): podrás restaurarla durante 30 días.`, 'Eliminar',
+      () => ipcRenderer.send('action', { type:'delete-task', payload:{ taskId:t.id } }));
   };
   const nameEl = pill.querySelector('.task-name');
   if (nameEl) {
@@ -630,8 +647,8 @@ function buildSubtasks(t, state) {
     botones[1].onclick = (e) => {
       e.stopPropagation();
       const aviso = '¿Eliminar la subtarea "' + sub.name + '"?\nEl tiempo que ya lleva NO se pierde: sigue contando en "' + t.name + '" y en el calendario.';
-      if (confirm(aviso))
-        ipcRenderer.send('action', { type:'delete-subtask', payload:{ taskId: t.id, subId: sub.id } });
+      showConfirmPopup('Eliminar subtarea', aviso, 'Eliminar',
+        () => ipcRenderer.send('action', { type:'delete-subtask', payload:{ taskId: t.id, subId: sub.id } }));
     };
     botones[2].onclick = (e) => { e.stopPropagation(); switchTask(t.id, sub.id); };
     wrap.appendChild(fila);
@@ -1175,6 +1192,21 @@ function confirmArchive() {
   }
   document.getElementById('archiveNewGroupName').value = '';
   closeArchivePopup();
+}
+
+// ---------- Popup de confirmación (con el estilo de la app, no confirm() nativo) ----------
+function showConfirmPopup(title, text, okLabel, onConfirm) {
+  document.getElementById('confirmPopupTitle').textContent = title;
+  document.getElementById('confirmPopupText').textContent = text;
+  const okBtn = document.getElementById('confirmPopupOkBtn');
+  okBtn.textContent = okLabel || 'Confirmar';
+  okBtn.onclick = () => { closeConfirmPopup(); onConfirm(); };
+  document.getElementById('confirmPopupBackdrop').style.display = 'block';
+  document.getElementById('confirmPopup').style.display = 'flex';
+}
+function closeConfirmPopup() {
+  document.getElementById('confirmPopupBackdrop').style.display = 'none';
+  document.getElementById('confirmPopup').style.display = 'none';
 }
 </script>
 </body>

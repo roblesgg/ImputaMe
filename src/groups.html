@@ -219,6 +219,11 @@
   .trash-btn.restore:hover { background:rgba(52,211,153,.18);color:var(--success);border-color:rgba(52,211,153,.3); }
   .trash-btn.forever:hover { background:rgba(248,113,113,.2);color:var(--danger);border-color:rgba(248,113,113,.3); }
   .trash-hint { font-size:11px;color:var(--text2);padding:2px 8px 8px;font-style:italic; }
+
+  /* Popup de confirmación con el estilo de la app (en vez del confirm() nativo de Windows). */
+  .confirm-backdrop { z-index:51; }
+  .confirm-popup { width:320px;z-index:52; }
+  .confirm-popup-text { font-size:13px;color:var(--text2);line-height:1.45;white-space:pre-line; }
 </style>
 </head>
 <body>
@@ -397,6 +402,18 @@
       <div style="flex:1"></div>
       <button class="btn-ghost" onclick="closeSectionPopup()">Cancelar</button>
       <button class="btn-primary" onclick="confirmSection()">Guardar</button>
+    </div>
+  </div>
+
+  <!-- Popup de confirmación con el estilo de la app (sustituye a confirm() nativo) -->
+  <div class="popup-backdrop confirm-backdrop" id="confirmPopupBackdrop" style="display:none" onclick="closeConfirmPopup()"></div>
+  <div class="entry-popup confirm-popup" id="confirmPopup" style="display:none">
+    <div class="entry-popup-title" id="confirmPopupTitle">Confirmar</div>
+    <div class="confirm-popup-text" id="confirmPopupText"></div>
+    <div class="entry-popup-actions">
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="closeConfirmPopup()">Cancelar</button>
+      <button class="btn-primary" id="confirmPopupOkBtn">Confirmar</button>
     </div>
   </div>
 </div>
@@ -728,8 +745,8 @@ function renderGroups(forzar) {
     const btnDel = header.querySelector('.group-del');
     if (btnDel) btnDel.onclick = (e) => {
       e.stopPropagation();
-      if (confirm(`¿Eliminar la sección "${g.name}"?\nLas tareas que contenga volverán al panel principal (no se borran).`))
-        ipcRenderer.send('action', { type: 'delete-group', payload: { groupId: g.id } });
+      showConfirmPopup('Eliminar sección', `¿Eliminar la sección "${g.name}"?\nLas tareas que contenga volverán al panel principal (no se borran).`, 'Eliminar',
+        () => ipcRenderer.send('action', { type: 'delete-group', payload: { groupId: g.id } }));
     };
     card.appendChild(header);
 
@@ -785,7 +802,8 @@ function renderGroups(forzar) {
 
 Irá a la papelera y podrás restaurarla durante ${dias} días.
 El calendario NO se toca: todo el tiempo que ya has registrado con ella se sigue viendo igual.`;
-        if (confirm(aviso)) ipcRenderer.send('action', { type: 'delete-task', payload: { taskId: t.id } });
+        showConfirmPopup('Eliminar tarea', aviso, 'Eliminar',
+          () => ipcRenderer.send('action', { type: 'delete-task', payload: { taskId: t.id } }));
       };
       row.querySelector('.archived-play').onclick = (e) => {
         e.stopPropagation();
@@ -976,8 +994,8 @@ function renderTrash(list) {
     forever.textContent = 'Eliminar';
     forever.title = 'Quitarla de la papelera (su historial seguirá en el calendario)';
     forever.onclick = () => {
-      if (confirm(`¿Eliminar "${t.name}" de la papelera?\nSeguirá apareciendo en el calendario de los días en que la usaste, y desde ahí podrás restaurarla.`))
-        ipcRenderer.send('action', { type: 'purge-task', payload: { taskId: t.id } });
+      showConfirmPopup('Eliminar de la papelera', `¿Eliminar "${t.name}" de la papelera?\nSeguirá apareciendo en el calendario de los días en que la usaste, y desde ahí podrás restaurarla.`, 'Eliminar',
+        () => ipcRenderer.send('action', { type: 'purge-task', payload: { taskId: t.id } }));
     };
     row.appendChild(restore);
     row.appendChild(forever);
@@ -1148,6 +1166,21 @@ function confirmSection() {
 }
 
 function closeWin() { ipcRenderer.send('action', { type: 'close-groups' }); }
+
+// ---------- Popup de confirmación (con el estilo de la app, no confirm() nativo) ----------
+function showConfirmPopup(title, text, okLabel, onConfirm) {
+  document.getElementById('confirmPopupTitle').textContent = title;
+  document.getElementById('confirmPopupText').textContent = text;
+  const okBtn = document.getElementById('confirmPopupOkBtn');
+  okBtn.textContent = okLabel || 'Confirmar';
+  okBtn.onclick = () => { closeConfirmPopup(); onConfirm(); };
+  document.getElementById('confirmPopupBackdrop').style.display = 'block';
+  document.getElementById('confirmPopup').style.display = 'flex';
+}
+function closeConfirmPopup() {
+  document.getElementById('confirmPopupBackdrop').style.display = 'none';
+  document.getElementById('confirmPopup').style.display = 'none';
+}
 </script>
 </body>
 </html>
