@@ -48,7 +48,11 @@
     transition:opacity .18s ease, transform .26s cubic-bezier(.32,.72,0,1);
   }
   /* Sale hacia el lado del que viene la nueva pestaña y entra desde el contrario. */
-  .content.switching iframe { opacity:0; transform:translateX(var(--slide-out, -14px)) scale(.985); }
+  .content.switching iframe {
+    opacity:0; transform:translateX(var(--slide-out, -14px)) scale(.99);
+    transition:opacity .11s ease-out, transform .11s ease-out;
+    pointer-events:none;   /* invisible no deberia poder pulsarse */
+  }
   .content.entering iframe { animation:viewIn .3s cubic-bezier(.32,.72,0,1); }
   @keyframes viewIn {
     from { opacity:0; transform:translateX(var(--slide-in, 14px)) scale(.985); }
@@ -123,27 +127,61 @@ function setActiveNav(view) {
 }
 
 const VIEW_ORDER = ['panel','calendar','groups','settings'];
+// El cambio de pestaña va en tres tiempos, y ese orden es justo lo que lo hace suave:
+//
+//   1. sale el contenido actual (se desvanece y se aparta un poco);
+//   2. YA invisible, se pide el nuevo tamaño de ventana y se carga la vista nueva;
+//   3. entra el contenido, pero solo cuando la ventana ha llegado a su sitio Y la vista
+//      ha cargado.
+//
+// Antes el tamaño se pedía en el primer instante, con el contenido viejo todavía a la
+// vista: se le veía estirarse mientras la ventana crecía. Y la entrada dependía solo de
+// que cargara el iframe, así que la vista nueva solía aparecer a media animación y se
+// recolocaba entera delante de tus ojos. Al pasar al calendario, que es mucho más ancho,
+// se notaba muchísimo.
+const SALIDA_MS = 110;
+const ESPERA_MAX = 700;   // si algo se atasca, se entra igual: mejor un salto que un panel en blanco
+
 function navTo(view) {
   if (!VIEW_SRC[view] || view === currentView) return;
   const forward = VIEW_ORDER.indexOf(view) > VIEW_ORDER.indexOf(currentView);
   const s = document.documentElement.style;
-  s.setProperty('--slide-out', (forward ? -18 : 18) + 'px');
-  s.setProperty('--slide-in',  (forward ? 18 : -18) + 'px');
+  s.setProperty('--slide-out', (forward ? -14 : 14) + 'px');
+  s.setProperty('--slide-in',  (forward ? 14 : -14) + 'px');
 
   currentView = view;
   setActiveNav(view);
   content.classList.remove('entering');
   content.classList.add('switching');
+
+  const token = ++navToken;
   setTimeout(() => {
-    frame.src = VIEW_SRC[view];
-    frame.addEventListener('load', () => {
+    if (token !== navToken) return;      // ya se ha pedido otra pestaña por el camino
+    let cargado = false, redimensionado = false, entrado = false;
+    const entrar = () => {
+      if (entrado || token !== navToken) return;
+      if (!(cargado && redimensionado)) return;
+      entrado = true;
       content.classList.remove('switching');
       content.classList.add('entering');
-      setTimeout(() => content.classList.remove('entering'), 320);
-    }, { once: true });
-  }, 150);
-  ipcRenderer.send('action', { type:'dock-view-changed', payload:{ view } });
+      setTimeout(() => content.classList.remove('entering'), 300);
+    };
+    esperandoResize = () => { redimensionado = true; entrar(); };
+
+    frame.addEventListener('load', () => { cargado = true; entrar(); }, { once: true });
+    frame.src = VIEW_SRC[view];
+    ipcRenderer.send('action', { type:'dock-view-changed', payload:{ view } });
+
+    // Red de seguridad: ni la carga ni el aviso del proceso principal están
+    // garantizados, y quedarse en blanco sería peor que entrar sin coordinar.
+    setTimeout(() => { cargado = redimensionado = true; entrar(); }, ESPERA_MAX);
+  }, SALIDA_MS);
 }
+
+let navToken = 0;
+let esperandoResize = null;
+// El proceso principal avisa cuando la ventana ya está en su tamaño nuevo.
+ipcRenderer.on('dock-panel-resized', () => { if (esperandoResize) esperandoResize(); });
 ipcRenderer.on('dock-navigate', (_, view) => navTo(view));
 
 // ---- Redimensionar: se le pide al proceso principal que cambie el tamaño de ESTA ventana

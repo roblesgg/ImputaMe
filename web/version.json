@@ -1,4 +1,4 @@
 {
-  "version": "2.6.2",
-  "notes": "imputa.me 2.6.2. Protección contra la actualización que se queda a medias. Si al instalar una versión nueva la app no termina de cerrarse, el instalador enseña \"no se puede cerrar imputa.me\" — y si ahí cancelas, ya ha borrado los ficheros viejos y la instalación se queda inservible (sin logo en el icono y sin abrir). Ahora la app se cierra a la fuerza si en unos segundos sigue viva, así que el instalador se la encuentra fuera de en medio."
+  "version": "2.6.3",
+  "notes": "imputa.me 2.6.3. Pulida la transición al cambiar de pestaña en la ventana flotante, sobre todo al entrar y salir del calendario, que es la que cambia de ancho. Antes la ventana empezaba a redimensionarse con el contenido viejo todavía a la vista (se le veía estirarse) y el nuevo aparecía a media animación, recolocándose entero. Ahora va en tres tiempos: sale el contenido, la ventana se redimensiona ya vacía con una curva suave por los dos lados, y el contenido nuevo entra solapando el final. Incluye también la protección contra actualizaciones que se quedan a medias."
 }

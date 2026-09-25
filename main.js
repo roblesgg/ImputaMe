@@ -1685,7 +1685,9 @@ function createDockPanel() {
 // Anima el cambio de tamaño/posición de una ventana. Hace falta porque al pasar del
 // panel normal al calendario (mucho más ancho) la ventana daba un salto seco; Electron
 // solo sabe animar bounds en macOS, así que se interpola a mano.
-function animateWindowBounds(win, target, ms = 190, fromOverride, onFrame) {
+// opciones: { ms, from, onFrame, onDone, ease }
+function animateWindowBounds(win, target, opciones = {}) {
+  const { ms = 190, from: fromOverride, onFrame, onDone, ease: easeOpt } = opciones;
   if (!win || win.isDestroyed()) return;
   // OJO: el punto de partida se pasa explícitamente cuando lo sabemos. Leerlo con
   // getBounds() justo después de un setBounds era una carrera: si Windows aún no lo había
@@ -1699,9 +1701,11 @@ function animateWindowBounds(win, target, ms = 190, fromOverride, onFrame) {
   const token = (win.__boundsToken = (win.__boundsToken || 0) + 1);
   const same = from.x === target.x && from.y === target.y && from.width === target.width && from.height === target.height;
   // Red de seguridad: pase lo que pase con la animación, la ventana acaba en su sitio.
+  let avisado = false;
   const land = () => {
     if (win.__boundsToken !== token) return;
     try { if (win && !win.isDestroyed()) win.setBounds(target); } catch {}
+    if (!avisado) { avisado = true; if (onDone) { try { onDone(); } catch {} } }
   };
   if (same) { land(); return; }
 
@@ -1711,7 +1715,10 @@ function animateWindowBounds(win, target, ms = 190, fromOverride, onFrame) {
   // de lo que la pantalla puede dibujar y es ella la que marca el ritmo. La posición sale
   // del reloj, no del número de fotograma, así que perder alguno no descoloca nada.
   const start = performance.now();
-  const ease = (t) => 1 - Math.pow(1 - t, 3);   // suave al final, como el resto de la app
+  // Por defecto, suave al final (como el resto de la app). Para un cambio de tamaño que
+  // la vista sigue de principio a fin queda mejor una curva suave por los DOS lados: sin
+  // ella el arranque es un tirón.
+  const ease = easeOpt || ((t) => 1 - Math.pow(1 - t, 3));
   let ultimo = null;
   const paso = () => {
     if (!win || win.isDestroyed() || win.__boundsToken !== token) { win.__boundsTween = null; return; }
@@ -2550,19 +2557,39 @@ ipcMain.on('action', (event, { type, payload }) => {
       if (payload && payload.view) {
         dockPanelView = payload.view;
         rememberView(payload.view);
-        // El calendario tiene su propio ancho: al cambiar de vista se reajusta. La
-        // ventana se ANIMA hasta el tamaño nuevo en vez de dar el salto: así se ve que
-        // el panel se adapta, no solo que un contenido sustituye al otro. El punto de
-        // partida se lee aquí y se pasa explícito (ver animateWindowBounds).
+        // El calendario tiene su propio ancho. La ventana se ANIMA hasta el tamaño
+        // nuevo, y el renderer espera a que llegue para dejar entrar el contenido: si
+        // no, el nuevo aparece mientras la ventana todavia se estira y se le ve
+        // recolocarse entero. El punto de partida se pasa explicito (ver
+        // animateWindowBounds), que leerlo justo despues de un setBounds no es fiable.
         if (dockPanelWin && !dockPanelWin.isDestroyed()) {
           let desde = null;
           try { desde = dockPanelWin.getBounds(); } catch {}
           const nb = computePanelBounds(dockPanelView);
-          animateWindowBounds(dockPanelWin, nb, 260, desde, (b) => positionDockHide(b));
-          // Y al acabar, siempre. onFrame no basta: si el tamaño no cambia entre dos
-          // vistas (panel, guardadas y ajustes son igual de anchos), la animación no
-          // llega a dar un solo fotograma y el botón se quedaba donde estuviera.
-          setTimeout(() => positionDockHide(computePanelBounds(dockPanelView)), 300);
+          const cambiaTamano = !desde || desde.width !== nb.width || desde.height !== nb.height;
+          const RESIZE_MS = 280;
+          const dejarEntrar = () => { try { dockPanelWin.webContents.send('dock-panel-resized'); } catch {} };
+
+          if (!cambiaTamano) {
+            // Entre panel, guardadas y ajustes el ancho es el mismo: no hay nada que
+            // animar, y hacer esperar al contenido solo lo volveria lento.
+            try { dockPanelWin.setBounds(nb); } catch {}
+            positionDockHide(nb);
+            dejarEntrar();
+          } else {
+            animateWindowBounds(dockPanelWin, nb, {
+              ms: RESIZE_MS,
+              from: desde,
+              // Suave por los dos lados: arranca sin tiron y frena al llegar.
+              ease: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+              onFrame: (b) => positionDockHide(b),
+              onDone: () => positionDockHide(computePanelBounds(dockPanelView)),
+            });
+            // Se deja entrar el contenido antes de que la ventana termine del todo: al
+            // 60% ya casi no cambia de ancho, asi que no se le ve recolocarse, y
+            // encadenarlo despues del final hacia el cambio de pestaña lento de mas.
+            setTimeout(dejarEntrar, Math.round(RESIZE_MS * 0.6));
+          }
         }
       }
       break;
