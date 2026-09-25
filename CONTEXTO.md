@@ -151,6 +151,8 @@ Config completa en `package.json` → campo `"build"`.
 
 Si en algún momento se activa el Modo de desarrollador de Windows en la máquina de build, se puede quitar `signAndEditExecutable:false` y el hook `afterPack` sin problema (electron-builder lo haría todo automáticamente).
 
+**Cierre de la app al instalar** (`build/installer.nsh`, que electron-builder incluye solo): sustituye la comprobación de serie `customCheckAppRunning`. La de serie mataba la app, esperaba unos 3 s y, si aún quedaba algún proceso `imputa.me.exe` (Electron son varios y a veces tardan más en irse), enseñaba "no se puede cerrar imputa.me · Reintentar/Cancelar" — y cancelar ahí deja la actualización a medias. Ahora, al actualizar, espera hasta 6 s a que la app salga sola (`installUpdateNow` en `main.js` sale en ≤4 s), luego la fuerza con `taskkill /f /t` cada medio segundo, y solo pregunta si tras ~20 s sigue viva.
+
 **Limitación observada**: en este equipo (gestionado, AzureAD-joined), el antivirus/protección corporativa mató el proceso del instalador a los pocos segundos de lanzarlo por ser un `.exe` sin firmar — comportamiento normal de un entorno gestionado, no un fallo del build en sí. Se recomienda probar el instalador en una máquina sin esas restricciones, o firmarlo con un certificado si se va a distribuir más ampliamente.
 
 ---
