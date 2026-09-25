@@ -831,12 +831,16 @@ function deleteEntry(taskId, entryIndex) {
   saveData(); broadcastState();
 }
 
-function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs, note, subId) {
+function addCalendarEntry(taskId, newTaskName, newTaskColor, startMs, endMs, note, subId, newTaskGroupId) {
   let task = state.tasks.find(t => t.id === taskId);
   if (!task && newTaskName) {
     const id = Date.now().toString();
     const finalColor = settings.colorMode === 'manual' ? (newTaskColor || nextAutoColor()) : nextAutoColor();
     task = { id, name: newTaskName, color: finalColor, entries: [], archived: false, groupId: null, taskType: 'ongoing', memo: '' };
+    // La sección es solo su etiqueta (igual que al crear desde "Empezar una tarea
+    // ahora"): se le pone y la tarea sigue sin archivar, así que nace ya dentro de su
+    // sección en Tareas y a la vez a mano en el Panel.
+    if (newTaskGroupId && state.groups.some(g => g.id === newTaskGroupId)) task.groupId = newTaskGroupId;
     state.tasks.push(task);
   }
   if (!task || startMs == null) return;
@@ -2460,7 +2464,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'edit-entry':    editEntry(payload.taskId, payload.entryIndex, payload.startMs, payload.endMs, payload.note, payload.name, payload.subId); break;
     case 'delete-entry':  deleteEntry(payload.taskId, payload.entryIndex); break;
     case 'add-calendar-entry':
-      addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note, payload.subId);
+      addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note, payload.subId, payload.newTaskGroupId);
       break;
     case 'save-settings': {
       const wasDock = settings.dockMode;

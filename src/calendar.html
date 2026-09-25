@@ -524,13 +524,17 @@
       </div>
       <div class="tp-search-wrap">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input type="text" id="popupTaskSearch" placeholder="Buscar tarea o sección..." oninput="renderTaskPicker()">
+        <input type="text" id="popupTaskSearch" placeholder="Buscar tarea o sección..." oninput="renderTaskPicker()" onkeydown="if(event.key==='Enter'){event.preventDefault();tpElegirPrimero();}">
       </div>
       <div class="task-picker" id="popupTaskList"></div>
     </div>
 
     <div id="popupNewTaskFields" style="display:none;flex-direction:column;gap:8px">
       <input type="text" id="popupNewTaskName" placeholder="Nombre de la tarea..." maxlength="120">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="back-label" style="flex-shrink:0">Sección</span>
+        <select id="popupNewTaskSection" style="flex:1"></select>
+      </div>
       <div id="popupColorSection">
         <div class="color-row" id="popupColorPicker"></div>
       </div>
@@ -1274,6 +1278,15 @@ function tpSectionKeys() {
 function tpColapsarTodo() { tpSectionKeys().forEach(k => tpCollapsed.add(k)); renderTaskPicker(); }
 function tpExpandirTodo() { tpCollapsed.clear(); renderTaskPicker(); }
 
+// Enter en el buscador va directo al primer resultado, sin soltar el teclado. El
+// primer .tp-item de la lista es siempre "+ Nueva tarea"; con texto escrito, el
+// siguiente es el primer resultado de verdad.
+function tpElegirPrimero() {
+  if (!document.getElementById('popupTaskSearch').value.trim()) return;
+  const target = document.querySelectorAll('#popupTaskList .tp-item')[1];
+  if (target) target.click();
+}
+
 function renderDayEntries(col, date) {
   if (!currentState) return;
   const dayStart = startOfDay(date).getTime();
@@ -1464,8 +1477,13 @@ function openCreatePopup(date, startHour, endHour) {
   document.getElementById('popupSubRow').style.display = 'none';
   document.getElementById('popupTaskPicker').style.display = '';
   document.getElementById('popupTaskSearch').value = '';
-  const first = (currentState.tasks || []).find(t => !t.archived && !t.deleted) || (currentState.tasks || []).find(t => !t.deleted);
+  // Preseleccionada, la que se ha usado más recientemente: es la que casi siempre toca
+  // repetir, y ahora coincide con la que sale primero en la lista.
+  const activos = (currentState.tasks || []).filter(t => !t.archived && !t.deleted);
+  const candidatos = activos.length ? activos : (currentState.tasks || []).filter(t => !t.deleted);
+  const first = candidatos.slice().sort((a, b) => lastUsedMs(b) - lastUsedMs(a))[0];
   popupSelectedTaskId = first ? first.id : '__new__';
+  poblarPopupNewTaskSection();
   renderTaskPicker();
 
   document.getElementById('popupStart').value = hourToHHMM(startHour);
@@ -1476,6 +1494,14 @@ function openCreatePopup(date, startHour, endHour) {
   buildPopupColorPicker();
   showPopup();
   autoGrowTextarea(document.getElementById('popupNote'));
+  document.getElementById('popupTaskSearch').focus();
+}
+
+// Cuándo se usó una tarea por última vez (marca de la última entrada). Sirve para poner
+// las más recientes primero en los selectores de tarea, que es lo que casi siempre se
+// busca.
+function lastUsedMs(t) {
+  return (t.entries || []).reduce((max, e) => Math.max(max, e.start || 0), 0);
 }
 
 // Lista de tareas con buscador y agrupadas por sección (las guardadas) más las activas.
@@ -1510,10 +1536,12 @@ function renderTaskPicker() {
   const groups = currentState.groups || [];
   const orphans = tasks.filter(t => t.archived && !groups.some(g => g.id === t.groupId));
 
-  // Secciones: tareas activas, cada sección guardada y las huérfanas.
-  const sections = [{ key: '__active__', name: 'Tareas activas', tasks: tasks.filter(t => !t.archived) }];
-  groups.forEach(g => sections.push({ key: g.id, name: g.name, tasks: tasks.filter(t => t.archived && t.groupId === g.id) }));
-  if (orphans.length) sections.push({ key: '__none__', name: 'Sin sección', tasks: orphans });
+  // Secciones: tareas activas, cada sección guardada y las huérfanas. Dentro de cada
+  // una, la usada más recientemente primero: es la que casi siempre se busca.
+  const porRecencia = (a, b) => lastUsedMs(b) - lastUsedMs(a);
+  const sections = [{ key: '__active__', name: 'Tareas activas', tasks: tasks.filter(t => !t.archived).sort(porRecencia) }];
+  groups.forEach(g => sections.push({ key: g.id, name: g.name, tasks: tasks.filter(t => t.archived && t.groupId === g.id).sort(porRecencia) }));
+  if (orphans.length) sections.push({ key: '__none__', name: 'Sin sección', tasks: orphans.sort(porRecencia) });
 
   let anyShown = false;
   sections.forEach(sec => {
@@ -1877,6 +1905,25 @@ function onPopupTaskChange() {
   document.getElementById('popupColorSection').style.display = manualColors ? '' : 'none';
 }
 
+// La tarea nueva puede nacer ya dentro de una sección, igual que desde "Empezar una
+// tarea ahora": sin esto, siempre salía suelta y había que ir luego a Tareas a moverla.
+function poblarPopupNewTaskSection() {
+  const sel = document.getElementById('popupNewTaskSection');
+  const prev = sel.value;
+  sel.innerHTML = '';
+  const ninguna = document.createElement('option');
+  ninguna.value = '';
+  ninguna.textContent = 'Sin sección';
+  sel.appendChild(ninguna);
+  ((currentState && currentState.groups) || []).forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = g.name;
+    sel.appendChild(opt);
+  });
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
 function buildPopupColorPicker() {
   const cp = document.getElementById('popupColorPicker');
   cp.innerHTML = '';
@@ -1919,7 +1966,8 @@ function savePopup() {
     if (popupSelectedTaskId === '__new__' || !popupSelectedTaskId) {
       const name = document.getElementById('popupNewTaskName').value.trim();
       if (!name) { alert('Ponle un nombre a la tarea'); return; }
-      ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:null, newTaskName:name, newTaskColor:popupColor, startMs, endMs, note } });
+      const newTaskGroupId = document.getElementById('popupNewTaskSection').value || undefined;
+      ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:null, newTaskName:name, newTaskColor:popupColor, newTaskGroupId, startMs, endMs, note } });
     } else {
       ipcRenderer.send('action', { type:'add-calendar-entry', payload:{ taskId:popupSelectedTaskId, startMs, endMs, note } });
     }
