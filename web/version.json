@@ -1,4 +1,4 @@
 {
-  "version": "2.6.3",
-  "notes": "imputa.me 2.6.3. Pulida la transición al cambiar de pestaña en la ventana flotante, sobre todo al entrar y salir del calendario, que es la que cambia de ancho. Antes la ventana empezaba a redimensionarse con el contenido viejo todavía a la vista (se le veía estirarse) y el nuevo aparecía a media animación, recolocándose entero. Ahora va en tres tiempos: sale el contenido, la ventana se redimensiona ya vacía con una curva suave por los dos lados, y el contenido nuevo entra solapando el final. Incluye también la protección contra actualizaciones que se quedan a medias."
+  "version": "2.7.1",
+  "notes": "imputa.me 2.7.1. Motor nuevo de arrastre en el calendario: mover ratos dentro del día y entre días, redimensionar sin que se quede pegado, seleccionar y copiar/pegar con Ctrl+C y Ctrl+V. Tipografía Montserrat en toda la app. Notas fijas por tarea (además de la nota de cada sesión) y tareas marcadas como en curso o puntuales, con filtros. Y pulida la transición al cambiar de pestaña en la ventana flotante: la ventana se redimensiona con el contenido ya fuera y el nuevo entra cuando ha llegado, en vez de verse estirar y recolocar."
 }
