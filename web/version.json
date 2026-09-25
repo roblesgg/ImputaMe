@@ -1,4 +1,4 @@
 {
-  "version": "2.7.3",
-  "notes": "imputa.me 2.7.3. URGENTE: arreglado que la pestaña Tareas saliera vacía. Un resto de código de la 2.7.1 rompía el script entero de esa página, así que no se pintaba nada. Tus tareas y secciones nunca se perdieron: seguían guardadas, solo no se dibujaban. De paso vuelve el botón de ordenar las secciones (alfabético, por creación o manual, ascendente o descendente), que se había quedado sin sitio en la barra al rediseñarla."
+  "version": "2.7.4",
+  "notes": "imputa.me 2.7.4. Dos ajustes en la pestaña Tareas: el tipo de tarea pasa a llamarse \"Recurrente\" (en vez de \"En curso\", que se confundía con la tarea que está corriendo ahora mismo) y la insignia solo aparece en las Puntuales, que son la excepción — sin insignia significa Recurrente. Y en ventanas estrechas el nombre ya no se parte letra a letra: se recorta lo prescindible (la insignia, los espacios, el asa de arrastre) para que el nombre quepa."
 }

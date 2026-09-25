@@ -28,7 +28,8 @@ IPC: `set-task-memo` → `setTaskMemo(taskId, memo)` (también acepta `memo` ví
 
 ## 3. Tipo de tarea — `task.taskType` (`'ongoing' | 'oneShot'`)
 
-- **En curso** (`ongoing`): tareas que se retoman días/semanas.
+- **Recurrente** (`ongoing`): tareas que se retoman días/semanas. Se llamaba "En curso", pero
+  chocaba con "la tarea que está corriendo ahora": parecía que todas estuvieran en marcha.
 - **Puntual** (`oneShot`): un shot concreto.
 - Default al migrar: `ongoing`.
 - UI: badges + filtros en Panel y Tareas; se elige al crear/editar.

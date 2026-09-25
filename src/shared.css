@@ -554,3 +554,8 @@ select option { background: var(--surface); color: var(--text); }
   }
   .hero-dot, .playing-badge .dot, .update-bar { animation: none !important; }
 }
+
+/* ── Vistas estrechas (ver el bloque del mismo nombre en shared.js) ──────────
+   La insignia del tipo es lo primero que sobra: su información ya está en los
+   filtros de arriba, y es la pieza que más ancho le robaba al nombre. */
+.estrecho .task-badge { display: none; }

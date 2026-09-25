@@ -123,6 +123,13 @@
   /* El nombre puede ser largo: baja de línea para mostrarse entero (no se recorta).
      Doble clic para renombrarlo en el sitio. */
   .task-name { min-width:0;white-space:normal;overflow-wrap:anywhere; }
+
+  /* Con poco ancho, lo mismo que en Tareas: el nombre manda y lo demás se aprieta. */
+  .estrecho .task-pill-inner { gap:7px; }
+  .estrecho .task-name { font-size:13px; }
+  .muy-estrecho .task-pill-inner { gap:5px; }
+  .muy-estrecho .task-time { font-size:11px; }
+  .muy-estrecho .subtasks { margin-left:16px;padding-left:8px; }
   .rename-input {
     width:100%;background:var(--bg);border:1px solid var(--accent);border-radius:6px;
     color:var(--text);font-family:inherit;font-size:14px;font-weight:500;padding:2px 6px;
@@ -358,7 +365,7 @@
       </div>
       <div class="filter-chips" id="panelFilter">
         <button type="button" class="filter-chip active" data-filter="all" onclick="setPanelFilter('all')">Todas</button>
-        <button type="button" class="filter-chip" data-filter="ongoing" onclick="setPanelFilter('ongoing')">En curso</button>
+        <button type="button" class="filter-chip" data-filter="ongoing" onclick="setPanelFilter('ongoing')">Recurrentes</button>
         <button type="button" class="filter-chip" data-filter="oneShot" onclick="setPanelFilter('oneShot')">Puntuales</button>
       </div>
       <div class="back-row" style="margin:0;flex-wrap:wrap;row-gap:4px">
@@ -442,10 +449,10 @@
     <div class="kind-row">
       <div class="note-field-label">Tipo</div>
       <div class="kind-toggle" id="panelEditKind">
-        <button type="button" data-kind="ongoing" onclick="setPanelEditKind('ongoing')">En curso</button>
+        <button type="button" data-kind="ongoing" onclick="setPanelEditKind('ongoing')">Recurrente</button>
         <button type="button" data-kind="oneShot" onclick="setPanelEditKind('oneShot')">Puntual</button>
       </div>
-      <span class="note-field-hint">En curso = semanas/ongoing. Puntual = una vez.</span>
+      <span class="note-field-hint">Recurrente = se retoma días o semanas. Puntual = algo de una vez.</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px">
       <div class="note-field-label">Nota fija de la tarea</div>
@@ -517,9 +524,10 @@ function taskTypeOf(t) {
 }
 
 function badgeHtml(t) {
-  const oneshot = taskTypeOf(t) === 'oneShot';
-  return '<span class="task-badge ' + (oneshot ? 'oneshot' : 'ongoing') + '">' +
-    (oneshot ? 'Puntual' : 'En curso') + '</span>';
+  // Solo se marca lo excepcional: recurrente es el valor por defecto, así que marcarlas
+  // todas era ruido y encima se leía como "todas están en marcha".
+  if (taskTypeOf(t) !== 'oneShot') return '';
+  return '<span class="task-badge oneshot">Puntual</span>';
 }
 
 function escapeHtml(s) {
@@ -801,11 +809,15 @@ function updateRowContent(row, t, state) {
     nameEl.textContent = t.name;
     nameEl.title = t.name;
   }
+  // La insignia solo existe para las puntuales (ver badgeHtml): si el tipo cambia, se
+  // crea o se quita, no se reescribe.
   const badge = pill.querySelector('.task-badge');
-  if (badge) {
-    const oneshot = taskTypeOf(t) === 'oneShot';
-    badge.className = 'task-badge ' + (oneshot ? 'oneshot' : 'ongoing');
-    badge.textContent = oneshot ? 'Puntual' : 'En curso';
+  const esPuntual = taskTypeOf(t) === 'oneShot';
+  if (esPuntual && !badge) {
+    const linea = pill.querySelector('.task-meta-line');
+    if (linea) linea.insertAdjacentHTML('beforeend', badgeHtml(t));
+  } else if (!esPuntual && badge) {
+    badge.remove();
   }
   let prev = row.querySelector(':scope > .task-memo-preview');
   const memoSync = (t.memo || '').trim();
@@ -961,7 +973,7 @@ function render(state) {
     arr.forEach(t => list.appendChild(buildRow(t, state)));
   };
   if (showSections) {
-    appendSection('En curso', ongoing);
+    appendSection('Recurrentes', ongoing);
     appendSection('Puntuales', oneshots);
   } else {
     restantes.forEach(t => list.appendChild(buildRow(t, state)));

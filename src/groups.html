@@ -180,6 +180,22 @@
   }
   .archived-dot:hover { transform:scale(1.5);box-shadow:0 0 0 3px color-mix(in srgb, var(--text) 14%, transparent); }
   .archived-task-name { font-size:13.5px;line-height:1.4;min-width:0;white-space:normal;overflow-wrap:anywhere; }
+
+  /* ── Con poco ancho ────────────────────────────────────────────────────────
+     Se recorta todo lo prescindible para que el nombre deje de partirse letra a
+     letra: primero la insignia (la quita shared.css), luego los huecos, y por
+     último el asa de arrastre, que sin sitio no se usa igualmente. */
+  .estrecho .archived-task-row { gap:7px;padding:8px 7px; }
+  .estrecho .archived-task-name { font-size:13px; }
+  .estrecho .archived-task-time { font-size:11.5px; }
+  .estrecho .archived-subs { margin-left:18px;padding-left:8px; }
+  .muy-estrecho .archived-task-row { gap:5px;padding:7px 5px; }
+  .muy-estrecho .archived-grip { display:none; }
+  .muy-estrecho .archived-task-time { font-size:11px; }
+  /* El lápiz y la papelera solo salen al pasar por encima; con poco ancho, ni eso:
+     estorban más de lo que ayudan y se llega a ellos desde el popup de la tarea. */
+  .muy-estrecho .archived-edit, .muy-estrecho .archived-del { display:none; }
+  .muy-estrecho .group-header { gap:6px;padding:11px 9px; }
   .archived-task-time { font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;flex-shrink:0; }
 
   .group-empty-hint { font-size:11.5px;color:var(--text2);text-align:center;padding:8px 6px;font-style:italic; }
@@ -235,7 +251,7 @@
     </div>
     <div class="groups-filter filter-chips" id="groupsFilter">
       <button type="button" class="filter-chip active" data-filter="all" onclick="setGroupsFilter('all')">Todas</button>
-      <button type="button" class="filter-chip" data-filter="ongoing" onclick="setGroupsFilter('ongoing')">En curso</button>
+      <button type="button" class="filter-chip" data-filter="ongoing" onclick="setGroupsFilter('ongoing')">Recurrentes</button>
       <button type="button" class="filter-chip" data-filter="oneShot" onclick="setGroupsFilter('oneShot')">Puntuales</button>
     </div>
   </div>
@@ -300,10 +316,10 @@
     <div class="kind-row" id="startPopupKindRow">
       <div class="note-field-label">Tipo de tarea</div>
       <div class="kind-toggle" id="startPopupKind">
-        <button type="button" class="active" data-kind="ongoing" onclick="setStartKind('ongoing')">En curso</button>
+        <button type="button" class="active" data-kind="ongoing" onclick="setStartKind('ongoing')">Recurrente</button>
         <button type="button" data-kind="oneShot" onclick="setStartKind('oneShot')">Puntual</button>
       </div>
-      <span class="note-field-hint">En curso = se retoma días/semanas. Puntual = un shot concreto.</span>
+      <span class="note-field-hint">Recurrente = se retoma días o semanas. Puntual = algo de una vez.</span>
     </div>
     <div id="startPopupMemoRow" style="display:flex;flex-direction:column;gap:4px">
       <div class="note-field-label">Nota de la tarea (persistente)</div>
@@ -343,7 +359,7 @@
     <div class="kind-row">
       <div class="note-field-label">Tipo</div>
       <div class="kind-toggle" id="taskEditKind">
-        <button type="button" data-kind="ongoing" onclick="setEditKind('ongoing')">En curso</button>
+        <button type="button" data-kind="ongoing" onclick="setEditKind('ongoing')">Recurrente</button>
         <button type="button" data-kind="oneShot" onclick="setEditKind('oneShot')">Puntual</button>
       </div>
     </div>
@@ -399,7 +415,10 @@ let groupsFilter = 'all';
 function taskTypeOf(t) { return t && t.taskType === 'oneShot' ? 'oneShot' : 'ongoing'; }
 function badgeHtml(t) {
   const oneshot = taskTypeOf(t) === 'oneShot';
-  return '<span class="task-badge ' + (oneshot ? 'oneshot' : 'ongoing') + '">' + (oneshot ? 'Puntual' : 'En curso') + '</span>';
+  // Solo se marca lo que se sale de lo normal. Recurrente es el valor por defecto, asi
+  // que marcarlas todas era ruido y encima se leia como "todas en marcha".
+  if (!oneshot) return '';
+  return '<span class="task-badge oneshot">Puntual</span>';
 }
 function setStartKind(k) {
   startPopupKind = k === 'oneShot' ? 'oneShot' : 'ongoing';

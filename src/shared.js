@@ -546,3 +546,28 @@ function pickImputeUrl(urls) {
     document.body.appendChild(card);
   });
 }
+
+// ── Vistas estrechas ─────────────────────────────────────────────────────────
+// La ventana flotante se puede encoger todo lo que uno quiera, y las filas de tarea
+// llevan piezas con flex-shrink:0 (la insignia del tipo, el tiempo, los botones). En
+// cuanto hay poco ancho, esas piezas se quedan con el suyo entero y el NOMBRE, que es
+// lo único que de verdad hace falta leer, se queda en una columna de cuatro píxeles
+// partiendo palabras letra a letra.
+//
+// En vez de repetir consultas de medios en cada página, se marca el <body> y cada vista
+// decide qué sacrifica. Se mide el ancho real de la ventana, que dentro del dock es el
+// del iframe: justo el espacio del que se dispone.
+(function () {
+  const ESTRECHO = 430;      // se va la insignia del tipo
+  const MUY_ESTRECHO = 340;  // se van también el asa de arrastre y los huecos grandes
+
+  function marcarAncho() {
+    const w = window.innerWidth;
+    document.body.classList.toggle('estrecho', w < ESTRECHO);
+    document.body.classList.toggle('muy-estrecho', w < MUY_ESTRECHO);
+  }
+
+  if (document.body) marcarAncho();
+  else document.addEventListener('DOMContentLoaded', marcarAncho);
+  window.addEventListener('resize', marcarAncho);
+})();
