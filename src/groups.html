@@ -220,6 +220,17 @@
   .trash-btn.forever:hover { background:rgba(248,113,113,.2);color:var(--danger);border-color:rgba(248,113,113,.3); }
   .trash-hint { font-size:11px;color:var(--text2);padding:2px 8px 8px;font-style:italic; }
 
+  /* Archivador: tareas que llevan X días sin tocarse (ver Ajustes). Van aparte, con
+     tono ámbar para no confundirlo con la Papelera (esto no es un borrado). */
+  .archiver-card { border:1px solid rgba(245,158,11,.28);border-radius:var(--radius-sm);background:rgba(245,158,11,.06);overflow:hidden;flex-shrink:0; }
+  .archiver-header { display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;-webkit-app-region:no-drag; }
+  .archiver-header:hover { background:rgba(245,158,11,.10); }
+  .archiver-header .trash-title { color:#f59e0b; }
+  .archiver-card.collapsed .trash-tasks { display:none; }
+  .archiver-card.collapsed .group-chevron { transform:rotate(-90deg); }
+  .archiver-actions { display:flex;gap:6px;padding:0 8px 6px;flex-wrap:wrap; }
+  .archiver-row .archiver-check { flex-shrink:0;accent-color:#f59e0b;cursor:pointer; }
+
   /* Popup de confirmación con el estilo de la app (en vez del confirm() nativo de Windows). */
   .confirm-backdrop { z-index:51; }
   .confirm-popup { width:320px;z-index:52; }
@@ -635,13 +646,14 @@ function firmaGroups() {
   const secciones = (currentState.groups || []).map(g => g.id + ':' + g.name).join('|');
   const tareas = currentState.tasks
     .filter(t => !t.deleted)
-    .map(t => [t.id, t.name, t.color, t.groupId, t.archived ? 1 : 0,
+    .map(t => [t.id, t.name, t.color, t.groupId, t.archived ? 1 : 0, t.inactive ? 1 : 0,
                (t.subtasks || []).map(x => x.id + x.name).join(','),
                subsAbiertas.has(t.id) ? 1 : 0].join('~'))
     .join('|');
   const papelera = currentState.tasks.filter(t => t.deleted).map(t => t.id).join(',');
   return [secciones, tareas, papelera, currentState.activeTaskId, currentState.activeSubId,
-          currentSort(), currentSortDir(), trashCollapsed ? 1 : 0,
+          currentSort(), currentSortDir(), trashCollapsed ? 1 : 0, archiverCollapsed ? 1 : 0,
+          [...archiverSelected].sort().join(','),
           [...collapsedGroups].sort().join(','),
           document.getElementById('searchInput').value].join('§');
 }
@@ -686,7 +698,7 @@ function renderGroups(forzar) {
   // etiqueta (groupId) y "archivada" solo decide si además sigue saliendo en el Panel.
   // Las que no tienen sección (o la tienen borrada) van juntas al principio, para poder
   // repartirlas desde aquí.
-  const vivas = currentState.tasks.filter(t => !t.deleted);
+  const vivas = currentState.tasks.filter(t => !t.deleted && !t.inactive);
   const sinSeccion = vivas.filter(t => !groups.some(g => g.id === t.groupId));
 
   // No es una sección de verdad: ni se renombra ni se borra.
@@ -941,10 +953,144 @@ El calendario NO se toca: todo el tiempo que ya has registrado con ella se sigue
     list.appendChild(empty);
   }
 
+  renderArchiver(list);
   renderTrash(list);
 }
 
+// Última vez que se usó la tarea: la entrada más reciente, o si nunca se ha usado,
+// el momento en que se creó (el id es esa marca de tiempo). Igual que en main.js.
+function lastUsedMs(t) {
+  let max = Number(t.id) || 0;
+  (t.entries || []).forEach(e => {
+    if (e.start > max) max = e.start;
+    if (e.end && e.end > max) max = e.end;
+  });
+  return max;
+}
+
 let trashCollapsed = true;   // la papelera arranca plegada (no estorba el uso normal)
+let archiverCollapsed = true;   // el archivador también, por lo mismo
+let archiverSelected = new Set();   // ids marcados para "borrar seleccionadas"
+
+// Sección "Archivador" al final de la lista: tareas que llevan sin usarse los días que
+// diga Ajustes. No se borran solas: solo se apartan de las secciones normales, y desde
+// aquí se pueden empezar (vuelven a su sitio), vaciar todas de golpe o borrar una selección.
+function renderArchiver(list) {
+  const inactivas = (currentState.tasks || []).filter(t => t.inactive);
+  // Si una ya no está (se empezó, o volvió a estar activa), que no se quede marcada.
+  [...archiverSelected].forEach(id => { if (!inactivas.some(t => t.id === id)) archiverSelected.delete(id); });
+  if (!inactivas.length) return;
+  inactivas.sort((a, b) => lastUsedMs(a) - lastUsedMs(b));   // las más dormidas primero
+  const dias = (currentState.settings && currentState.settings.archiveDays) || 30;
+
+  const card = document.createElement('div');
+  card.className = 'archiver-card' + (archiverCollapsed ? ' collapsed' : '');
+
+  const header = document.createElement('div');
+  header.className = 'archiver-header';
+  header.innerHTML = `
+    <svg class="group-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1l4 4-4 4"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 7.5v11a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-11"/><path d="M2 4.5a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/><path d="M9.5 12h5"/></svg>
+    <span class="trash-title">Archivador</span>
+    <span class="group-count">${inactivas.length}</span>`;
+  header.onclick = () => { archiverCollapsed = !archiverCollapsed; renderGroups(); };
+  card.appendChild(header);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'trash-tasks';
+
+  const hint = document.createElement('div');
+  hint.className = 'trash-hint';
+  hint.textContent = `Sin usarse ${dias} día(s) o más: se han apartado de las secciones para no estorbar. Empezar una la devuelve a su sitio; si no, puedes vaciar el archivador entero o elegir cuáles borrar.`;
+  wrap.appendChild(hint);
+
+  const actions = document.createElement('div');
+  actions.className = 'archiver-actions';
+  const btnEmptyAll = document.createElement('button');
+  btnEmptyAll.className = 'trash-btn forever';
+  btnEmptyAll.textContent = 'Vaciar todo';
+  btnEmptyAll.title = 'Manda todas estas tareas a la papelera';
+  btnEmptyAll.onclick = () => {
+    showConfirmPopup('Vaciar el archivador',
+      `¿Vaciar el archivador?\n\nLas ${inactivas.length} tarea(s) irán a la papelera y podrás restaurarlas durante 30 días. El calendario no se toca.`,
+      'Vaciar', () => ipcRenderer.send('action', { type: 'archive-purge', payload: {} }));
+  };
+  actions.appendChild(btnEmptyAll);
+  if (archiverSelected.size) {
+    const btnDelSel = document.createElement('button');
+    btnDelSel.className = 'trash-btn forever';
+    btnDelSel.textContent = `Borrar seleccionadas (${archiverSelected.size})`;
+    btnDelSel.onclick = () => {
+      const ids = [...archiverSelected];
+      showConfirmPopup('Borrar seleccionadas',
+        `¿Eliminar ${ids.length} tarea(s) del archivador?\n\nIrán a la papelera y podrás restaurarlas durante 30 días.`,
+        'Eliminar', () => {
+          ipcRenderer.send('action', { type: 'archive-purge', payload: { taskIds: ids } });
+          archiverSelected.clear();
+        });
+    };
+    actions.appendChild(btnDelSel);
+  }
+  wrap.appendChild(actions);
+
+  inactivas.forEach(t => {
+    const diasSinUso = Math.floor((Date.now() - lastUsedMs(t)) / 86400000);
+    const row = document.createElement('div');
+    row.className = 'trash-row archiver-row';
+
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.className = 'archiver-check';
+    check.checked = archiverSelected.has(t.id);
+    check.onclick = (e) => {
+      e.stopPropagation();
+      if (check.checked) archiverSelected.add(t.id); else archiverSelected.delete(t.id);
+      renderGroups();
+    };
+    row.appendChild(check);
+
+    const dot = document.createElement('div');
+    dot.className = 'trash-dot';
+    dot.style.background = t.color;
+    row.appendChild(dot);
+
+    const name = document.createElement('span');
+    name.className = 'trash-name';
+    name.textContent = t.name;
+    row.appendChild(name);
+
+    const when = document.createElement('span');
+    when.className = 'trash-when';
+    when.textContent = `${diasSinUso}d sin uso`;
+    row.appendChild(when);
+
+    const start = document.createElement('button');
+    start.className = 'trash-btn restore';
+    start.textContent = 'Empezar';
+    start.title = 'La saca del archivador y la pone en marcha';
+    start.onclick = () => {
+      if (t.archived) ipcRenderer.send('action', { type: 'restore-and-start-task', payload: { taskId: t.id } });
+      else ipcRenderer.send('action', { type: 'switch-task', payload: { taskId: t.id } });
+    };
+    row.appendChild(start);
+
+    const del = document.createElement('button');
+    del.className = 'trash-btn forever';
+    del.textContent = 'Eliminar';
+    del.title = 'Manda esta tarea a la papelera';
+    del.onclick = () => {
+      showConfirmPopup('Eliminar tarea',
+        `¿Eliminar "${t.name}"?\n\nIrá a la papelera y podrás restaurarla durante 30 días. El calendario NO se toca.`,
+        'Eliminar', () => ipcRenderer.send('action', { type: 'delete-task', payload: { taskId: t.id } }));
+    };
+    row.appendChild(del);
+
+    wrap.appendChild(row);
+  });
+
+  card.appendChild(wrap);
+  list.appendChild(card);
+}
 
 // Sección "Papelera" al final de la lista: tareas borradas que aún se pueden restaurar
 // (dentro del plazo). No se filtra por la búsqueda de arriba, para no esconderla sin querer.

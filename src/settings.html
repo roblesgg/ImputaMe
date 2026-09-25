@@ -261,6 +261,21 @@
     </div>
   </div>
 
+  <!-- ── Archivador ─────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Archivador</div>
+    <div class="card">
+      <div class="row">
+        <div class="row-text">
+          <span class="row-title">Archivar tras</span>
+          <span class="row-desc">Una tarea sin usar ese tiempo se aparta a un "Archivador" en Guardadas, fuera de las secciones normales. 0 = no archivar nunca.</span>
+        </div>
+        <input type="number" class="num-input" id="archiveDays" value="30" min="0" max="365">
+        <span class="unit">días</span>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Hora de salida ─────────────────────────────────────── -->
   <div class="section">
     <div class="section-label">Hora de salida</div>
@@ -988,6 +1003,7 @@ ipcRenderer.on('displays', (_, list) => {
 // ---------- Carga de ajustes ----------
 ipcRenderer.on('settings', (_, s) => {
   document.getElementById('reminderMinutes').value = s.reminderMinutes || 10;
+  document.getElementById('archiveDays').value = s.archiveDays == null ? 30 : s.archiveDays;
   document.getElementById('widgetAutoHide').checked = !!s.widgetAutoHide;
   document.getElementById('manualColors').checked = s.colorMode === 'manual';
   document.getElementById('openAtLogin').checked = !!s.openAtLogin;
@@ -1061,9 +1077,11 @@ ipcRenderer.on('settings', (_, s) => {
 
 function save() {
   const mins = parseInt(document.getElementById('reminderMinutes').value) || 10;
+  const archiveDaysVal = parseInt(document.getElementById('archiveDays').value);
   const sel = document.getElementById('dockDisplay').value;
   ipcRenderer.send('action', { type:'save-settings', payload:{
     reminderMinutes: Math.max(1, Math.min(120, mins)),
+    archiveDays: Math.max(0, Math.min(365, isNaN(archiveDaysVal) ? 30 : archiveDaysVal)),
     widgetAutoHide: document.getElementById('widgetAutoHide').checked,
     widgetAutoHideSeconds: parseInt(document.getElementById('autohideRange').value) || 10,
     colorMode: document.getElementById('manualColors').checked ? 'manual' : 'auto',

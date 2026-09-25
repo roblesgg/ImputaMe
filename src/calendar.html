@@ -1531,8 +1531,10 @@ function renderTaskPicker() {
   addItem('+ Nueva tarea', '__new__', null);
 
   // Las tareas borradas no se pueden elegir para una entrada nueva (siguen en el
-  // calendario como registro, pero ya no son "tareas" activas de verdad).
-  const tasks = (currentState.tasks || []).filter(t => !t.deleted);
+  // calendario como registro, pero ya no son "tareas" activas de verdad). Las que
+  // llevan mucho sin usarse están en el Archivador (Guardadas): se sacan de ahí, no
+  // se crean desde aquí.
+  const tasks = (currentState.tasks || []).filter(t => !t.deleted && !t.inactive);
   const groups = currentState.groups || [];
   const orphans = tasks.filter(t => t.archived && !groups.some(g => g.id === t.groupId));
 

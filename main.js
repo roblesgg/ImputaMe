@@ -183,6 +183,29 @@ function isInTrash(t) {
   return t.deleted && !t.purged && t.deletedAt && (Date.now() - t.deletedAt < TRASH_RETENTION_MS);
 }
 
+// ── Archivador ────────────────────────────────────────────────────────────────
+// Última vez que se usó la tarea: la entrada más reciente (start o end), o si nunca
+// se ha usado, el momento en que se creó (el id ES esa marca de tiempo: Date.now()
+// al crearla, igual que en el resto de la app).
+function lastUsedMs(t) {
+  let max = Number(t.id) || 0;
+  (t.entries || []).forEach(e => {
+    if (e.start > max) max = e.start;
+    if (e.end && e.end > max) max = e.end;
+  });
+  return max;
+}
+
+// ¿Lleva esta tarea sin tocarse más de lo que marcan los ajustes? La que está en
+// marcha ahora mismo nunca cuenta, y con archiveDays a 0 el archivador queda apagado.
+function isInactiveTask(t) {
+  if (t.deleted) return false;
+  if (state.activeTaskId === t.id) return false;
+  const days = Number(settings.archiveDays) || 0;
+  if (days <= 0) return false;
+  return (Date.now() - lastUsedMs(t)) > days * 24 * 60 * 60 * 1000;
+}
+
 let DATA_FILE;
 let SETTINGS_FILE;
 
@@ -300,6 +323,7 @@ let settings = {
   lastSeenWhatsNew: null,   // y de qué hablaban, para no repetir el mismo recorrido
   dockCalendarWidth: 1180, // el calendario se abre bastante más ancho (y se puede estirar)
   lastView: 'panel',    // última vista abierta: la app vuelve a abrirse por donde la dejaste
+  archiveDays: 30,      // días sin usar una tarea antes de que pase al Archivador (0 = nunca)
 };
 
 function nextAutoColor() {
@@ -667,6 +691,24 @@ function purgeTask(taskId) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task) return;
   task.purged = true;
+  saveData(); broadcastState();
+}
+
+// Borrar desde el Archivador: mismo camino que "Eliminar tarea" (papelera, 30 días
+// para arrepentirse, el calendario no se toca), pero de una tirada para "Vaciar todo"
+// o para una selección concreta. Sin ids, se vacían TODAS las que sigan inactivas en
+// este momento (por si algo cambió entre que se abrió el archivador y se pulsó vaciar).
+function archivePurge(ids) {
+  const objetivo = Array.isArray(ids) && ids.length
+    ? state.tasks.filter(t => ids.includes(t.id) && isInactiveTask(t))
+    : state.tasks.filter(t => isInactiveTask(t));
+  if (!objetivo.length) return;
+  objetivo.forEach(t => {
+    if (state.activeTaskId === t.id) pauseActive();
+    t.deleted = true;
+    t.deletedAt = Date.now();
+    t.purged = false;
+  });
   saveData(); broadcastState();
 }
 
@@ -2277,6 +2319,7 @@ function getSerializableState() {
         todaySecs: todaySecondsForTask(t),
         totalSecs: totalSecondsForTask(t),
         inTrash: isInTrash(t),   // para la sección "Papelera" de Guardadas
+        inactive: isInactiveTask(t),   // para la sección "Archivador" de Guardadas
         subtasks: (t.subtasks || []).map(sub => ({
           ...sub,
           todaySecs: secondsForSub(t, sub.id, hoy0.getTime()),
@@ -2466,6 +2509,7 @@ ipcMain.on('action', (event, { type, payload }) => {
     case 'add-calendar-entry':
       addCalendarEntry(payload.taskId, payload.newTaskName, payload.newTaskColor, payload.startMs, payload.endMs, payload.note, payload.subId, payload.newTaskGroupId);
       break;
+    case 'archive-purge': archivePurge(payload && payload.taskIds); break;
     case 'save-settings': {
       const wasDock = settings.dockMode;
       settings = { ...settings, ...payload };
